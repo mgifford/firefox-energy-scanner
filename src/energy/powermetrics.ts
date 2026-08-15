@@ -46,13 +46,44 @@ export class PowermetricsAdapter implements EnergyAdapter {
     try {
       // -n avoids an interactive password prompt; failure means we lack rights.
       await execFileAsync('sudo', ['-n', 'powermetrics', '--help'], { timeout: 5000 });
-      return { available: true };
     } catch {
       return {
         available: false,
         needsPrivileges: true,
         reason:
           'powermetrics requires elevated privileges (sudo -n failed). Enable passwordless sudo for powermetrics to use this adapter.',
+      };
+    }
+
+    // Having the binary and the rights is not enough. On a virtualised Mac
+    // there is no power-manager hardware to read, and powermetrics fails with
+    // "cannot find the IO registry entry for IODeviceTree:/arm-io/pmgr".
+    try {
+      const { stdout, stderr } = await execFileAsync(
+        'sudo',
+        ['-n', 'powermetrics', '--samplers', 'cpu_power', '-n', '1', '-i', '200'],
+        { timeout: 15000 },
+      );
+      const output = `${stdout}\n${stderr}`;
+      if (/cannot find the IO registry entry|IODeviceTree:\/arm-io\/pmgr/i.test(output)) {
+        return {
+          available: false,
+          reason:
+            'powermetrics cannot reach the power manager (IODeviceTree:/arm-io/pmgr). ' +
+            'This host has no power-measurement hardware exposed — typical of a virtual machine.',
+        };
+      }
+      if (parsePowermetrics(output).samples === 0) {
+        return {
+          available: false,
+          reason: 'powermetrics ran but reported no power samples on this host.',
+        };
+      }
+      return { available: true };
+    } catch (err) {
+      return {
+        available: false,
+        reason: `powermetrics could not sample power on this host: ${(err as Error).message}`,
       };
     }
   }

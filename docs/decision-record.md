@@ -268,3 +268,83 @@ captured.
   kept as separate run types.
 - Remote (e.g. Tugboat) server cache state is uncontrolled; warmups reduce but do not
   remove this variance.
+
+
+---
+
+## TDR-008: Datacentre runners cannot measure energy — this is hardware, not configuration
+
+**Question:** can reliable energy data be obtained by running in a datacentre rather
+than on user hardware?
+
+**Answer: no, not on virtualised hosts, and no setting changes this.**
+
+**Where the number comes from.** Firefox's Apple Silicon counter is not a model or an
+estimate. From `tools/profiler/core/PowerCounters-mac-arm64.cpp`:
+
+```cpp
+int64_t GetTaskEnergy() {
+  task_power_info_v2_data_t task_power_info;
+  mach_msg_type_number_t count = TASK_POWER_INFO_V2_COUNT;
+  kern_return_t kr = task_info(mach_task_self(), TASK_POWER_INFO_V2,
+                               (task_info_t)&task_power_info, &count);
+  if (kr != KERN_SUCCESS) {
+    return 0;
+  }
+  // task_energy is in nanojoules. To be consistent with the Windows EMI
+  // API, return values in picowatt-hour.
+  return task_power_info.task_energy / 3.6;
+}
+```
+
+The kernel supplies `task_energy` in nanojoules, and the kernel gets it from the SoC's
+power-manager block. Note the failure mode: on error it returns **0**, indistinguishable
+from "used no energy" unless sample counts are checked.
+
+**What a GitHub macOS runner actually is** (probed directly):
+
+```
+machdep.cpu.brand_string : Apple M1 (Virtual)
+hw.model                 : VirtualMac2,1
+kern.hv_vmm_present      : 1          <- running under a hypervisor
+hw.ncpu                  : 3
+```
+
+And `powermetrics`, which reads the same hardware, fails outright:
+
+```
+ERROR: cannot find the IO registry entry for IODeviceTree:/arm-io/pmgr
+```
+
+`pmgr` is the Apple Silicon power manager. It is **not present in the guest**. Apple's
+Virtualization framework does not expose power-measurement hardware to a VM, so the
+kernel has nothing to populate `task_energy` with and returns 0. `IOReportHub` is
+likewise absent.
+
+**This is not fixable by configuration.** There is no flag, entitlement or runner image
+that adds power hardware to a VM. The measurement requires a physical SoC power block.
+
+| Host | arm64 | Counter exists | Samples | Energy |
+|---|---|---|---|---|
+| Physical Apple Silicon (laptop) | yes | yes | 468 in 5.8 s probe | **yes** |
+| GitHub `macos-latest` (VirtualMac2,1) | yes | yes | **0** | **no** |
+| GitHub `ubuntu-latest` (x86_64) | no | no | n/a | no |
+
+**What this means for "datacentre" measurement generally.** The blocker is
+virtualisation, not the datacentre. A physical Apple Silicon machine racked in a
+datacentre and registered as a **self-hosted runner** would measure energy correctly,
+and would be *better* than a laptop: mains power, stable thermals, no Low Power Mode,
+no competing user workload. What cannot work is a shared virtual machine.
+
+Even then, `measurementScope` remains `process` — the energy of Firefox's processes on
+that machine. It never becomes a measurement of the datacentre, the server under test,
+or the network.
+
+**Implemented consequences.**
+
+- `doctor` probes for real samples and FAILs on a virtualised host rather than reporting
+  platform support.
+- The `macos-powermetrics` adapter now runs a real sample and detects the missing
+  `pmgr` entry, instead of treating "sudo works" as availability.
+- Energy fields are omitted entirely when no samples exist, so a virtualised run can
+  never publish `0 J` as though it were a measurement.

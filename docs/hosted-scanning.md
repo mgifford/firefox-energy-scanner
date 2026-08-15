@@ -12,24 +12,37 @@ Either use the web form (which pre-fills a GitHub issue — you still review and
 it yourself), or open an issue titled `SCAN: <description>` using the
 *Energy scan request* template.
 
-## Runner selection matters
+## GitHub-hosted runners cannot measure energy
 
-Firefox power counters exist only on Apple Silicon and Windows 11. This was verified on
-GitHub-hosted runners rather than assumed (workflow run 31907018340):
+**No GitHub-hosted runner can produce energy data**, and no configuration changes that.
 
-| Runner | `uname -m` | Power counters | Power source |
-|---|---|---|---|
-| `macos-latest` | `arm64` | **yes** | AC |
-| `ubuntu-latest` | `x86_64` | no | n/a |
+GitHub's macOS runners are virtual machines (`Apple M1 (Virtual)`, `hw.model
+VirtualMac2,1`, `kern.hv_vmm_present 1`). Firefox reads energy from the kernel via
+`task_info(TASK_POWER_INFO_V2)`, which is ultimately fed by the SoC's power-manager
+block — and that hardware is not exposed to a guest VM. `powermetrics` on the same host
+fails with `cannot find the IO registry entry for IODeviceTree:/arm-io/pmgr`.
 
-So:
+| Host | arm64 | Counter exists | Samples | Energy |
+|---|---|---|---|---|
+| Physical Apple Silicon | yes | yes | 465 in a 5.7 s probe | **yes** |
+| GitHub `macos-latest` | yes | yes | **0** | **no** |
+| GitHub `ubuntu-latest` | no | no | n/a | no |
+| Self-hosted Apple Silicon | yes | yes | yes | **yes** |
 
-- **macOS runner** — energy + network + CO2e. Slower and consumes more Actions minutes.
-- **Linux runner** — network + CO2e + timing only. Faster and cheaper.
+The blocker is virtualisation, not the datacentre. A *physical* Apple Silicon machine
+registered as a self-hosted runner measures energy correctly — and is better than a
+laptop for it: mains power, stable thermals, no Low Power Mode, no competing user
+workload.
 
-A Linux scan is labelled "no energy data" on the site and in the issue comment. It never
-silently omits the energy column, because an absent number and an unmeasured one mean
-different things.
+So, in practice:
+
+- **Hosted runners** (either OS) — network, CO2e and timing only. Useful, and these
+  metrics do not depend on machine state.
+- **Self-hosted Apple Silicon** — the full set, including energy.
+
+Results are labelled "no energy data" rather than silently omitting the column, because
+an absent number and an unmeasured one mean different things. `doctor` probes for real
+samples and fails loudly on a host that cannot measure.
 
 ## What hosted results are good for
 

@@ -43,12 +43,18 @@ Runner capability was measured, not assumed:
 
 | Runner | Architecture | Energy | Use for |
 |---|---|---|---|
-| `macos-latest` | arm64, AC power | **yes** — Firefox power counters | energy + network + CO2e |
-| `ubuntu-latest` | x86_64 | no counters | network + CO2e + timing only |
+| `macos-latest` | arm64 **virtual** | **no** — VM has no power hardware | network + CO2e + timing |
+| `ubuntu-latest` | x86_64 | no counters | network + CO2e + timing |
+| self-hosted Apple Silicon | arm64 physical | **yes** | everything, including energy |
 
-Results from a Linux runner are labelled "no energy data" rather than quietly omitting
-it. Hosted runners are shared machines with no thermal control, so treat their numbers
-as indicative — A/B regression work belongs on a dedicated machine.
+GitHub's macOS runners are virtual machines, and Apple's Virtualization framework does
+not expose the SoC power-manager block to a guest — so Firefox's counters exist but
+never emit a sample. This is a hardware boundary, not a setting. Energy measurement
+needs a physical Apple Silicon machine; a self-hosted runner works well and is better
+than a laptop (mains power, stable thermals, no Low Power Mode).
+
+Results are labelled "no energy data" rather than quietly omitting the column, and
+`doctor` probes for real samples rather than trusting the platform.
 
 Only public `http(s)` URLs are accepted. Localhost and private address ranges are
 rejected, so the scanner cannot be pointed at internal networks.
