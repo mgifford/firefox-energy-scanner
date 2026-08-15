@@ -1,0 +1,27 @@
+name: Probe Runner Capability
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Report architecture
+        run: |
+          echo "runner=${{ matrix.os }}"
+          echo "arch=$(uname -m)"
+          echo "os=$(uname -s)"
+          node -e "console.log('node arch:', process.arch, 'platform:', process.platform)"
+      - name: Install and probe Firefox power counters
+        run: |
+          npm ci
+          npx playwright install firefox
+          npm run build
+          node dist/cli/index.js doctor || true
