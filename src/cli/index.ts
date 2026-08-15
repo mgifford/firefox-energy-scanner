@@ -15,6 +15,7 @@ import { FirefoxProfilerAdapter } from '../energy/firefox-profiler.js';
 import { PowermetricsAdapter } from '../energy/powermetrics.js';
 import { NoopAdapter } from '../energy/noop.js';
 import { crawl } from '../collect/crawler.js';
+import { fingerprint, triage } from './triage.js';
 import { toCsv, groupByStep } from '../report/csv.js';
 import { toHtml } from '../report/html.js';
 import { summarize, compare, interleavedOrder } from '../core/stats.js';
@@ -33,6 +34,7 @@ Usage:
   web-energy compare --a <url> --b <url> --journey <file> [options]
   web-energy report <result.json>
   web-energy profile --journey <file> [--step <name>]
+  web-energy triage --a <url> --b <url> [--path <path>]
 
 Options:
   --config <file>        YAML configuration file
@@ -499,6 +501,60 @@ async function cmdCompare(args: Args): Promise<number> {
   return 0;
 }
 
+/**
+ * Fast pre-flight check: can this pair of targets possibly differ in
+ * client-side energy? Seconds instead of the many minutes a full A/B costs.
+ */
+async function cmdTriage(args: Args): Promise<number> {
+  const a = one(args, 'a');
+  const b = one(args, 'b');
+  if (!a || !b) {
+    console.error('triage requires --a <url> --b <url>');
+    return 1;
+  }
+  // A bare `--path` (no value) parses as "true"; treat that and an empty value
+  // as "use the URLs exactly as given".
+  const rawPath = one(args, 'path');
+  const path = rawPath && rawPath !== 'true' ? rawPath : undefined;
+  const urlA = path ? new URL(path, a).toString() : a;
+  const urlB = path ? new URL(path, b).toString() : b;
+
+  console.log(`Comparing delivered payloads${path ? ` for ${path}` : ''}\n  a: ${urlA}\n  b: ${urlB}\n`);
+
+  if (urlA === urlB) {
+    console.log('Both targets resolve to the same URL; there is nothing to compare.');
+    return 1;
+  }
+
+  const [fa, fb] = await Promise.all([fingerprint(urlA), fingerprint(urlB)]);
+  const verdict = triage(fa, fb);
+
+  console.log(`  HTTP status  a=${fa.status || 'error'}  b=${fb.status || 'error'}`);
+  console.log(`  HTML bytes   a=${fa.htmlBytes}  b=${fb.htmlBytes}  (${verdict.byteDelta >= 0 ? '+' : ''}${verdict.byteDelta})`);
+  console.log(`  HTML hash    ${verdict.htmlIdentical ? 'identical' : `differs (${fa.htmlHash} vs ${fb.htmlHash})`}`);
+  console.log(`  Scripts      a=${fa.scripts.length}  b=${fb.scripts.length}  ${verdict.scriptsIdentical ? 'identical' : 'DIFFER'}`);
+  console.log(`  Stylesheets  a=${fa.styles.length}  b=${fb.styles.length}  ${verdict.stylesIdentical ? 'identical' : 'DIFFER'}`);
+
+  for (const s of verdict.addedScripts) console.log(`    + script ${s}`);
+  for (const s of verdict.removedScripts) console.log(`    - script ${s}`);
+  for (const s of verdict.addedStyles) console.log(`    + style  ${s}`);
+  for (const s of verdict.removedStyles) console.log(`    - style  ${s}`);
+
+  const inconclusive = verdict.reasons.some((r) => r.startsWith('Inconclusive'));
+  const label = inconclusive
+    ? 'INCONCLUSIVE'
+    : verdict.worthMeasuring
+      ? 'WORTH MEASURING'
+      : 'NOT worth measuring for client energy';
+  console.log(`\nVerdict: ${label}`);
+  for (const r of verdict.reasons) console.log(`  ${r}`);
+  console.log(
+    '\nNote: this compares anonymous responses only. An authenticated page may differ\n' +
+      'where an anonymous one does not, so re-check with --path on an admin route if relevant.',
+  );
+  return 0;
+}
+
 async function cmdReport(args: Args): Promise<number> {
   const file = args._[1];
   if (!file) {
@@ -572,6 +628,7 @@ async function main(): Promise<number> {
       case 'compare': return await cmdCompare(args);
       case 'report': return await cmdReport(args);
       case 'profile': return await cmdProfile(args);
+      case 'triage': return await cmdTriage(args);
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);
