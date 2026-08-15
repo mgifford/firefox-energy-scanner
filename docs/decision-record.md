@@ -224,12 +224,37 @@ Two useful consequences beyond the architecture itself: the macOS runner reports
 **AC power**, removing the battery confounder present on the development laptop, and
 `powermetrics` is available without a password prompt there.
 
+**CORRECTION (2026-08-15, after the first real hosted scan).** The `doctor` output
+above says power counters are *expected*, and that is all it can say: platform and
+architecture are necessary but **not sufficient**. The first scan run on
+`macos-latest` produced a `Process Power` counter with **zero samples** — every energy
+value came back exactly `0.0000`, baseline included.
+
+GitHub's macOS runners are virtualised, and the host does not expose Apple Silicon
+power counters to the guest. So:
+
+| Runner | arm64 | Counter present | Samples emitted | Can measure energy |
+|---|---|---|---|---|
+| local Apple Silicon laptop | yes | yes | 468 in a 5.8 s probe | **yes** |
+| `macos-latest` (GitHub) | yes | yes | **0** | **no** |
+| `ubuntu-latest` (GitHub) | no | no | n/a | no |
+
+This exposed a real defect: `hasPowerData()` returned true because a counter *object*
+existed, so results published `totalJoules: 0` — a fabricated measurement, which is
+exactly what this project must never do. Fixed by requiring `sampleCount > 0` before
+any energy field is populated, and by making `doctor` run an actual short profile and
+count samples instead of inferring from platform.
+
+**Consequence for hosted scanning.** GitHub-hosted runners can produce network,
+CO2.js and timing metrics only. Real energy measurement needs a **self-hosted** Apple
+Silicon runner (or a local machine). The workflow still offers the macOS runner because
+`doctor` and the result labelling now report the absence honestly.
+
 **Caveats that remain.** Hosted runners are shared, multi-tenant virtual machines with
-no thermal or noise-neighbour control. They are suitable for *capability* and smoke
-testing, and for network/CO2.js metrics. They are **not** suitable for the A/B
-regression work this project exists to support — that still wants a dedicated machine.
-The published site therefore labels every runner-produced result with its platform and
-whether energy was actually captured.
+no thermal or noise-neighbour control. They are **not** suitable for the A/B regression
+work this project exists to support — that still wants a dedicated machine. The
+published site labels every result with its platform and whether energy was actually
+captured.
 
 ---
 

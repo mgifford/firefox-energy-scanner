@@ -11,7 +11,11 @@ import {
 import { runBenchmark, newSessionId } from '../core/runner.js';
 import { loadJourney } from '../core/journey.js';
 import { collectEnvironment, readPowerState, playwrightVersion } from './env.js';
-import { FirefoxProfilerAdapter } from '../energy/firefox-profiler.js';
+import {
+  FirefoxProfilerAdapter,
+  createProfileOutputPath,
+  profilerLaunchEnv,
+} from '../energy/firefox-profiler.js';
 import { PowermetricsAdapter } from '../energy/powermetrics.js';
 import { NoopAdapter } from '../energy/noop.js';
 import { crawl } from '../collect/crawler.js';
@@ -133,6 +137,44 @@ async function buildConfig(args: Args): Promise<Config> {
   return config;
 }
 
+/**
+ * Launch Firefox briefly with the profiler enabled and count power samples.
+ *
+ * This is the only reliable way to know whether a host can measure energy:
+ * platform and architecture are necessary but not sufficient.
+ */
+async function probePowerCounters(): Promise<{
+  samples: number;
+  durationMs: number;
+  error?: string;
+}> {
+  const started = Date.now();
+  try {
+    const outputPath = await createProfileOutputPath();
+    const adapter = new FirefoxProfilerAdapter(outputPath, { intervalMs: 10 });
+    const browser = await firefox.launch({
+      headless: true,
+      env: { ...(process.env as Record<string, string>), ...profilerLaunchEnv(outputPath) },
+    });
+    const page = await browser.newPage();
+    const handle = await adapter.start({ label: 'probe' });
+    // A little CPU work so there is something to measure.
+    await page.goto(
+      'data:text/html,<script>const t=Date.now();let x=0;while(Date.now()-t<1200){x+=Math.sqrt(Math.random());}</script>',
+    );
+    await page.waitForTimeout(300);
+    await adapter.stop(handle);
+    await browser.close();
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const results = await adapter.finalize();
+    const probe = results.get('probe');
+    return { samples: probe?.sampleCount ?? 0, durationMs: Date.now() - started };
+  } catch (err) {
+    return { samples: 0, durationMs: Date.now() - started, error: (err as Error).message };
+  }
+}
+
 async function cmdDoctor(): Promise<number> {
   const lines: string[] = [];
   let failures = 0;
@@ -164,10 +206,26 @@ async function cmdDoctor(): Promise<number> {
   lines.push('Energy adapters');
   const ffx = new FirefoxProfilerAdapter('/dev/null');
   const ffxAvail = await ffx.available();
-  if (ffxAvail.available) {
-    ok('firefox-profiler: power counters expected on this platform (no elevated privileges needed)');
-  } else {
+  if (!ffxAvail.available) {
     warn(`firefox-profiler: ${ffxAvail.reason}`);
+  } else {
+    // Platform support is not proof: virtualised macOS hosts expose a power
+    // counter that never emits a sample. Run a short real profile to find out.
+    const probe = await probePowerCounters();
+    if (probe.samples > 0) {
+      ok(
+        `firefox-profiler: power counters produced ${probe.samples} samples in a ${probe.durationMs} ms probe ` +
+          '(no elevated privileges needed)',
+      );
+    } else if (probe.error) {
+      warn(`firefox-profiler: probe could not run (${probe.error})`);
+    } else {
+      fail(
+        'firefox-profiler: the platform reports support but the power counters emitted NO samples. ' +
+          'This host cannot measure energy — common on virtualised macOS (e.g. GitHub-hosted runners). ' +
+          'Network, CO2.js and timing metrics still work.',
+      );
+    }
   }
 
   const pm = new PowermetricsAdapter();

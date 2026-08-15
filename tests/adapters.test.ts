@@ -120,3 +120,51 @@ describe('parseLabel', () => {
     expect(parseLabel('__baseline__')).toBeUndefined();
   });
 });
+
+/**
+ * Regression: a virtualised macOS host (e.g. a GitHub-hosted runner) exposes a
+ * `Process Power` counter that never emits a sample. Reporting 0 J there would
+ * fabricate a measurement, so energy fields must be omitted entirely.
+ */
+describe('FirefoxProfilerAdapter with empty power counters', () => {
+  const emptyCounterProfile = {
+    meta: { startTime: 0 },
+    counters: [
+      {
+        name: 'Process Power',
+        category: 'power',
+        samples: { schema: { time: 0, count: 1 }, data: [] as number[][] },
+      },
+    ],
+  };
+
+  it('collectPowerUnits still finds the counter', async () => {
+    const { collectPowerUnits } = await import('../src/energy/gecko-profile.js');
+    expect(collectPowerUnits(emptyCounterProfile)).toHaveLength(1);
+  });
+
+  it('energyInWindow reports zero samples for an empty counter', async () => {
+    const { collectPowerUnits, energyInWindow } = await import('../src/energy/gecko-profile.js');
+    const units = collectPowerUnits(emptyCounterProfile);
+    const r = energyInWindow(units, 0, 10_000);
+    expect(r.sampleCount).toBe(0);
+    expect(r.joules).toBe(0);
+  });
+
+  it('a zero-sample window must not be published as 0 joules', async () => {
+    // The adapter omits totalJoules when sampleCount is 0, so downstream code
+    // sees "no measurement" rather than "measured zero".
+    const { applyBaseline } = await import('../src/core/baseline.js');
+    const noSamples = {
+      durationMs: 2000,
+      sampleCount: 0,
+      measurementScope: 'process' as const,
+      measurementType: 'hardware-estimate' as const,
+      attribution: 'time-window' as const,
+      adapterId: 'firefox-profiler',
+    };
+    const r = applyBaseline(noSamples, undefined);
+    expect(r.raw.totalJoules).toBeUndefined();
+    expect(r.incrementalJoules).toBeUndefined();
+  });
+});

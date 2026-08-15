@@ -103,8 +103,11 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
 
   async available(): Promise<Availability> {
     // Power counters are exposed on Apple Silicon macOS and Windows 11.
-    // On other platforms the profiler still runs but emits no power category,
-    // which finalize() surfaces as "no power counters found".
+    //
+    // Platform is necessary but NOT sufficient: a virtualised macOS host (such
+    // as a GitHub-hosted runner) reports arm64 and exposes a power counter that
+    // never emits a sample. Callers should treat this as "may work" and rely on
+    // hasPowerData() after a real run for the definitive answer.
     if (process.platform === 'darwin' && process.arch === 'arm64') {
       return { available: true };
     }
@@ -175,10 +178,18 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
       };
       if (this.units.length > 0) {
         const { joules, sampleCount } = energyInWindow(this.units, w.start, w.end);
-        result.totalJoules = joules;
-        result.sampleCount = sampleCount;
-        if (durationMs > 0) {
-          result.averageWatts = joules / (durationMs / 1000);
+        // A counter can exist while producing no samples — notably on
+        // virtualised macOS runners, where the host does not expose Apple
+        // Silicon power counters to the guest. Reporting 0 J there would
+        // fabricate a measurement, so energy fields are omitted entirely.
+        if (sampleCount > 0) {
+          result.totalJoules = joules;
+          result.sampleCount = sampleCount;
+          if (durationMs > 0) {
+            result.averageWatts = joules / (durationMs / 1000);
+          }
+        } else {
+          result.sampleCount = 0;
         }
       }
       results.set(w.label, result);
@@ -190,8 +201,14 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
     return results;
   }
 
-  /** True when the parsed profile contained at least one power counter. */
+  /**
+   * True only when power counters actually produced samples.
+   *
+   * The presence of a counter is not sufficient: virtualised macOS runners
+   * expose a `Process Power` counter that never emits a sample.
+   */
   hasPowerData(): boolean {
-    return (this.units?.length ?? 0) > 0;
+    if (!this.units || this.units.length === 0) return false;
+    return this.units.some((u) => u.samples.data.length > 0);
   }
 }
