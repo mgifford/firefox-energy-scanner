@@ -191,6 +191,48 @@ per the brief, Playwright owns the browser and any Sitespeed collection runs sep
 
 ---
 
+## TDR-007: GitHub-hosted runners — macOS can measure energy, Linux cannot
+
+**Decision:** Run network/CO2.js/timing scans on `ubuntu-latest`, and energy
+measurement on `macos-latest`.
+
+**Verified empirically** by running `doctor` on both GitHub-hosted runners
+(workflow run 31907018340, 2026-08-15):
+
+`macos-latest`:
+
+```
+arch=arm64
+node arch: arm64 platform: darwin
+  ok  Platform darwin/arm64
+  ok  firefox-profiler: power counters expected on this platform (no elevated privileges needed)
+  ok  macos-powermetrics: available (opt-in; system scope)
+  ok  Running on AC power
+```
+
+`ubuntu-latest`:
+
+```
+arch=x86_64
+node arch: x64 platform: linux
+  ok       Platform linux/x64
+  warning  firefox-profiler: Firefox power counters are not expected on linux/x64.
+  warning  macos-powermetrics: powermetrics is macOS-only.
+```
+
+Two useful consequences beyond the architecture itself: the macOS runner reports
+**AC power**, removing the battery confounder present on the development laptop, and
+`powermetrics` is available without a password prompt there.
+
+**Caveats that remain.** Hosted runners are shared, multi-tenant virtual machines with
+no thermal or noise-neighbour control. They are suitable for *capability* and smoke
+testing, and for network/CO2.js metrics. They are **not** suitable for the A/B
+regression work this project exists to support — that still wants a dedicated machine.
+The published site therefore labels every runner-produced result with its platform and
+whether energy was actually captured.
+
+---
+
 ## Open limitations carried into implementation
 
 - Energy is attributed by time window, not causally.

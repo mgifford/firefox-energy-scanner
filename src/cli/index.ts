@@ -17,6 +17,8 @@ import { NoopAdapter } from '../energy/noop.js';
 import { crawl } from '../collect/crawler.js';
 import { fingerprint, triage } from './triage.js';
 import { loadMatrix, triageMatrix, baselineOf } from './matrix.js';
+import { parseScanRequest } from './issue-parser.js';
+import { buildIndex } from '../report/index-builder.js';
 import { interleavedOrderN } from '../core/stats.js';
 import { toCsv, groupByStep } from '../report/csv.js';
 import { toHtml } from '../report/html.js';
@@ -752,6 +754,30 @@ function printMatrix(byLabel: Map<string, StepResult[]>, baselineLabel: string):
   }
 }
 
+/** Parse a scan request from an issue body file (used by CI). */
+async function cmdParseIssue(args: Args): Promise<number> {
+  const file = one(args, 'file');
+  if (!file) {
+    console.error('parse-issue requires --file <path>');
+    return 1;
+  }
+  const { readFile } = await import('node:fs/promises');
+  const body = await readFile(resolve(file), 'utf8');
+  const request = parseScanRequest(body);
+  // Machine-readable on stdout so the workflow can consume it.
+  console.log(JSON.stringify(request, null, 2));
+  return request.urls.length > 0 ? 0 : 1;
+}
+
+/** Rebuild results/index.json from stored result files (used by CI). */
+async function cmdBuildIndex(args: Args): Promise<number> {
+  const dir = one(args, 'dir') ?? 'site/results';
+  const out = one(args, 'out') ?? join(dir, 'index.json');
+  const index = await buildIndex(resolve(dir), resolve(out));
+  console.log(`Indexed ${index.entries.length} result file(s) -> ${out}`);
+  return 0;
+}
+
 async function cmdReport(args: Args): Promise<number> {
   const file = args._[1];
   if (!file) {
@@ -827,6 +853,8 @@ async function main(): Promise<number> {
       case 'profile': return await cmdProfile(args);
       case 'triage': return await cmdTriage(args);
       case 'matrix': return await cmdMatrix(args);
+      case 'parse-issue': return await cmdParseIssue(args);
+      case 'build-index': return await cmdBuildIndex(args);
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);

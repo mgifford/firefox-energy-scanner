@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firefox Energy Scanner</title>
+<meta name="description" content="Measure observed client-side browser energy and modelled CO2e for any public website.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<header class="site-header">
+  <h1>Firefox Energy Scanner</h1>
+  <p class="tagline">
+    Measure what a browser actually spends on a page — and compare it against
+    modelled emissions.
+  </p>
+  <nav aria-label="Primary">
+    <ul>
+      <li><a href="#request">Request a scan</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#methodology">Methodology</a></li>
+      <li><a href="https://github.com/mgifford/firefox-energy-scanner">Source</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main">
+
+  <section class="boundary" aria-labelledby="two-metrics">
+    <h2 id="two-metrics">Two metrics, two boundaries</h2>
+    <p>
+      This tool reports two different classes of sustainability indicator. They are
+      never added together, and neither validates the other.
+    </p>
+    <dl>
+      <dt>Modelled CO<sub>2</sub>e</dt>
+      <dd>
+        Estimated by CO2.js from transferred bytes. Covers data centre, network and a
+        generic device. It is a model output, not a measurement.
+      </dd>
+      <dt>Observed client energy</dt>
+      <dd>
+        Energy drawn by Firefox's own processes while performing the workload, read
+        from the Gecko Profiler's power counters in picowatt-hours. Measured on the
+        machine running the test.
+      </dd>
+    </dl>
+    <p class="note">
+      The measurement boundary is the <strong>client machine</strong>. Nothing here
+      measures server, database, or data-centre energy, and no result is a total
+      carbon figure for a site.
+    </p>
+  </section>
+
+  <section id="request" aria-labelledby="request-h">
+    <h2 id="request-h">Request a scan</h2>
+    <p>
+      Scans are queued through the GitHub issue tracker. Fill in the form below and it
+      will open a pre-filled issue for you — you will be asked to review and submit it
+      on GitHub, so nothing is posted without your confirmation.
+    </p>
+
+    <form id="scan-form">
+      <div class="field">
+        <label for="urls">URLs to scan</label>
+        <p class="hint" id="urls-hint">
+          One public <code>http://</code> or <code>https://</code> URL per line.
+          Maximum 20 per request.
+        </p>
+        <textarea id="urls" name="urls" rows="6" aria-describedby="urls-hint"
+          placeholder="https://example.com/&#10;https://example.com/about" required></textarea>
+      </div>
+
+      <div class="field">
+        <label for="title">Short description</label>
+        <p class="hint" id="title-hint">Used as the issue title, e.g. "example.com landing pages".</p>
+        <input type="text" id="title" name="title" aria-describedby="title-hint" required>
+      </div>
+
+      <fieldset class="field">
+        <legend>Measurement type</legend>
+        <p class="hint" id="runner-hint">
+          Energy measurement requires an Apple Silicon runner. Network and CO<sub>2</sub>e
+          metrics are available on either.
+        </p>
+        <div class="radio-row">
+          <input type="radio" id="runner-macos" name="runner" value="macos" checked
+            aria-describedby="runner-hint">
+          <label for="runner-macos">
+            Energy + network + CO<sub>2</sub>e <span class="muted">(macOS runner)</span>
+          </label>
+        </div>
+        <div class="radio-row">
+          <input type="radio" id="runner-linux" name="runner" value="linux">
+          <label for="runner-linux">
+            Network + CO<sub>2</sub>e only <span class="muted">(Linux runner, faster)</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="runs">Measured runs per URL</label>
+        <p class="hint" id="runs-hint">
+          More runs give a tighter result. 8 is a reasonable default; below 10 no
+          statistical significance is claimed.
+        </p>
+        <input type="number" id="runs" name="runs" value="8" min="1" max="30"
+          aria-describedby="runs-hint">
+      </div>
+
+      <button type="submit">Open pre-filled issue on GitHub</button>
+      <p id="form-status" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <section id="results" aria-labelledby="results-h">
+    <h2 id="results-h">Results</h2>
+    <p id="results-status" role="status" aria-live="polite">Loading results…</p>
+
+    <div class="controls">
+      <label for="filter">Filter by URL or label</label>
+      <input type="search" id="filter" placeholder="example.com">
+      <label for="sort">Sort by</label>
+      <select id="sort">
+        <option value="timestamp">Most recent</option>
+        <option value="energy">Observed energy</option>
+        <option value="co2">Modelled CO2e</option>
+        <option value="bytes">Transferred bytes</option>
+        <option value="requests">Request count</option>
+      </select>
+    </div>
+
+    <div id="results-container"></div>
+  </section>
+
+  <section id="methodology" aria-labelledby="method-h">
+    <h2 id="method-h">How to read these numbers</h2>
+
+    <h3>"Resolved" matters more than the number</h3>
+    <p>
+      A measurement is only reported when the effect is larger than its own run-to-run
+      scatter, and the median exceeds idle. Lightweight static pages usually fail this
+      test: they paint and the browser goes idle, so there is nothing to detect above
+      the noise floor. Those rows show <strong>not resolved</strong> and no energy value,
+      because publishing noise as a measurement would be worse than publishing nothing.
+    </p>
+
+    <h3>Where this tool works</h3>
+    <ul>
+      <li><strong>Works well:</strong> CPU-heavy pages, authenticated application interfaces, interactions such as filtering or submitting a form.</li>
+      <li><strong>Does not work:</strong> small static pages — use transferred bytes and request counts for those instead.</li>
+    </ul>
+
+    <h3>Shared runners are noisy</h3>
+    <p>
+      Scans run on GitHub's shared virtual machines, which have no thermal or
+      noisy-neighbour control. They are good for capability checks and for network and
+      CO<sub>2</sub>e metrics. Serious A/B regression work belongs on a dedicated
+      machine.
+    </p>
+
+    <h3>Modelled and measured are not comparable</h3>
+    <p>
+      A page can transfer very few bytes and still burn substantial CPU. In testing,
+      two pages of near-identical size differed by roughly 134&times; in measured
+      energy while their CO<sub>2</sub>e estimates sat within 1.5&times; of each other.
+      Rank by one metric or the other — never by their sum.
+    </p>
+
+    <p>
+      Full details:
+      <a href="https://github.com/mgifford/firefox-energy-scanner/blob/main/docs/methodology.md">methodology</a>,
+      <a href="https://github.com/mgifford/firefox-energy-scanner/blob/main/docs/limitations.md">limitations</a>,
+      <a href="https://github.com/mgifford/firefox-energy-scanner/blob/main/docs/findings.md">findings</a>.
+    </p>
+  </section>
+</main>
+
+<footer>
+  <p>
+    <a href="https://github.com/mgifford/firefox-energy-scanner">firefox-energy-scanner</a>
+    — AGPL-3.0-or-later. Energy figures come from Firefox's own power counters; CO<sub>2</sub>e
+    estimates come from <a href="https://github.com/thegreenwebfoundation/co2.js">CO2.js</a>.
+  </p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+name: Energy scan request
+description: Submit one or more public URLs for a browser energy and CO2e scan.
+title: "SCAN: "
+labels: ["scan-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Browser energy scan request
+
+        The issue title **must** begin with `SCAN:`.
+
+        > **Tip:** the [web form](https://mgifford.github.io/firefox-energy-scanner/)
+        > pre-fills this template for you.
+
+        **Before you submit — what this measures.** Observed energy is what Firefox's
+        own processes draw on the machine running the scan. It is *not* server energy,
+        and it is *not* a total carbon figure. Modelled CO2e is estimated by CO2.js
+        from transferred bytes and is a separate metric with a different boundary.
+
+        **Small static pages usually cannot be measured.** They paint and the browser
+        goes idle, leaving nothing above the noise floor. Those results are published
+        as "not resolved" rather than as a number.
+
+  - type: textarea
+    id: urls
+    attributes:
+      label: URLs
+      description: >
+        One public `https://` or `http://` URL per line. Maximum 20.
+        Localhost and private addresses are rejected — a hosted runner cannot reach them.
+      placeholder: |
+        https://example.com/
+        https://example.com/about
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runner
+    attributes:
+      label: Measurement type
+      description: >
+        Energy measurement needs an Apple Silicon runner (macOS). The Linux runner is
+        faster and cheaper but cannot read Firefox power counters, so it reports
+        network, CO2e and timing only.
+      options:
+        - macos
+        - linux
+      default: 0
+    validations:
+      required: true
+
+  - type: input
+    id: runs
+    attributes:
+      label: Measured runs per URL
+      description: >
+        More runs give a tighter result. Below 10 runs no statistical significance is
+        claimed. Maximum 30.
+      value: "8"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: These are public URLs that I am permitted to scan.
+          required: true

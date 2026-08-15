@@ -1,0 +1,234 @@
+name: Run energy scan
+
+# Processes a scan request filed as an issue titled "SCAN: ...".
+#
+# Energy measurement requires Apple Silicon. Verified on GitHub-hosted runners:
+#   macos-latest  -> arm64, power counters available, AC power
+#   ubuntu-latest -> x86_64, NO power counters (network/CO2e/timing only)
+# See docs/decision-record.md TDR-007.
+
+on:
+  issues:
+    types: [opened, labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to process
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: energy-scan
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    # Only act on scan requests. Anyone can open an issue, so the body is
+    # treated as untrusted input and validated before anything runs.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.issue.title, 'SCAN:')
+    runs-on: ubuntu-latest
+    outputs:
+      urls: ${{ steps.parse.outputs.urls }}
+      runner: ${{ steps.parse.outputs.runner }}
+      runs: ${{ steps.parse.outputs.runs }}
+      issue: ${{ steps.parse.outputs.issue }}
+      valid: ${{ steps.parse.outputs.valid }}
+      errors: ${{ steps.parse.outputs.errors }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Read issue body
+        id: body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const number = context.eventName === 'workflow_dispatch'
+              ? Number(context.payload.inputs.issue_number)
+              : context.issue.number;
+            const { data } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+            });
+            const fs = require('fs');
+            // Write to a file rather than an output to avoid any shell
+            // interpolation of user-controlled text.
+            fs.writeFileSync('issue-body.txt', data.body || '', 'utf8');
+            core.setOutput('number', String(number));
+
+      - name: Parse and validate request
+        id: parse
+        run: |
+          set +e
+          node dist/cli/index.js parse-issue --file issue-body.txt > request.json
+          PARSE_EXIT=$?
+          set -e
+          cat request.json
+          {
+            echo "issue=${{ steps.body.outputs.number }}"
+            echo "urls<<REQ_EOF"
+            node -e "console.log(JSON.parse(require('fs').readFileSync('request.json','utf8')).urls.join('\n'))"
+            echo "REQ_EOF"
+            echo "runner=$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('request.json','utf8')).runner)")"
+            echo "runs=$(node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync('request.json','utf8')).runs))")"
+            echo "errors<<ERR_EOF"
+            node -e "console.log(JSON.parse(require('fs').readFileSync('request.json','utf8')).errors.join('\n'))"
+            echo "ERR_EOF"
+            echo "valid=$([ $PARSE_EXIT -eq 0 ] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
+
+  scan:
+    needs: prepare
+    if: needs.prepare.outputs.valid == 'true'
+    # macOS gives real energy data; Linux is the faster network/CO2e-only path.
+    runs-on: ${{ needs.prepare.outputs.runner == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+      - run: npx playwright install firefox
+      - run: npm run build
+
+      - name: Environment preflight
+        run: node dist/cli/index.js doctor || true
+
+      - name: Run scan
+        env:
+          SCAN_URLS: ${{ needs.prepare.outputs.urls }}
+          SCAN_RUNS: ${{ needs.prepare.outputs.runs }}
+        run: |
+          mkdir -p site/results
+          # URLs come from an env var and are passed as argv, never interpolated
+          # into the shell, so a hostile issue body cannot inject a command.
+          node --input-type=module <<'NODE'
+          import { spawnSync } from 'node:child_process';
+          const urls = (process.env.SCAN_URLS || '').split('\n').map(s => s.trim()).filter(Boolean);
+          if (urls.length === 0) { console.error('no urls'); process.exit(1); }
+          const args = ['dist/cli/index.js', 'measure', ...urls,
+            '--runs', process.env.SCAN_RUNS || '8',
+            '--warmups', '2',
+            '--headless',
+            '--out', 'site/results'];
+          const r = spawnSync('node', args, { stdio: 'inherit', timeout: 45 * 60 * 1000 });
+          process.exit(r.status ?? 1);
+          NODE
+
+      - name: Rebuild results index
+        run: node dist/cli/index.js build-index --dir site/results --out site/results/index.json
+
+      - name: Commit results
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/results
+          if git diff --cached --quiet; then
+            echo "No new results to commit."
+          else
+            git commit -m "Add scan results for issue #${{ needs.prepare.outputs.issue }}"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Comment on the issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const files = fs.readdirSync('site/results').filter(f => f.endsWith('.json') && f !== 'index.json');
+            const latest = files.sort().pop();
+            const isMac = '${{ needs.prepare.outputs.runner }}' === 'macos';
+
+            let table = '';
+            try {
+              const index = JSON.parse(fs.readFileSync('site/results/index.json', 'utf8'));
+              const entry = index.entries[0];
+              if (entry) {
+                table = [
+                  '',
+                  '| Scenario | Transfer | Requests | CO2.js | Observed energy |',
+                  '| --- | ---: | ---: | ---: | ---: |',
+                  ...entry.scenarios.map(s => {
+                    const kb = (s.transferBytes / 1024).toFixed(0) + ' KB';
+                    const co2 = s.co2Grams != null ? (s.co2Grams * 1000).toFixed(3) + ' mg' : '—';
+                    const energy = (s.resolved && s.energyMwh != null)
+                      ? s.energyMwh.toFixed(3) + ' mWh'
+                      : '_not resolved_';
+                    const name = s.step.length > 50 ? '…' + s.step.slice(-48) : s.step;
+                    return `| ${name} | ${kb} | ${s.requests} | ${co2} | ${energy} |`;
+                  }),
+                ].join('\n');
+              }
+            } catch (e) {
+              table = '\n_Could not summarise results._';
+            }
+
+            const notes = [
+              '',
+              '**How to read this.** Modelled CO2e (CO2.js, from transferred bytes) and observed',
+              'client energy (Firefox power counters) have different system boundaries and are not',
+              'interchangeable. The measurement boundary is the client machine only — nothing here',
+              'measures server or data-centre energy.',
+              '',
+              isMac
+                ? '_Energy measured on a GitHub-hosted macOS (Apple Silicon) runner. Shared runners have no thermal or noisy-neighbour control, so treat these as indicative, not as regression-grade numbers._'
+                : '_Ran on a Linux runner, which has no Firefox power counters. Network, CO2e and timing metrics are valid; **no energy was measured**._',
+              '',
+              '`not resolved` means the measured energy was smaller than its own run-to-run spread,',
+              'or at/below idle. Small static pages usually land here — there is nothing above the',
+              'noise floor to measure.',
+              '',
+              'Full results: https://mgifford.github.io/firefox-energy-scanner/',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number('${{ needs.prepare.outputs.issue }}'),
+              body: '## Scan complete\n' + table + '\n' + notes,
+            });
+
+  report-invalid:
+    needs: prepare
+    if: needs.prepare.outputs.valid != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Explain why the request was rejected
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const errors = `${{ needs.prepare.outputs.errors }}`.trim();
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number('${{ needs.prepare.outputs.issue }}'),
+              body: [
+                '## Scan request could not be processed',
+                '',
+                errors || 'No valid public http(s) URLs were found in this request.',
+                '',
+                'Only public web URLs can be scanned. Localhost and private addresses are rejected',
+                'because a hosted runner cannot reach them.',
+                '',
+                'Edit the issue and re-apply the `scan-request` label to try again.',
+              ].join('\n'),
+            });

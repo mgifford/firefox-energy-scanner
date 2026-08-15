@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Web form for scan requests
+    url: https://mgifford.github.io/firefox-energy-scanner/
+    about: Pre-fills the scan request template for you.
+  - name: Methodology and limitations
+    url: https://github.com/mgifford/firefox-energy-scanner/blob/main/docs/methodology.md
+    about: What these numbers do and do not mean before you request a scan.
