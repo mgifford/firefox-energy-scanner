@@ -1,0 +1,12 @@
+node_modules/
+dist/
+results/
+*.log
+
+# Never commit credentials.
+.env
+.env.local
+
+# Raw Gecko profiles can be very large and may embed page URLs.
+*.profile.json
+profiles/

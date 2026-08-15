@@ -1,0 +1,67 @@
+# Example configuration for an authenticated Drupal target (e.g. a Tugboat preview).
+#
+# Validation is strict: an unknown key fails rather than being ignored, so a
+# typo cannot silently change what is measured.
+
+target:
+  url: https://example.tugboatqa.com
+  label: drupal-core-head
+  commit: abc123
+
+browser:
+  name: firefox
+  headed: true
+  viewport:
+    width: 1440
+    height: 900
+
+auth:
+  type: drupal
+  username_env: DRUPAL_USERNAME
+  password_env: DRUPAL_PASSWORD
+  login_path: /user/login
+
+benchmark:
+  # Development defaults. For high-confidence benchmarking use 10 / 30.
+  warmups: 3
+  runs: 10
+  settle_ms: 1500
+  cache_mode: warm
+
+stability:
+  network_idle_ms: 500
+  post_idle_ms: 1500
+  max_wait_ms: 10000
+
+crawl:
+  enabled: false
+  max_pages: 100
+  max_depth: 5
+  same_origin: true
+  include:
+    - "^/admin"
+  exclude:
+    - "/admin/reports/dblog/event/"
+  query_strategy: strip
+
+energy:
+  adapter: auto
+  baseline: true
+  baseline_duration_ms: 10000
+  # Discard Firefox startup activity before sampling idle power.
+  baseline_settle_ms: 5000
+
+co2:
+  enabled: true
+  # The library's identifier is "swd", not "sustainable-web-design".
+  model: swd
+
+sitespeed:
+  enabled: false
+
+output:
+  directory: results
+  json: true
+  csv: true
+  html: true
+  collect_hostname: false

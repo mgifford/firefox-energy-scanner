@@ -1,0 +1,203 @@
+# Technical Decision Record (Phase 1)
+
+Status: accepted
+Date: 2026-08-14
+Platform verified on: macOS 26.5.2 (build 25F84), arm64 (Apple Silicon), Node v22.20.0
+
+This record documents what was **empirically verified on this machine**, what was read
+from **primary sources**, and what was **rejected**. Every claim below that affects a
+number in a benchmark result was tested, not assumed.
+
+---
+
+## TDR-001: Firefox power data is reachable, and is a real physical unit
+
+**Decision:** Use the Gecko Profiler `power` feature as the primary energy source.
+
+**Verification.** Launching Playwright's bundled Firefox with profiler startup
+environment variables produced a profile containing a power counter:
+
+```
+features: ["screenshots","cpu","power"]
+counter: {"name":"Process Power","category":"power","description":"Power utilization"}
+```
+
+775 samples were captured with schema `{"time":0,"count":1}`.
+
+**Units.** The raw `count` value is **picowatt-hours (pWh)**. This is not an inference.
+The Firefox Profiler front-end defines the conversion in
+`src/components/timeline/TrackCounterTooltipFormat.ts`:
+
+```ts
+const PWH_TO_WH = 1e-12;
+const MS_PER_HOUR = 1000 * 3600;
+
+export function pwhToWh(pwh: number): number {
+  return pwh * PWH_TO_WH;
+}
+
+export function pwhPerMsToWatts(pwhPerMs: number): number {
+  return pwhPerMs * PWH_TO_WH * MS_PER_HOUR;
+}
+```
+
+Therefore `joules = pWh * 1e-12 * 3600`. Because a documented physical model backs this
+conversion, reporting joules is defensible. This satisfies the project rule that proxy
+metrics must never be relabelled as joules — this is not a proxy metric.
+
+**Consequence:** `measurementType` is `hardware-estimate` and `measurementScope` is
+`process` (per-process counters, aggregated across Firefox's processes). It is *not*
+`system` scope; it does not include the display, and it is not whole-machine energy.
+
+---
+
+## TDR-002: `nsIProfiler` cannot be driven per-step from Playwright
+
+**Decision:** Profile for the whole browser session and slice the power counter by
+wall-clock time range, rather than starting/stopping the profiler around each step.
+
+**Why.** `nsIProfiler` is chrome-privileged. Its interface is real and offers exactly the
+control we would want (from `tools/profiler/gecko/nsIProfiler.idl`):
+
+```
+Promise StartProfiler(in uint32_t aEntries, in double aInterval,
+                      in Array<AUTF8String> aFeatures, ...);
+Promise StopProfiler();
+Array<AUTF8String> GetAllFeatures();
+```
+
+But Playwright exposes no chrome-context evaluation for Firefox. Enumerating the
+`Browser` prototype confirmed the available surface:
+
+```
+newContext, contexts, version, newPage, isConnected,
+newBrowserCDPSession, startTracing, stopTracing, close, ...
+```
+
+`newBrowserCDPSession` is Chromium-only. There is no Firefox equivalent that reaches
+privileged code. This is the limitation the project brief anticipated.
+
+**Fallback implemented.** Session-scoped profiling via documented environment variables
+(`MOZ_PROFILER_STARTUP`, `MOZ_PROFILER_STARTUP_FEATURES`, `MOZ_PROFILER_STARTUP_INTERVAL`,
+`MOZ_PROFILER_STARTUP_ENTRIES`, `MOZ_PROFILER_SHUTDOWN`), with the harness recording
+precise `Date.now()` timestamps at each step boundary and integrating the counter over
+that window.
+
+**Scope of the fallback.** Step attribution is by *time window*, not by causal tracing.
+Any background browser activity inside the window is included. This is stated in every
+result via `energy.attribution: "time-window"`.
+
+---
+
+## TDR-003: Power must be summed across processes, each with its own time origin
+
+**Decision:** Aggregate every counter with `category === "power"` from the parent process
+*and* from each entry in `profile.processes`, normalising each by that process's own
+`meta.startTime`.
+
+**Why this is critical — a wrong result caught during validation.** An initial
+implementation summed only the parent-process counter and produced:
+
+```
+IDLE: 0.729 J over 4.135s -> 0.176 W
+BUSY: 0.601 J over 4.529s -> 0.133 W      <-- CPU-heavy page used LESS power
+```
+
+That is physically impossible. Inspection showed three power counters, not one:
+
+```
+power counters found: 3   process startTimes (relative): [0, 1452.82, 1083.59]
+counter 0 (parent)  total = 3.265 J
+counter 1 (content) total = 3.249 J   <-- where the page JS actually ran
+counter 2 (content) total = 0.305 J
+```
+
+Two failures were present at once: the content process where JS executes was excluded,
+and each process reports sample times relative to its **own** `meta.startTime`, so naive
+summation misaligns windows.
+
+**After correction:**
+
+```
+IDLE: 0.063 J / 5.04s = 0.012 W
+BUSY: 4.535 J / 5.33s = 0.850 W
+```
+
+A ~70x separation in the correct direction. This is the project's validation criterion
+("the energy collector should normally distinguish the heavy workload from idle") and it
+now passes. The regression test in `tests/` locks in this ordering.
+
+---
+
+## TDR-004: `powermetrics` is opt-in, never default
+
+**Decision:** Ship `macos-powermetrics` as an explicitly-enabled adapter only.
+
+**Why.** Verified on this machine:
+
+```
+$ sudo -n powermetrics --help
+sudo: a password is required
+```
+
+A default adapter that blocks on a password prompt would break unattended runs. It also
+measures **system** scope, not the browser, so it answers a different question.
+It remains valuable as a cross-check and is implemented for that purpose.
+
+---
+
+## TDR-005: CO2.js stays a separate metric, and we avoid double-counting
+
+**Decision:** Use `@tgwf/co2` v0.19.0 with segmented results, and never sum CO2.js output
+with measured energy.
+
+**Verified API surface:**
+
+```
+exports: [ 'averageIntensity', 'co2', 'hosting', 'marginalIntensity' ]
+swd   -> 0.1482  g/MB
+1byte -> 0.29081 g/MB
+```
+
+Segmented output separates the device boundary from the network/datacentre boundary:
+
+```json
+{"dataCenterCO2e":0.033098,"networkCO2e":0.035568,
+ "consumerDeviceCO2e":0.079534,"total":0.1482}
+```
+
+**Precedent.** The Firefox Profiler itself pairs its power track with CO2.js and
+explicitly zeroes the device grid intensity, commenting that this is done
+"so we don't double-count energy that the power track already attributes to the device."
+We follow the same reasoning: `consumerDeviceCO2e` is the segment that *overlaps* our
+measured energy, and the two are reported side by side, never added.
+
+**Boundary statement.** CO2.js estimates modelled emissions from transferred bytes.
+Firefox power measures observed device energy. Different system boundaries, different
+units, not interchangeable, not validation of one another.
+
+---
+
+## TDR-006: Playwright + Firefox, pinned and recorded
+
+Playwright ships a patched Firefox (Juggler) pinned to the Playwright release; it is not
+the system Firefox. Verified: Playwright's build reports **153.0** while the system
+install is **152.0.5**. Both versions are recorded in every result, because a browser
+version change invalidates cross-run comparison.
+
+Sitespeed.io/Browsertime are **not** driven against the same Firefox process as
+Playwright. Two automation frameworks controlling one browser is not safe or documented;
+per the brief, Playwright owns the browser and any Sitespeed collection runs separately.
+
+---
+
+## Open limitations carried into implementation
+
+- Energy is attributed by time window, not causally.
+- Scope is Firefox processes, not the whole machine; display power is excluded.
+- Battery vs AC changes power behaviour; this machine was on **battery** during
+  verification, and `doctor` warns when power source differs across compared runs.
+- Profiling has observer overhead; primary measurement and diagnostic profiling are
+  kept as separate run types.
+- Remote (e.g. Tugboat) server cache state is uncontrolled; warmups reduce but do not
+  remove this variance.
