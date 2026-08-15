@@ -32,12 +32,18 @@ jobs:
       startsWith(github.event.issue.title, 'SCAN:')
     runs-on: ubuntu-latest
     outputs:
+      mode: ${{ steps.parse.outputs.mode }}
       urls: ${{ steps.parse.outputs.urls }}
       runner: ${{ steps.parse.outputs.runner }}
       runs: ${{ steps.parse.outputs.runs }}
+      max_pages: ${{ steps.parse.outputs.max_pages }}
+      include: ${{ steps.parse.outputs.include }}
+      viewport_width: ${{ steps.parse.outputs.viewport_width }}
+      viewport_height: ${{ steps.parse.outputs.viewport_height }}
       issue: ${{ steps.parse.outputs.issue }}
       valid: ${{ steps.parse.outputs.valid }}
       errors: ${{ steps.parse.outputs.errors }}
+      notes: ${{ steps.parse.outputs.notes }}
     steps:
       - uses: actions/checkout@v4
 
@@ -69,30 +75,46 @@ jobs:
 
       - name: Parse and validate request
         id: parse
+        env:
+          ISSUE_NUMBER: ${{ steps.body.outputs.number }}
         run: |
           set +e
           node dist/cli/index.js parse-issue --file issue-body.txt > request.json
-          PARSE_EXIT=$?
           set -e
           cat request.json
-          {
-            echo "issue=${{ steps.body.outputs.number }}"
-            echo "urls<<REQ_EOF"
-            node -e "console.log(JSON.parse(require('fs').readFileSync('request.json','utf8')).urls.join('\n'))"
-            echo "REQ_EOF"
-            echo "runner=$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('request.json','utf8')).runner)")"
-            echo "runs=$(node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync('request.json','utf8')).runs))")"
-            echo "errors<<ERR_EOF"
-            node -e "console.log(JSON.parse(require('fs').readFileSync('request.json','utf8')).errors.join('\n'))"
-            echo "ERR_EOF"
-            echo "valid=$([ $PARSE_EXIT -eq 0 ] && echo true || echo false)"
-          } >> "$GITHUB_OUTPUT"
+          # Emitting outputs from Node avoids quoting user-controlled text in shell.
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const r = JSON.parse(readFileSync('request.json', 'utf8'));
+          const out = [];
+          const set = (k, v) => out.push(`${k}=${v}`);
+          const setMultiline = (k, v) => {
+            const d = `EOF_${k.toUpperCase()}`;
+            out.push(`${k}<<${d}`, v ?? '', d);
+          };
+          set('issue', process.env.ISSUE_NUMBER);
+          set('mode', r.mode);
+          set('runner', r.runner);
+          set('runs', String(r.runs));
+          set('max_pages', String(r.maxPages));
+          set('include', r.include ?? '');
+          set('viewport_width', String(r.viewport.width));
+          set('viewport_height', String(r.viewport.height));
+          set('valid', r.errors.length === 0 && r.urls.length > 0 ? 'true' : 'false');
+          setMultiline('urls', r.urls.join('\n'));
+          setMultiline('errors', r.errors.join('\n'));
+          setMultiline('notes', r.notes.join('\n'));
+          appendFileSync(process.env.GITHUB_OUTPUT, out.join('\n') + '\n', 'utf8');
+          NODE
 
   scan:
     needs: prepare
     if: needs.prepare.outputs.valid == 'true'
     # macOS gives real energy data; Linux is the faster network/CO2e-only path.
     runs-on: ${{ needs.prepare.outputs.runner == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
+    # The request budget is 90 minutes of scanning; this leaves room for
+    # checkout, install, commit and comment without hitting the 360-minute cap.
+    timeout-minutes: 120
     permissions:
       contents: write
       issues: write
@@ -112,8 +134,11 @@ jobs:
 
       - name: Run scan
         env:
+          SCAN_MODE: ${{ needs.prepare.outputs.mode }}
           SCAN_URLS: ${{ needs.prepare.outputs.urls }}
           SCAN_RUNS: ${{ needs.prepare.outputs.runs }}
+          SCAN_MAX_PAGES: ${{ needs.prepare.outputs.max_pages }}
+          SCAN_INCLUDE: ${{ needs.prepare.outputs.include }}
         run: |
           mkdir -p site/results
           # URLs come from an env var and are passed as argv, never interpolated
@@ -122,12 +147,21 @@ jobs:
           import { spawnSync } from 'node:child_process';
           const urls = (process.env.SCAN_URLS || '').split('\n').map(s => s.trim()).filter(Boolean);
           if (urls.length === 0) { console.error('no urls'); process.exit(1); }
-          const args = ['dist/cli/index.js', 'measure', ...urls,
-            '--runs', process.env.SCAN_RUNS || '8',
-            '--warmups', '2',
-            '--headless',
-            '--out', 'site/results'];
-          const r = spawnSync('node', args, { stdio: 'inherit', timeout: 45 * 60 * 1000 });
+
+          const mode = process.env.SCAN_MODE === 'crawl' ? 'crawl' : 'measure';
+          const args = mode === 'crawl'
+            ? ['dist/cli/index.js', 'crawl', urls[0],
+               '--max-pages', process.env.SCAN_MAX_PAGES || '50',
+               ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
+               '--headless', '--out', 'site/results']
+            : ['dist/cli/index.js', 'measure', ...urls,
+               '--runs', process.env.SCAN_RUNS || '8',
+               '--warmups', '2',
+               '--headless', '--out', 'site/results'];
+
+          console.log('mode:', mode, '| targets:', urls.length);
+          // Below the 90-minute request budget, leaving room for setup/commit.
+          const r = spawnSync('node', args, { stdio: 'inherit', timeout: 95 * 60 * 1000 });
           process.exit(r.status ?? 1);
           NODE
 
@@ -180,6 +214,9 @@ jobs:
               table = '\n_Could not summarise results._';
             }
 
+            const isCrawl = '${{ needs.prepare.outputs.mode }}' === 'crawl';
+            const parserNotes = `${{ needs.prepare.outputs.notes }}`.trim();
+
             const notes = [
               '',
               '**How to read this.** Modelled CO2e (CO2.js, from transferred bytes) and observed',
@@ -187,6 +224,9 @@ jobs:
               'interchangeable. The measurement boundary is the client machine only — nothing here',
               'measures server or data-centre energy.',
               '',
+              isCrawl
+                ? '_Crawl mode measures each page **once**. That is enough to rank pages and find outliers, but a single run cannot separate a real difference from noise — use measure mode for comparisons._'
+                : '',
               isMac
                 ? '_Energy measured on a GitHub-hosted macOS (Apple Silicon) runner. Shared runners have no thermal or noisy-neighbour control, so treat these as indicative, not as regression-grade numbers._'
                 : '_Ran on a Linux runner, which has no Firefox power counters. Network, CO2e and timing metrics are valid; **no energy was measured**._',
@@ -194,9 +234,10 @@ jobs:
               '`not resolved` means the measured energy was smaller than its own run-to-run spread,',
               'or at/below idle. Small static pages usually land here — there is nothing above the',
               'noise floor to measure.',
+              parserNotes ? '\n**Notes on this request:**\n' + parserNotes.split('\n').map(n => '- ' + n).join('\n') : '',
               '',
               'Full results: https://mgifford.github.io/firefox-energy-scanner/',
-            ].join('\n');
+            ].filter(Boolean).join('\n');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

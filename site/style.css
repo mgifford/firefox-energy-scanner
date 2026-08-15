@@ -100,8 +100,56 @@ h3 { margin-top: 1.75rem; font-size: 1.1rem; }
 .boundary dt { font-weight: 600; margin-top: .75rem; }
 .boundary dd { margin: 0 0 .25rem; }
 
+/* Visually hidden but available to assistive technology. */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Stats bar */
+.stats-bar { margin-top: 1.5rem; }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.stat-item { background: var(--surface); padding: .85rem 1rem; }
+.stat-item dt { font-size: .8rem; color: var(--muted); margin: 0 0 .2rem; }
+.stat-item dd { margin: 0; font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* How it works */
+.how-steps { list-style: none; padding: 0; display: grid; gap: 1rem; }
+.how-steps li { padding-left: 2.5rem; position: relative; }
+.step-num {
+  position: absolute;
+  left: 0; top: 0;
+  width: 1.75rem; height: 1.75rem;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+  font-size: .85rem;
+}
+
 /* Form */
 .field { margin-bottom: 1.5rem; }
+.field[hidden] { display: none; }
+.hint.indent { margin-left: 1.6rem; margin-top: 0; }
+label.spaced { margin-top: 1rem; }
+
+.estimate { color: var(--muted); font-size: .93rem; }
+.estimate.over { color: var(--warn-fg); font-weight: 600; }
 fieldset.field { border: 1px solid var(--line); padding: 1rem; }
 legend { font-weight: 600; padding: 0 .4rem; }
 

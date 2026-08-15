@@ -1,5 +1,5 @@
 name: Energy scan request
-description: Submit one or more public URLs for a browser energy and CO2e scan.
+description: Measure browser energy and modelled CO2e for public URLs, or crawl a site.
 title: "SCAN: "
 labels: ["scan-request"]
 body:
@@ -13,22 +13,40 @@ body:
         > **Tip:** the [web form](https://mgifford.github.io/firefox-energy-scanner/)
         > pre-fills this template for you.
 
-        **Before you submit — what this measures.** Observed energy is what Firefox's
-        own processes draw on the machine running the scan. It is *not* server energy,
-        and it is *not* a total carbon figure. Modelled CO2e is estimated by CO2.js
-        from transferred bytes and is a separate metric with a different boundary.
+        **What this measures.** Observed energy is what Firefox's own processes draw on
+        the machine running the scan. It is *not* server energy and *not* a total carbon
+        figure. Modelled CO2e is estimated by CO2.js from transferred bytes — a separate
+        metric with a different system boundary. The two are never added together.
 
-        **Small static pages usually cannot be measured.** They paint and the browser
-        goes idle, leaving nothing above the noise floor. Those results are published
-        as "not resolved" rather than as a number.
+        **Small static pages usually cannot be measured.** They paint, then the browser
+        goes idle, leaving nothing above the noise floor. Those results publish as
+        "not resolved" rather than as a number.
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Scan mode
+      description: >
+        **Measure** repeats each URL several times, which is what makes a result
+        trustworthy — use it for real comparisons. **Crawl** follows links from one
+        start URL and measures each page once; it covers far more pages but a single
+        run cannot separate a real difference from noise, so it is for discovery and
+        ranking only.
+      options:
+        - measure — repeat a few URLs many times (up to 20 URLs)
+        - crawl — follow links from one URL, once each (up to 200 pages)
+      default: 0
+    validations:
+      required: true
 
   - type: textarea
     id: urls
     attributes:
       label: URLs
       description: >
-        One public `https://` or `http://` URL per line. Maximum 20.
-        Localhost and private addresses are rejected — a hosted runner cannot reach them.
+        One public `https://` or `http://` URL per line. Measure mode accepts up to 20;
+        crawl mode uses the first URL as its starting point. Localhost and private
+        addresses are rejected — a hosted runner cannot reach them.
       placeholder: |
         https://example.com/
         https://example.com/about
@@ -40,12 +58,12 @@ body:
     attributes:
       label: Measurement type
       description: >
-        Energy measurement needs an Apple Silicon runner (macOS). The Linux runner is
-        faster and cheaper but cannot read Firefox power counters, so it reports
-        network, CO2e and timing only.
+        Energy measurement needs an Apple Silicon runner (macOS) — verified available on
+        GitHub-hosted macOS runners. The Linux runner is faster but has no Firefox power
+        counters, so it reports network, CO2e and timing only.
       options:
-        - macos
-        - linux
+        - macos — energy + network + CO2e
+        - linux — network + CO2e only (faster)
       default: 0
     validations:
       required: true
@@ -55,9 +73,48 @@ body:
     attributes:
       label: Measured runs per URL
       description: >
-        More runs give a tighter result. Below 10 runs no statistical significance is
-        claimed. Maximum 30.
+        Measure mode only. More runs give a tighter result; below 10 no statistical
+        significance is claimed. Maximum 30.
       value: "8"
+    validations:
+      required: false
+
+  - type: input
+    id: max-pages
+    attributes:
+      label: Maximum pages to crawl
+      description: >
+        Crawl mode only. Maximum 200. A full 200-page crawl takes roughly 15 minutes.
+      value: "50"
+    validations:
+      required: false
+
+  - type: input
+    id: include
+    attributes:
+      label: Include pattern
+      description: >
+        Crawl mode only. A regular expression matched against the URL path, e.g.
+        `^/admin` to crawl only administrative pages. Leave blank to crawl everything
+        on the same origin.
+      placeholder: "^/admin"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: viewport
+    attributes:
+      label: Viewport
+      description: >
+        Screen size to emulate. Viewport affects layout and rendering work, so it can
+        change measured energy.
+      options:
+        - Desktop (1280x800)
+        - Tablet portrait (768x1024)
+        - Tablet landscape (1024x768)
+        - Mobile portrait (390x844)
+        - Mobile landscape (844x390)
+      default: 0
     validations:
       required: false
 
@@ -68,3 +125,15 @@ body:
       options:
         - label: These are public URLs that I am permitted to scan.
           required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        Once this issue is saved the scan starts automatically. Results are posted as a
+        comment here and published to
+        [GitHub Pages](https://mgifford.github.io/firefox-energy-scanner/).
+
+        Scans run on shared GitHub runners, which have no thermal or noisy-neighbour
+        control. Treat the numbers as indicative; regression-grade comparison needs a
+        dedicated machine.

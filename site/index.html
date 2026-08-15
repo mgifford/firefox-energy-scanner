@@ -54,17 +54,69 @@
     </p>
   </section>
 
+  <section class="stats-bar" aria-labelledby="stats-h">
+    <h2 id="stats-h" class="visually-hidden">Scan activity</h2>
+    <dl id="stats" class="stats-grid">
+      <div class="stat-item"><dt>Published scans</dt><dd id="stat-scans">—</dd></div>
+      <div class="stat-item"><dt>Pages measured</dt><dd id="stat-pages">—</dd></div>
+      <div class="stat-item"><dt>Resolvable energy</dt><dd id="stat-resolved">—</dd></div>
+      <div class="stat-item"><dt>Most recent</dt><dd id="stat-recent">—</dd></div>
+    </dl>
+  </section>
+
+  <section class="how-it-works" aria-labelledby="how-h">
+    <h2 id="how-h">How it works</h2>
+    <ol class="how-steps">
+      <li>
+        <span class="step-num" aria-hidden="true">1</span>
+        <strong>Describe the scan.</strong> Fill in the form; it opens a pre-filled
+        GitHub issue for you to review and submit.
+      </li>
+      <li>
+        <span class="step-num" aria-hidden="true">2</span>
+        <strong>A runner measures it.</strong> A GitHub Action drives Firefox and reads
+        its power counters, plus network and CO<sub>2</sub>e data.
+      </li>
+      <li>
+        <span class="step-num" aria-hidden="true">3</span>
+        <strong>Results publish here.</strong> A summary is posted to your issue and the
+        full result appears in the table below.
+      </li>
+    </ol>
+  </section>
+
   <section id="request" aria-labelledby="request-h">
     <h2 id="request-h">Request a scan</h2>
     <p>
-      Scans are queued through the GitHub issue tracker. Fill in the form below and it
-      will open a pre-filled issue for you — you will be asked to review and submit it
-      on GitHub, so nothing is posted without your confirmation.
+      Scans are queued through the GitHub issue tracker. Nothing is filed without your
+      confirmation — the form opens a pre-filled issue for you to review and submit.
     </p>
 
     <form id="scan-form">
+      <fieldset class="field">
+        <legend>Scan mode</legend>
+        <div class="radio-row">
+          <input type="radio" id="mode-measure" name="mode" value="measure" checked
+            aria-describedby="mode-measure-hint">
+          <label for="mode-measure">Measure <span class="muted">— repeat a few URLs many times</span></label>
+        </div>
+        <p class="hint indent" id="mode-measure-hint">
+          Up to 20 URLs, each measured several times. Repetition is what makes a result
+          trustworthy. Use this for comparisons.
+        </p>
+        <div class="radio-row">
+          <input type="radio" id="mode-crawl" name="mode" value="crawl"
+            aria-describedby="mode-crawl-hint">
+          <label for="mode-crawl">Crawl <span class="muted">— follow links, once each</span></label>
+        </div>
+        <p class="hint indent" id="mode-crawl-hint">
+          Up to 200 pages from one start URL, measured once each. Good for discovery and
+          ranking; a single run cannot separate a real difference from noise.
+        </p>
+      </fieldset>
+
       <div class="field">
-        <label for="urls">URLs to scan</label>
+        <label for="urls" id="urls-label">URLs to scan</label>
         <p class="hint" id="urls-hint">
           One public <code>http://</code> or <code>https://</code> URL per line.
           Maximum 20 per request.
@@ -100,15 +152,48 @@
         </div>
       </fieldset>
 
-      <div class="field">
+      <div class="field" id="runs-field">
         <label for="runs">Measured runs per URL</label>
         <p class="hint" id="runs-hint">
           More runs give a tighter result. 8 is a reasonable default; below 10 no
-          statistical significance is claimed.
+          statistical significance is claimed. Maximum 30.
         </p>
         <input type="number" id="runs" name="runs" value="8" min="1" max="30"
           aria-describedby="runs-hint">
       </div>
+
+      <div class="field" id="crawl-fields" hidden>
+        <label for="max-pages">Maximum pages to crawl</label>
+        <p class="hint" id="pages-hint">
+          Up to 200. A full 200-page crawl takes roughly 15 minutes.
+        </p>
+        <input type="number" id="max-pages" name="max-pages" value="50" min="1" max="200"
+          aria-describedby="pages-hint">
+
+        <label for="include" class="spaced">Include pattern <span class="muted">(optional)</span></label>
+        <p class="hint" id="include-hint">
+          A regular expression matched against the URL path, e.g. <code>^/admin</code>.
+          Leave blank to crawl the whole origin.
+        </p>
+        <input type="text" id="include" name="include" placeholder="^/admin"
+          aria-describedby="include-hint">
+      </div>
+
+      <div class="field">
+        <label for="viewport">Viewport</label>
+        <p class="hint" id="viewport-hint">
+          Viewport affects layout and rendering work, so it can change measured energy.
+        </p>
+        <select id="viewport" name="viewport" aria-describedby="viewport-hint">
+          <option value="Desktop (1280x800)">Desktop (1280&times;800)</option>
+          <option value="Tablet portrait (768x1024)">Tablet portrait (768&times;1024)</option>
+          <option value="Tablet landscape (1024x768)">Tablet landscape (1024&times;768)</option>
+          <option value="Mobile portrait (390x844)">Mobile portrait (390&times;844)</option>
+          <option value="Mobile landscape (844x390)">Mobile landscape (844&times;390)</option>
+        </select>
+      </div>
+
+      <p class="estimate" id="estimate" role="status" aria-live="polite"></p>
 
       <button type="submit">Open pre-filled issue on GitHub</button>
       <p id="form-status" role="status" aria-live="polite"></p>

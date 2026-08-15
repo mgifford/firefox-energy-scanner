@@ -7,16 +7,80 @@
  * internal networks.
  */
 
+export type ScanMode = 'measure' | 'crawl';
+
 export interface ScanRequest {
+  mode: ScanMode;
   urls: string[];
   runner: 'macos' | 'linux';
   runs: number;
+  /** Crawl mode only. */
+  maxPages: number;
+  include?: string;
+  viewport: { width: number; height: number };
   errors: string[];
+  notes: string[];
 }
 
 export const MAX_URLS = 20;
 export const MAX_RUNS = 30;
 export const DEFAULT_RUNS = 8;
+
+/**
+ * Crawl page limits.
+ *
+ * A crawl measures each page once, so cost scales linearly with pages: 200
+ * pages is roughly 15 minutes. A measure request repeats each URL `runs` times
+ * plus warmups, so it scales far more steeply — 200 URLs at 8 runs each would
+ * be about 2.5 hours. Crawls are therefore allowed many more pages.
+ */
+export const MAX_CRAWL_PAGES = 200;
+export const DEFAULT_CRAWL_PAGES = 50;
+
+/**
+ * Wall-clock budget for one scan job.
+ *
+ * GitHub's hard ceiling is 360 minutes, but shared runners are billed and
+ * noisy, and a multi-hour scan on one is poor value: the longer it runs, the
+ * more thermal and neighbour drift it accumulates. 90 minutes leaves a full
+ * 200-page crawl (~15 min) and the largest permitted measure request
+ * (20 URLs x 30 runs, ~47 min) comfortably inside.
+ */
+export const JOB_BUDGET_MINUTES = 90;
+
+const VIEWPORTS: Record<string, { width: number; height: number }> = {
+  desktop: { width: 1280, height: 800 },
+  'tablet-portrait': { width: 768, height: 1024 },
+  'tablet-landscape': { width: 1024, height: 768 },
+  'mobile-portrait': { width: 390, height: 844 },
+  'mobile-landscape': { width: 844, height: 390 },
+};
+
+/**
+ * Resolve a viewport from the issue-form label.
+ *
+ * Matches the most specific label first so that "Tablet landscape" is not
+ * captured by the "tablet portrait" entry. An explicit `WIDTHxHEIGHT` is
+ * accepted too, bounded to sane values.
+ */
+export function parseViewport(raw: string | undefined): { width: number; height: number } {
+  const value = (raw ?? '').toLowerCase().trim();
+  if (!value) return VIEWPORTS.desktop!;
+
+  const custom = /(\d{2,5})\s*[x×]\s*(\d{2,5})/.exec(value);
+  if (custom) {
+    const width = Math.min(Math.max(Number(custom[1]), 240), 3840);
+    const height = Math.min(Math.max(Number(custom[2]), 240), 2160);
+    return { width, height };
+  }
+
+  const isMobile = value.includes('mobile');
+  const isTablet = value.includes('tablet');
+  const isLandscape = value.includes('landscape');
+  if (isMobile) return VIEWPORTS[isLandscape ? 'mobile-landscape' : 'mobile-portrait']!;
+  if (isTablet) return VIEWPORTS[isLandscape ? 'tablet-landscape' : 'tablet-portrait']!;
+  return VIEWPORTS.desktop!;
+}
 
 /** Reject non-public hosts. */
 export function isPublicHttpUrl(candidate: string): boolean {
@@ -32,7 +96,6 @@ export function isPublicHttpUrl(candidate: string): boolean {
   if (!host || host === 'localhost' || host === '::1') return false;
   if (host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return false;
 
-  // Bare IPv6 loopback / link-local / unique-local.
   if (host.startsWith('[')) {
     const inner = host.slice(1, -1);
     if (inner === '::1' || inner.startsWith('fe80:') || inner.startsWith('fc') || inner.startsWith('fd')) {
@@ -40,7 +103,6 @@ export function isPublicHttpUrl(candidate: string): boolean {
     }
   }
 
-  // IPv4 private and reserved ranges.
   const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
   if (v4) {
     const [a, b] = [Number(v4[1]), Number(v4[2])];
@@ -48,20 +110,15 @@ export function isPublicHttpUrl(candidate: string): boolean {
     if (a === 169 && b === 254) return false;
     if (a === 192 && b === 168) return false;
     if (a === 172 && b >= 16 && b <= 31) return false;
-    if (a >= 224) return false; // multicast and reserved
+    if (a >= 224) return false;
   }
 
-  // A hostname with no dot cannot be a public FQDN.
   if (!v4 && !host.startsWith('[') && !host.includes('.')) return false;
 
   return true;
 }
 
-/**
- * Extract a section from a GitHub issue-forms body.
- *
- * Issue forms render as `### Label` followed by the value.
- */
+/** Extract a section from a GitHub issue-forms body (`### Label` + value). */
 export function extractSection(body: string, label: string): string | undefined {
   const lines = body.split(/\r?\n/);
   const start = lines.findIndex(
@@ -76,12 +133,35 @@ export function extractSection(body: string, label: string): string | undefined 
     collected.push(line);
   }
   const value = collected.join('\n').trim();
-  // Issue forms write "_No response_" for skipped optional fields.
   return value === '_No response_' ? undefined : value;
+}
+
+/**
+ * Estimate wall-clock minutes for a request.
+ *
+ * Derived from observed timings: ~2.4 s per run plus ~2.0 s settle, with a
+ * one-off idle baseline. Used to reject requests that cannot finish rather
+ * than letting them hit the job timeout after an hour of work.
+ */
+export function estimateMinutes(request: {
+  mode: ScanMode;
+  urls: string[];
+  runs: number;
+  maxPages: number;
+}): number {
+  const perRunSeconds = 2.4 + 2.0;
+  const baselineSeconds = 15;
+  const pages = request.mode === 'crawl' ? request.maxPages : request.urls.length;
+  const runsPerPage = request.mode === 'crawl' ? 1 : request.runs + 2; // + warmups
+  return (baselineSeconds + pages * runsPerPage * perRunSeconds) / 60;
 }
 
 export function parseScanRequest(body: string): ScanRequest {
   const errors: string[] = [];
+  const notes: string[] = [];
+
+  const modeRaw = (extractSection(body, 'Scan mode') ?? 'measure').toLowerCase();
+  const mode: ScanMode = modeRaw.includes('crawl') ? 'crawl' : 'measure';
 
   const urlBlock = extractSection(body, 'URLs') ?? '';
   const candidates = urlBlock
@@ -106,8 +186,16 @@ export function parseScanRequest(body: string): ScanRequest {
         rejected.slice(0, 5).join(', '),
     );
   }
-  if (urls.length > MAX_URLS) {
-    errors.push(`Too many URLs (${urls.length}); the limit is ${MAX_URLS}. Only the first ${MAX_URLS} will be scanned.`);
+
+  if (mode === 'crawl' && urls.length > 1) {
+    notes.push(`Crawl mode uses a single start URL; using ${urls[0]} and ignoring the rest.`);
+    urls.length = 1;
+  }
+  if (mode === 'measure' && urls.length > MAX_URLS) {
+    errors.push(
+      `Too many URLs (${urls.length}); the limit for measure mode is ${MAX_URLS}. ` +
+        `Use crawl mode to cover more pages, or split the request.`,
+    );
     urls.length = MAX_URLS;
   }
 
@@ -120,11 +208,63 @@ export function parseScanRequest(body: string): ScanRequest {
     const parsed = Number.parseInt(runsRaw.trim(), 10);
     if (Number.isFinite(parsed) && parsed >= 1) {
       runs = Math.min(parsed, MAX_RUNS);
-      if (parsed > MAX_RUNS) errors.push(`Requested ${parsed} runs; capped at ${MAX_RUNS}.`);
+      if (parsed > MAX_RUNS) notes.push(`Requested ${parsed} runs; capped at ${MAX_RUNS}.`);
     } else {
-      errors.push(`Could not read a run count from "${runsRaw}"; using ${DEFAULT_RUNS}.`);
+      notes.push(`Could not read a run count from "${runsRaw}"; using ${DEFAULT_RUNS}.`);
     }
   }
 
-  return { urls, runner, runs, errors };
+  const pagesRaw = extractSection(body, 'Maximum pages to crawl');
+  let maxPages = DEFAULT_CRAWL_PAGES;
+  if (pagesRaw) {
+    const parsed = Number.parseInt(pagesRaw.trim(), 10);
+    if (Number.isFinite(parsed) && parsed >= 1) {
+      maxPages = Math.min(parsed, MAX_CRAWL_PAGES);
+      if (parsed > MAX_CRAWL_PAGES) {
+        notes.push(`Requested ${parsed} pages; capped at ${MAX_CRAWL_PAGES}.`);
+      }
+    } else {
+      notes.push(`Could not read a page limit from "${pagesRaw}"; using ${DEFAULT_CRAWL_PAGES}.`);
+    }
+  }
+
+  const includeRaw = extractSection(body, 'Include pattern');
+  const include = includeRaw ? includeRaw.trim() : undefined;
+  if (include) {
+    try {
+      new RegExp(include);
+    } catch {
+      errors.push(`Include pattern is not a valid regular expression: ${include}`);
+    }
+  }
+
+  const viewport = parseViewport(extractSection(body, 'Viewport'));
+
+  // Reject work that cannot finish inside the job budget, with a concrete fix.
+  const request = { mode, urls, runs, maxPages };
+  const minutes = estimateMinutes(request);
+  if (minutes > JOB_BUDGET_MINUTES) {
+    if (mode === 'measure') {
+      errors.push(
+        `This request would take roughly ${Math.round(minutes)} minutes, over the ${JOB_BUDGET_MINUTES}-minute budget. ` +
+          `Reduce the run count or the number of URLs, or use crawl mode (one run per page).`,
+      );
+    } else {
+      errors.push(
+        `A ${maxPages}-page crawl would take roughly ${Math.round(minutes)} minutes, over the ` +
+          `${JOB_BUDGET_MINUTES}-minute budget. Lower the page limit.`,
+      );
+    }
+  } else if (minutes > 60) {
+    notes.push(`Estimated runtime is about ${Math.round(minutes)} minutes.`);
+  }
+
+  if (mode === 'crawl') {
+    notes.push(
+      'Crawl mode measures each page once. It is for discovery and ranking, not for ' +
+        'regression comparison — single runs cannot separate a real difference from noise.',
+    );
+  }
+
+  return { mode, urls, runner, runs, maxPages, ...(include ? { include } : {}), viewport, errors, notes };
 }

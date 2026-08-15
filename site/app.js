@@ -17,11 +17,14 @@
    * rejected because a hosted runner cannot reach them, and accepting them
    * would invite pointing the scanner at internal hosts.
    */
-  function validateUrls(raw) {
+  function validateUrls(raw, mode) {
     const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
     if (lines.length === 0) return { error: 'Enter at least one URL.' };
-    if (lines.length > MAX_URLS) {
-      return { error: 'Maximum ' + MAX_URLS + ' URLs per request (got ' + lines.length + ').' };
+    if (mode !== 'crawl' && lines.length > MAX_URLS) {
+      return {
+        error: 'Maximum ' + MAX_URLS + ' URLs in measure mode (got ' + lines.length +
+          '). Use crawl mode to cover more pages.',
+      };
     }
     const bad = [];
     for (const line of lines) {
@@ -49,15 +52,78 @@
     if (bad.length > 0) {
       return { error: 'Not public web URLs: ' + bad.slice(0, 3).join(', ') + (bad.length > 3 ? '…' : '') };
     }
-    return { urls: lines };
+    // Crawl mode starts from a single page; extra URLs would be ignored.
+    return { urls: mode === 'crawl' ? lines.slice(0, 1) : lines };
+  }
+
+  function currentMode() {
+    const el = document.querySelector('input[name="mode"]:checked');
+    return el ? el.value : 'measure';
+  }
+
+  /**
+   * Mirror the server-side runtime estimate so the cost of a request is visible
+   * before it is filed. Keep in sync with estimateMinutes() in issue-parser.ts.
+   */
+  function estimateMinutes(mode, urlCount, runs, pages) {
+    const perRunSeconds = 2.4 + 2.0;
+    const baselineSeconds = 15;
+    const p = mode === 'crawl' ? pages : urlCount;
+    const runsPerPage = mode === 'crawl' ? 1 : runs + 2;
+    return (baselineSeconds + p * runsPerPage * perRunSeconds) / 60;
+  }
+
+  function updateFormMode() {
+    const mode = currentMode();
+    const crawlFields = document.getElementById('crawl-fields');
+    const runsField = document.getElementById('runs-field');
+    const urlsHint = document.getElementById('urls-hint');
+
+    if (crawlFields) crawlFields.hidden = mode !== 'crawl';
+    if (runsField) runsField.hidden = mode === 'crawl';
+    if (urlsHint) {
+      urlsHint.textContent = mode === 'crawl'
+        ? 'One public http:// or https:// URL — the page the crawl starts from.'
+        : 'One public http:// or https:// URL per line. Maximum 20 per request.';
+    }
+    updateEstimate();
+  }
+
+  function updateEstimate() {
+    const el = document.getElementById('estimate');
+    if (!el) return;
+    const mode = currentMode();
+    const urlCount = (document.getElementById('urls').value || '')
+      .split('\n').map(function (s) { return s.trim(); }).filter(Boolean).length;
+    const runs = parseInt(document.getElementById('runs').value, 10) || 8;
+    const pages = parseInt(document.getElementById('max-pages').value, 10) || 50;
+
+    if (mode === 'measure' && urlCount === 0) { el.textContent = ''; return; }
+    const minutes = estimateMinutes(mode, urlCount, runs, pages);
+    const rounded = minutes < 1 ? '<1' : String(Math.round(minutes));
+    el.textContent = 'Estimated runtime: about ' + rounded + ' minute' +
+      (rounded === '1' ? '' : 's') + '.' +
+      (minutes > 90 ? ' That exceeds the 90-minute budget and will be rejected.' : '');
+    el.className = minutes > 90 ? 'estimate over' : 'estimate';
   }
 
   if (form) {
+    ['mode-measure', 'mode-crawl'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', updateFormMode);
+    });
+    ['urls', 'runs', 'max-pages'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateEstimate);
+    });
+    updateFormMode();
+
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       status.textContent = '';
 
-      const result = validateUrls(document.getElementById('urls').value);
+      const mode = currentMode();
+      const result = validateUrls(document.getElementById('urls').value, mode);
       if (result.error) {
         status.textContent = result.error;
         document.getElementById('urls').focus();
@@ -73,29 +139,28 @@
 
       const runner = (document.querySelector('input[name="runner"]:checked') || {}).value || 'macos';
       const runs = document.getElementById('runs').value || '8';
+      const maxPages = document.getElementById('max-pages').value || '50';
+      const include = document.getElementById('include').value.trim();
+      const viewport = document.getElementById('viewport').value;
 
-      const body = [
-        '### URLs',
-        '',
-        result.urls.join('\n'),
-        '',
-        '### Runner',
-        '',
-        runner,
-        '',
-        '### Measured runs',
-        '',
-        String(runs),
-        '',
-      ].join('\n');
+      // Field ids here must match the issue template's field ids so GitHub
+      // pre-fills the form correctly.
+      const params = new URLSearchParams();
+      params.set('template', 'scan-request.yml');
+      params.set('title', 'SCAN: ' + title);
+      params.set('mode', mode === 'crawl'
+        ? 'crawl — follow links from one URL, once each (up to 200 pages)'
+        : 'measure — repeat a few URLs many times (up to 20 URLs)');
+      params.set('urls', result.urls.join('\n'));
+      params.set('runner', runner === 'linux'
+        ? 'linux — network + CO2e only (faster)'
+        : 'macos — energy + network + CO2e');
+      params.set('runs', String(runs));
+      params.set('max-pages', String(maxPages));
+      if (include) params.set('include', include);
+      params.set('viewport', viewport);
 
-      const url =
-        'https://github.com/' + REPO + '/issues/new' +
-        '?template=scan-request.yml' +
-        '&title=' + encodeURIComponent('SCAN: ' + title) +
-        '&urls=' + encodeURIComponent(result.urls.join('\n')) +
-        '&runner=' + encodeURIComponent(runner) +
-        '&runs=' + encodeURIComponent(String(runs));
+      const url = 'https://github.com/' + REPO + '/issues/new?' + params.toString();
 
       // Opening a new tab keeps the form state intact if the user comes back.
       // GitHub asks them to review and submit, so nothing is filed silently.
@@ -279,6 +344,34 @@
     visible.forEach(function (e) { container.appendChild(renderEntry(e)); });
   }
 
+  /**
+   * Headline counts. "Resolvable energy" is shown deliberately: it is the share
+   * of measured scenarios where energy rose above the noise floor, which is the
+   * honest indicator of how much of this data can actually be used.
+   */
+  function renderStats() {
+    const set = function (id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+    if (entries.length === 0) return;
+
+    let scenarios = 0;
+    let resolved = 0;
+    entries.forEach(function (e) {
+      e.scenarios.forEach(function (s) {
+        scenarios++;
+        if (s.resolved) resolved++;
+      });
+    });
+
+    set('stat-scans', String(entries.length));
+    set('stat-pages', String(scenarios));
+    set('stat-resolved', scenarios ? Math.round((resolved / scenarios) * 100) + '%' : '—');
+    const recent = entries[0] && entries[0].timestamp;
+    set('stat-recent', recent ? new Date(recent).toISOString().slice(0, 10) : '—');
+  }
+
   function load() {
     fetch('results/index.json', { cache: 'no-cache' })
       .then(function (r) {
@@ -287,6 +380,7 @@
       })
       .then(function (data) {
         entries = (data && data.entries) || [];
+        renderStats();
         render();
       })
       .catch(function () {
