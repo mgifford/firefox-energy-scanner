@@ -51,7 +51,10 @@ guarantee about neighbouring workloads. They are appropriate for:
 
 - capability and smoke testing,
 - network, request-count and CO2.js metrics (which do not depend on machine state),
-- rough, indicative energy comparisons.
+- transferred-byte and request-count comparisons between pages or builds.
+
+They are **not** capable of energy measurement at all — see the section above. Any
+energy column from a hosted run reads "no energy data".
 
 They are **not** appropriate for the A/B regression work this project exists to support.
 That needs a dedicated machine — ideally one on AC power with Low Power Mode off. A

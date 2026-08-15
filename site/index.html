@@ -74,8 +74,9 @@
       </li>
       <li>
         <span class="step-num" aria-hidden="true">2</span>
-        <strong>A runner measures it.</strong> A GitHub Action drives Firefox and reads
-        its power counters, plus network and CO<sub>2</sub>e data.
+        <strong>A runner measures it.</strong> A GitHub Action drives Firefox and
+        records network, CO<sub>2</sub>e and timing data. Energy needs physical
+        Apple Silicon hardware, so hosted scans omit it.
       </li>
       <li>
         <span class="step-num" aria-hidden="true">3</span>
@@ -132,22 +133,26 @@
       </div>
 
       <fieldset class="field">
-        <legend>Measurement type</legend>
+        <legend>Runner</legend>
         <p class="hint" id="runner-hint">
-          Energy measurement requires an Apple Silicon runner. Network and CO<sub>2</sub>e
-          metrics are available on either.
+          <strong>Neither hosted runner can measure energy.</strong> GitHub's macOS
+          runners are virtual machines, and Apple's Virtualization framework does not
+          expose the SoC power-manager hardware to a guest — so Firefox's power counters
+          exist but never produce a sample. Hosted scans report network,
+          CO<sub>2</sub>e and timing only. Energy needs a physical Apple Silicon machine
+          (a self-hosted runner, or the CLI locally).
         </p>
         <div class="radio-row">
-          <input type="radio" id="runner-macos" name="runner" value="macos" checked
+          <input type="radio" id="runner-linux" name="runner" value="linux" checked
             aria-describedby="runner-hint">
-          <label for="runner-macos">
-            Energy + network + CO<sub>2</sub>e <span class="muted">(macOS runner)</span>
+          <label for="runner-linux">
+            Linux <span class="muted">— network + CO<sub>2</sub>e + timing (faster)</span>
           </label>
         </div>
         <div class="radio-row">
-          <input type="radio" id="runner-linux" name="runner" value="linux">
-          <label for="runner-linux">
-            Network + CO<sub>2</sub>e only <span class="muted">(Linux runner, faster)</span>
+          <input type="radio" id="runner-macos" name="runner" value="macos">
+          <label for="runner-macos">
+            macOS <span class="muted">— same metrics, closer to a desktop browser profile</span>
           </label>
         </div>
       </fieldset>

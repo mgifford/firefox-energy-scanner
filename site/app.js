@@ -137,7 +137,7 @@
         return;
       }
 
-      const runner = (document.querySelector('input[name="runner"]:checked') || {}).value || 'macos';
+      const runner = (document.querySelector('input[name="runner"]:checked') || {}).value || 'linux';
       const runs = document.getElementById('runs').value || '8';
       const maxPages = document.getElementById('max-pages').value || '50';
       const include = document.getElementById('include').value.trim();
@@ -152,9 +152,9 @@
         ? 'crawl — follow links from one URL, once each (up to 200 pages)'
         : 'measure — repeat a few URLs many times (up to 20 URLs)');
       params.set('urls', result.urls.join('\n'));
-      params.set('runner', runner === 'linux'
-        ? 'linux — network + CO2e only (faster)'
-        : 'macos — energy + network + CO2e');
+      params.set('runner', runner === 'macos'
+        ? 'macos — same metrics, closer to a desktop browser profile'
+        : 'linux — network + CO2e + timing (faster)');
       params.set('runs', String(runs));
       params.set('max-pages', String(maxPages));
       if (include) params.set('include', include);

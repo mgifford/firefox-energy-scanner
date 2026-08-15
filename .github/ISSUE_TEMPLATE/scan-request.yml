@@ -13,10 +13,14 @@ body:
         > **Tip:** the [web form](https://mgifford.github.io/firefox-energy-scanner/)
         > pre-fills this template for you.
 
-        **What this measures.** Observed energy is what Firefox's own processes draw on
-        the machine running the scan. It is *not* server energy and *not* a total carbon
-        figure. Modelled CO2e is estimated by CO2.js from transferred bytes — a separate
-        metric with a different system boundary. The two are never added together.
+        **What this measures.** Modelled CO2e is estimated by CO2.js from transferred
+        bytes. It is *not* server energy and *not* a total carbon figure.
+
+        **Hosted scans do not include energy.** GitHub's runners are virtual machines
+        with no power-measurement hardware exposed, so Firefox's power counters produce
+        nothing. Observed energy — what Firefox's own processes draw — requires a
+        physical Apple Silicon machine. Run the CLI locally, or register a self-hosted
+        runner, for that.
 
         **Small static pages usually cannot be measured.** They paint, then the browser
         goes idle, leaving nothing above the noise floor. Those results publish as
@@ -58,12 +62,14 @@ body:
     attributes:
       label: Measurement type
       description: >
-        Energy measurement needs an Apple Silicon runner (macOS) — verified available on
-        GitHub-hosted macOS runners. The Linux runner is faster but has no Firefox power
-        counters, so it reports network, CO2e and timing only.
+        NEITHER hosted runner can measure energy. GitHub's macOS runners are virtual
+        machines, and Apple's Virtualization framework does not expose the SoC
+        power-manager hardware to a guest, so Firefox's power counters never emit a
+        sample. Both runners report network, CO2e and timing only. Energy measurement
+        needs a physical Apple Silicon machine (self-hosted runner, or the CLI locally).
       options:
-        - macos — energy + network + CO2e
-        - linux — network + CO2e only (faster)
+        - linux — network + CO2e + timing (faster)
+        - macos — same metrics, closer to a desktop browser profile
       default: 0
     validations:
       required: true
