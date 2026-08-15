@@ -1,7 +1,61 @@
 {
-  "generatedAt": "2026-08-15T20:48:33.280Z",
+  "generatedAt": "2026-08-15T21:03:44.860Z",
   "schemaVersion": 1,
   "entries": [
+    {
+      "id": "ab94ca83-fa9e-4f00-9692-f7d4ddfa7efc",
+      "file": "measure-2026-08-15T21-03-43-649Z.json",
+      "timestamp": "2026-08-15T21:03:43.648Z",
+      "mode": "measure",
+      "target": "https://mgifford.github.io/open-scans/",
+      "energyAvailable": true,
+      "platform": "darwin",
+      "architecture": "arm64",
+      "firefoxVersion": "153.0",
+      "onBattery": false,
+      "scenarios": [
+        {
+          "step": "https://mgifford.github.io/open-scans/",
+          "url": "https://mgifford.github.io/open-scans/",
+          "runs": 8,
+          "transferBytes": 17999,
+          "requests": 4,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0026674517999999998,
+          "co2Model": "swd",
+          "durationMs": 2076,
+          "resolved": false,
+          "resolutionNote": "Median incremental energy is at or below zero: the workload did not measurably exceed idle. It is below the resolution of this setup; do not report it as an energy cost."
+        },
+        {
+          "step": "https://mgifford.github.io/open-scans/reports.html",
+          "url": "https://mgifford.github.io/open-scans/reports.html",
+          "runs": 8,
+          "transferBytes": 35791,
+          "requests": 1,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0053042262,
+          "co2Model": "swd",
+          "durationMs": 2031,
+          "resolved": false,
+          "resolutionNote": "Median incremental energy is at or below zero: the workload did not measurably exceed idle. It is below the resolution of this setup; do not report it as an energy cost."
+        },
+        {
+          "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+          "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+          "runs": 8,
+          "transferBytes": 128403,
+          "requests": 1,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0190293246,
+          "co2Model": "swd",
+          "durationMs": 2045,
+          "resolved": false,
+          "resolutionNote": "Median incremental energy is at or below zero: the workload did not measurably exceed idle. It is below the resolution of this setup; do not report it as an energy cost."
+        }
+      ],
+      "warnings": []
+    },
     {
       "id": "2599e559-796f-4558-8501-721288ba6a1a",
       "file": "measure-2026-08-15T20-24-20-704Z.json",
