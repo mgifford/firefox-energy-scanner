@@ -1,0 +1,52 @@
+# Multi-target comparison of Drupal core performance patches.
+#
+# WHY A SHARED BASELINE, NOT PATCH-VS-PATCH:
+# Two merge requests sit on different branches and touch different code.
+# Comparing them directly measures everything that differs between the two
+# branches, not the effect of either patch. Each patch is therefore compared
+# against one common reference (core-head), and the DIFFERENCES are ranked.
+#
+# Fill in the Tugboat preview URL for each merge request. The preview host
+# contains an opaque per-preview token, so URLs cannot be derived from the MR
+# number — copy them from the Tugboat link on each issue.
+#
+# Run triage first; it is fast and skips anything that cannot possibly differ:
+#   web-energy matrix examples/drupal-performance-matrix.yaml --triage-only
+#   web-energy matrix examples/drupal-performance-matrix.yaml \
+#     --journey examples/drupal-admin-basic.js --runs 15
+
+targets:
+  # The common reference. Exactly one target may set baseline: true.
+  - label: core-head
+    url: https://REPLACE-WITH-CORE-HEAD-PREVIEW.tugboatqa.com
+    baseline: true
+
+  # Frontend candidates — these change what the browser receives, so a
+  # client-side energy difference is at least possible.
+  - label: js-show-hide
+    url: https://REPLACE-WITH-MR16698-PREVIEW.tugboatqa.com
+    issue: "3568172"
+    mr: "16698"
+    # Moves .js-show/.js-hide styles into a conditionally loaded library.
+    # Changes the CSS delivered per page -> style recalculation work.
+
+  - label: lazy-sizes-auto
+    url: https://REPLACE-WITH-MR15627-PREVIEW.tugboatqa.com
+    issue: "3587098"
+    mr: "15627"
+    # Adds sizes="auto" for lazy-loaded responsive images.
+    # Changes which image variants the browser fetches and decodes ->
+    # decode is real client CPU work, and transferred bytes may change too.
+
+  # Server-side candidates, included deliberately as negative controls.
+  # Expect triage to mark these "identical payload" and skip them: they
+  # improve server time but cannot change client-side energy.
+  - label: pgsql-savepoints
+    url: https://REPLACE-WITH-MR16629-PREVIEW.tugboatqa.com
+    issue: "3615690"
+    mr: "16629"
+
+  - label: pgsql-table-info
+    url: https://REPLACE-WITH-MR16625-PREVIEW.tugboatqa.com
+    issue: "3615649"
+    mr: "16625"

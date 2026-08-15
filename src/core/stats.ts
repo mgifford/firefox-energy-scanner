@@ -134,6 +134,51 @@ export function compare(aValues: number[], bValues: number[]): ComparisonResult 
   };
 }
 
+/** Deterministic PRNG (mulberry32) seeded from a string. */
+function seededRandom(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let state = h >>> 0;
+  return () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Deterministic interleaved ordering across N targets.
+ *
+ * Each round contains every target exactly once, shuffled within the round.
+ * Grouping runs by target (all of A, then all of B) would confound drift in
+ * thermal state, network, or server cache with the target being measured.
+ * Balancing per round keeps every target spread evenly across the session.
+ */
+export function interleavedOrderN(
+  targets: string[],
+  rounds: number,
+  seed: string,
+): string[] {
+  if (targets.length === 0) return [];
+  const rand = seededRandom(seed);
+  const order: string[] = [];
+  for (let r = 0; r < rounds; r++) {
+    const round = [...targets];
+    // Fisher-Yates within the round.
+    for (let i = round.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [round[i], round[j]] = [round[j]!, round[i]!];
+    }
+    order.push(...round);
+  }
+  return order;
+}
+
 /**
  * Deterministic interleaved A/B ordering from a seed.
  *

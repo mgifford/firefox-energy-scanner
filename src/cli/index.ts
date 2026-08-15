@@ -16,9 +16,11 @@ import { PowermetricsAdapter } from '../energy/powermetrics.js';
 import { NoopAdapter } from '../energy/noop.js';
 import { crawl } from '../collect/crawler.js';
 import { fingerprint, triage } from './triage.js';
+import { loadMatrix, triageMatrix, baselineOf } from './matrix.js';
+import { interleavedOrderN } from '../core/stats.js';
 import { toCsv, groupByStep } from '../report/csv.js';
 import { toHtml } from '../report/html.js';
-import { summarize, compare, interleavedOrder } from '../core/stats.js';
+import { summarize, compare, interleavedOrder, median } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import { SCHEMA_VERSION, type BenchmarkResult, type StepResult } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
@@ -35,6 +37,7 @@ Usage:
   web-energy report <result.json>
   web-energy profile --journey <file> [--step <name>]
   web-energy triage --a <url> --b <url> [--path <path>]
+  web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
 
 Options:
   --config <file>        YAML configuration file
@@ -555,6 +558,182 @@ async function cmdTriage(args: Args): Promise<number> {
   return 0;
 }
 
+/**
+ * Measure N targets against a shared baseline in one interleaved session.
+ *
+ * Patch-vs-patch comparison is confounded, so every patch is compared to a
+ * common reference instead, and the differences are what get ranked.
+ */
+async function cmdMatrix(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('matrix requires a matrix YAML file');
+    return 1;
+  }
+  const spec = await loadMatrix(resolve(file));
+  const baseline = baselineOf(spec);
+  const path = (() => {
+    const raw = one(args, 'path');
+    return raw && raw !== 'true' ? raw : undefined;
+  })();
+
+  console.log(`Matrix: ${spec.targets.length} targets, baseline = ${baseline.label}\n`);
+
+  // Pre-screen: skip anything whose payload matches the baseline.
+  console.log('Triage (delivered payload vs baseline)');
+  const rows = await triageMatrix(spec, path);
+  for (const r of rows) {
+    const flag = r.target === baseline ? ' ' : r.inconclusive ? '?' : r.differsFromBaseline ? '*' : '-';
+    console.log(
+      `  ${flag} ${r.target.label.padEnd(24)} ${String(r.fingerprint.status).padStart(3)}  ${r.summary}`,
+    );
+  }
+  console.log('\n  * differs from baseline (measure)   - identical payload (skip)   ? inconclusive');
+
+  const measurable = rows.filter(
+    (r) => r.target === baseline || (r.differsFromBaseline && !r.inconclusive),
+  );
+  const skipped = rows.filter((r) => r !== undefined && !measurable.includes(r));
+
+  if (skipped.length > 0) {
+    console.log('\nSkipping (cannot differ in client energy, or unreachable):');
+    for (const r of skipped) console.log(`  ${r.target.label} — ${r.summary}`);
+  }
+
+  if (has(args, 'triage-only')) return 0;
+
+  if (measurable.length < 2) {
+    console.log(
+      '\nFewer than two measurable targets remain. Nothing to compare.\n' +
+        'Either the patches do not change delivered payload, or the previews are unreachable.',
+    );
+    return 1;
+  }
+
+  const journeyFile = one(args, 'journey');
+  if (!journeyFile) {
+    console.error('\nmatrix requires --journey <file> unless --triage-only is given');
+    return 1;
+  }
+  const journey = await loadJourney(resolve(journeyFile));
+  const config = await buildConfig(args);
+  const seed = one(args, 'seed') ?? newSessionId();
+  const labels = measurable.map((r) => r.target.label);
+  const order = interleavedOrderN(labels, config.benchmark.runs, seed);
+
+  console.log(`\nInterleaved order (seed ${seed}):\n  ${order.join(' ')}\n`);
+
+  const byLabel = new Map<string, StepResult[]>();
+  const warnings: string[] = [];
+  let firefoxVersion = 'unknown';
+
+  for (const [i, label] of order.entries()) {
+    const target = measurable.find((r) => r.target.label === label)!.target;
+    process.stderr.write(`\rRun ${i + 1}/${order.length} -> ${label}`.padEnd(50));
+    const outcome = await runBenchmark({
+      config: {
+        ...config,
+        benchmark: {
+          ...config.benchmark,
+          runs: 1,
+          // Warm only on the first visit to each target.
+          warmups: byLabel.has(label) ? 0 : config.benchmark.warmups,
+        },
+      },
+      baseUrl: target.url,
+      journey,
+      scenarioName: label,
+    });
+    firefoxVersion = outcome.firefoxVersion;
+    warnings.push(...outcome.warnings);
+    byLabel.set(label, [...(byLabel.get(label) ?? []), ...outcome.steps]);
+  }
+  process.stderr.write('\n');
+
+  const result: BenchmarkResult = {
+    schemaVersion: SCHEMA_VERSION,
+    session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'compare', seed, orderings: order },
+    environment: await collectEnvironment({
+      energyAdapter: config.energy.adapter,
+      headed: config.browser.headed,
+      viewport: config.browser.viewport,
+      firefoxVersion,
+      collectHostname: config.output.collect_hostname,
+    }),
+    targets: measurable.map((r) => ({
+      url: r.target.url,
+      label: r.target.label,
+      ...(r.target.mr ? { commit: r.target.mr } : {}),
+    })),
+    configuration: config,
+    scenarios: [...byLabel.values()].flat(),
+    warnings: [...new Set(warnings)],
+  };
+
+  const base = await writeOutputs(result, config);
+  printMatrix(byLabel, baseline.label);
+  console.log(`\nWrote ${base}.{json,csv,html}`);
+  return 0;
+}
+
+/** Rank each target's steps against the baseline's median energy. */
+function printMatrix(byLabel: Map<string, StepResult[]>, baselineLabel: string): void {
+  const baselineSteps = byLabel.get(baselineLabel);
+  if (!baselineSteps) {
+    console.log('\nBaseline produced no measurements.');
+    return;
+  }
+  const energyByStep = (steps: StepResult[]): Map<string, number[]> => {
+    const m = new Map<string, number[]>();
+    for (const s of steps) {
+      if (s.warmup) continue;
+      const v = s.energy?.incrementalJoules;
+      if (v === undefined) continue;
+      m.set(s.step, [...(m.get(s.step) ?? []), v]);
+    }
+    return m;
+  };
+
+  const baseEnergy = energyByStep(baselineSteps);
+  const stepNames = [...baseEnergy.keys()];
+
+  console.log(`\nIncremental energy vs baseline "${baselineLabel}" (median mWh, and % change)\n`);
+  const header = ['step'.padEnd(20), ...[...byLabel.keys()].map((l) => l.slice(0, 14).padStart(16))].join('');
+  console.log(header);
+  console.log('-'.repeat(header.length));
+
+  for (const step of stepNames) {
+    const cells: string[] = [step.slice(0, 19).padEnd(20)];
+    const baseMedian = median(baseEnergy.get(step) ?? []);
+    for (const [label, steps] of byLabel) {
+      const values = energyByStep(steps).get(step) ?? [];
+      if (values.length === 0) {
+        cells.push('—'.padStart(16));
+        continue;
+      }
+      const m = median(values);
+      const mwh = joulesToMilliwattHours(m).toFixed(3);
+      if (label === baselineLabel || !Number.isFinite(baseMedian) || baseMedian === 0) {
+        cells.push(mwh.padStart(16));
+      } else {
+        const pct = ((m - baseMedian) / Math.abs(baseMedian)) * 100;
+        cells.push(`${mwh} (${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%)`.padStart(16));
+      }
+    }
+    console.log(cells.join(''));
+  }
+
+  const runCount = Math.min(
+    ...[...byLabel.values()].map((s) => s.filter((x) => !x.warmup).length),
+  );
+  if (runCount < 10) {
+    console.log(
+      `\nnote: as few as ${runCount} measured runs per target. Treat as indicative only; ` +
+        'no significance is claimed.',
+    );
+  }
+}
+
 async function cmdReport(args: Args): Promise<number> {
   const file = args._[1];
   if (!file) {
@@ -629,6 +808,7 @@ async function main(): Promise<number> {
       case 'report': return await cmdReport(args);
       case 'profile': return await cmdProfile(args);
       case 'triage': return await cmdTriage(args);
+      case 'matrix': return await cmdMatrix(args);
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);
