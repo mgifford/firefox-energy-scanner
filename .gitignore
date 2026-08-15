@@ -1,7 +1,10 @@
 node_modules/
 dist/
-results/
 *.log
+
+# Local scratch output only. Anchored to the repo root so that published
+# results under site/results/ are still tracked.
+/results/
 
 # Never commit credentials.
 .env

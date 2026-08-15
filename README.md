@@ -32,6 +32,27 @@ together or converts one into the other:
 The measurement boundary is the **client machine**. Results say nothing about server,
 PHP, database, or data-centre energy, and are not a total carbon figure for a site.
 
+## Hosted scanning
+
+**<https://mgifford.github.io/firefox-energy-scanner/>**
+
+Request a scan through the web form (or by opening a `SCAN:` issue) and a GitHub
+Action runs it and publishes the results back to the site.
+
+Runner capability was measured, not assumed:
+
+| Runner | Architecture | Energy | Use for |
+|---|---|---|---|
+| `macos-latest` | arm64, AC power | **yes** — Firefox power counters | energy + network + CO2e |
+| `ubuntu-latest` | x86_64 | no counters | network + CO2e + timing only |
+
+Results from a Linux runner are labelled "no energy data" rather than quietly omitting
+it. Hosted runners are shared machines with no thermal control, so treat their numbers
+as indicative — A/B regression work belongs on a dedicated machine.
+
+Only public `http(s)` URLs are accepted. Localhost and private address ranges are
+rejected, so the scanner cannot be pointed at internal networks.
+
 ## Requirements
 
 - Node.js 20+

@@ -1,0 +1,5815 @@
+{
+  "schemaVersion": 1,
+  "session": {
+    "id": "2599e559-796f-4558-8501-721288ba6a1a",
+    "startedAt": "2026-08-15T20:24:20.659Z",
+    "mode": "measure"
+  },
+  "environment": {
+    "timestamp": "2026-08-15T20:24:20.702Z",
+    "os": "darwin",
+    "osVersion": "25.5.0",
+    "architecture": "arm64",
+    "cpuCount": 8,
+    "totalMemoryBytes": 17179869184,
+    "machineModel": "Mac14,2",
+    "firefoxVersion": "153.0",
+    "playwrightVersion": "1.62.1",
+    "co2jsVersion": "0.19.0",
+    "energyAdapter": "auto",
+    "headed": true,
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "onBattery": true,
+    "batteryPercent": 99,
+    "lowPowerMode": true
+  },
+  "target": {
+    "url": "https://mgifford.github.io/"
+  },
+  "configuration": {
+    "browser": {
+      "name": "firefox",
+      "headed": true,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      }
+    },
+    "benchmark": {
+      "warmups": 2,
+      "runs": 8,
+      "settle_ms": 1500,
+      "cache_mode": "warm"
+    },
+    "stability": {
+      "network_idle_ms": 500,
+      "post_idle_ms": 1500,
+      "max_wait_ms": 10000
+    },
+    "crawl": {
+      "enabled": false,
+      "max_pages": 100,
+      "max_depth": 5,
+      "same_origin": true,
+      "include": [],
+      "exclude": [],
+      "query_strategy": "strip",
+      "respect_robots": true,
+      "delay_ms": 250
+    },
+    "energy": {
+      "adapter": "auto",
+      "baseline": true,
+      "baseline_duration_ms": 10000,
+      "baseline_settle_ms": 5000,
+      "profiler_interval_ms": 10,
+      "retain_profile": false
+    },
+    "co2": {
+      "enabled": true,
+      "model": "swd",
+      "check_green_hosting": false
+    },
+    "sitespeed": {
+      "enabled": false
+    },
+    "output": {
+      "directory": "/private/tmp/claude-501/-Users-mgifford-ontario-home-energy-futures/e82919c3-ee09-4e02-8e9d-53db4487c782/scratchpad/pages",
+      "json": true,
+      "csv": true,
+      "html": true,
+      "collect_hostname": false
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825316244,
+      "endedAt": 1786825319177,
+      "timing": {
+        "durationMs": 2933,
+        "ttfbMs": 150,
+        "responseMs": 153,
+        "domContentLoadedMs": 385,
+        "loadMs": 386
+      },
+      "network": {
+        "requests": 11,
+        "transferBytes": 693493,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "stylesheet": {
+            "requests": 1,
+            "bytes": 3837
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          },
+          "image": {
+            "requests": 6,
+            "bytes": 608622
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200,
+            "durationMs": 165.75390625
+          },
+          {
+            "url": "https://mgifford.github.io/src/styles.css",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 3837,
+            "status": 200,
+            "durationMs": 97.7138671875
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200,
+            "durationMs": 106.030029296875
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200,
+            "durationMs": 88.529052734375
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200,
+            "durationMs": 105.05712890625
+          },
+          {
+            "url": "https://mgifford.github.io/src/assets/screenshots/daily-dap.png",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 154549,
+            "status": 200,
+            "durationMs": 98.220947265625
+          },
+          {
+            "url": "https://mgifford.github.io/src/assets/placeholder.svg",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 1139,
+            "status": 200,
+            "durationMs": 99.97705078125
+          },
+          {
+            "url": "https://mgifford.github.io/src/assets/screenshots/pdf-crawler.png",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 141842,
+            "status": 200,
+            "durationMs": 104.072021484375
+          },
+          {
+            "url": "https://mgifford.github.io/src/assets/screenshots/EchoLocate.png",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 44067,
+            "status": 200,
+            "durationMs": 111.516845703125
+          },
+          {
+            "url": "https://mgifford.github.io/src/assets/screenshots/ACCESSIBILITY.md.png",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 173958,
+            "status": 200,
+            "durationMs": 119.4599609375
+          },
+          {
+            "url": "https://mgifford.github.io/src/assets/screenshots/open-scans.png",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 93067,
+            "status": 200,
+            "durationMs": 122.927001953125
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 693493,
+        "estimatedGrams": 0.1027756626,
+        "consumerDeviceGrams": 0.055156272262,
+        "networkGrams": 0.024666159023999996,
+        "dataCenterGrams": 0.022953231314000004
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2933,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.5878569312,
+          "sampleCount": 880,
+          "averageWatts": 0.20042854797136042
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.13368491268523275,
+        "incrementalJoules": 0.4541720185147673
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825319188,
+      "endedAt": 1786825321529,
+      "timing": {
+        "durationMs": 2341,
+        "ttfbMs": 119,
+        "responseMs": 119,
+        "domContentLoadedMs": 336,
+        "loadMs": 337
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200,
+            "durationMs": 120.280029296875
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200,
+            "durationMs": 100.908935546875
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200,
+            "durationMs": 99.802001953125
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200,
+            "durationMs": 89.09521484375
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2341,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.163667772,
+          "sampleCount": 704,
+          "averageWatts": 0.06991361469457495
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.1067018004078179,
+        "incrementalJoules": 0.056965971592182085
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825321539,
+      "endedAt": 1786825323954,
+      "timing": {
+        "durationMs": 2415,
+        "ttfbMs": 384,
+        "responseMs": 385,
+        "domContentLoadedMs": 435,
+        "loadMs": 435
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200,
+            "durationMs": 386.60009765625
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2415,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.11568732479999999,
+          "sampleCount": 724,
+          "averageWatts": 0.04790365416149068
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.11007468944249475,
+        "incrementalJoules": 0.0056126353575052385
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825323967,
+      "endedAt": 1786825326094,
+      "timing": {
+        "durationMs": 2127,
+        "ttfbMs": 108,
+        "responseMs": 108,
+        "domContentLoadedMs": 121,
+        "loadMs": 135
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200,
+            "durationMs": 109.245849609375
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2127,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0814777488,
+          "sampleCount": 639,
+          "averageWatts": 0.03830641692524683
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09694776995618481,
+        "incrementalJoules": -0.015470021156184816,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825326104,
+      "endedAt": 1786825328362,
+      "timing": {
+        "durationMs": 2258,
+        "ttfbMs": 120,
+        "responseMs": 120,
+        "domContentLoadedMs": 254,
+        "loadMs": 254
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200,
+            "durationMs": 120.385986328125
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200,
+            "durationMs": 117.658935546875
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2258,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0855231192,
+          "sampleCount": 678,
+          "averageWatts": 0.037875606377325066
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.10291869513919386,
+        "incrementalJoules": -0.017395575939193858,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825328367,
+      "endedAt": 1786825331031,
+      "timing": {
+        "durationMs": 2664,
+        "ttfbMs": 106,
+        "responseMs": 106,
+        "domContentLoadedMs": 557,
+        "loadMs": 558
+      },
+      "network": {
+        "requests": 14,
+        "transferBytes": 115245,
+        "thirdPartyRequests": 4,
+        "thirdPartyBytes": 83982,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "stylesheet": {
+            "requests": 2,
+            "bytes": 5113
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "font": {
+            "requests": 3,
+            "bytes": 82653
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1783
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200,
+            "durationMs": 106.608154296875
+          },
+          {
+            "url": "https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap",
+            "domain": "fonts.googleapis.com",
+            "thirdParty": true,
+            "resourceType": "stylesheet",
+            "transferBytes": 1329,
+            "status": 200,
+            "durationMs": 116.9169921875
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200,
+            "durationMs": 122.56591796875
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200,
+            "durationMs": 125.84912109375
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/css/app.css?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 3784,
+            "status": 200,
+            "durationMs": 130.510009765625
+          },
+          {
+            "url": "https://fonts.gstatic.com/s/publicsans/v21/ijwRs572Xtc6ZYQws9YVwnNGfJ7QwOk1.woff2",
+            "domain": "fonts.gstatic.com",
+            "thirdParty": true,
+            "resourceType": "font",
+            "transferBytes": 27551,
+            "status": 200,
+            "durationMs": 70.55908203125
+          },
+          {
+            "url": "https://fonts.gstatic.com/s/publicsans/v21/ijwRs572Xtc6ZYQws9YVwnNGfJ7QwOk1.woff2",
+            "domain": "fonts.gstatic.com",
+            "thirdParty": true,
+            "resourceType": "font",
+            "transferBytes": 27551,
+            "status": 200
+          },
+          {
+            "url": "https://fonts.gstatic.com/s/publicsans/v21/ijwRs572Xtc6ZYQws9YVwnNGfJ7QwOk1.woff2",
+            "domain": "fonts.gstatic.com",
+            "thirdParty": true,
+            "resourceType": "font",
+            "transferBytes": 27551,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200,
+            "durationMs": 331.1650390625
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200,
+            "durationMs": 86.032958984375
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200,
+            "durationMs": 89.887939453125
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200,
+            "durationMs": 96.465087890625
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 878,
+            "status": 200,
+            "durationMs": 97.945068359375
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 905,
+            "status": 200,
+            "durationMs": 103.10205078125
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 115245,
+        "estimatedGrams": 0.017079309,
+        "consumerDeviceGrams": 0.00916589583,
+        "networkGrams": 0.004099034159999999,
+        "dataCenterGrams": 0.00381437901
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2664,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.142105608,
+          "sampleCount": 801,
+          "averageWatts": 0.05334294594594594
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.12142400524836688,
+        "incrementalJoules": 0.02068160275163311
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825332543,
+      "endedAt": 1786825334591,
+      "timing": {
+        "durationMs": 2048,
+        "domContentLoadedMs": 40,
+        "loadMs": 40
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 81034,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 81034,
+        "estimatedGrams": 0.012009238799999999,
+        "consumerDeviceGrams": 0.006444958156,
+        "networkGrams": 0.0028822173119999995,
+        "dataCenterGrams": 0.002682063332
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2048,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.3284869752,
+          "sampleCount": 615,
+          "averageWatts": 0.16039403085937498
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09334698301375953,
+        "incrementalJoules": 0.23513999218624043
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825334601,
+      "endedAt": 1786825336637,
+      "timing": {
+        "durationMs": 2036,
+        "domContentLoadedMs": 32,
+        "loadMs": 33
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2036,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0677459808,
+          "sampleCount": 612,
+          "averageWatts": 0.03327405736738703
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09280002803516328,
+        "incrementalJoules": -0.025054047235163288,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825336644,
+      "endedAt": 1786825338667,
+      "timing": {
+        "durationMs": 2023,
+        "domContentLoadedMs": 27,
+        "loadMs": 36
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2023,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.10048533479999999,
+          "sampleCount": 607,
+          "averageWatts": 0.04967144577360355
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09220749347501735,
+        "incrementalJoules": 0.008277841324982646
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825338679,
+      "endedAt": 1786825340702,
+      "timing": {
+        "durationMs": 2023,
+        "domContentLoadedMs": 17,
+        "loadMs": 23
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2023,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.061850862,
+          "sampleCount": 607,
+          "averageWatts": 0.030573831932773108
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09220749347501735,
+        "incrementalJoules": -0.030356631475017347,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825340709,
+      "endedAt": 1786825342734,
+      "timing": {
+        "durationMs": 2025,
+        "domContentLoadedMs": 23,
+        "loadMs": 23
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2025,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.056040768,
+          "sampleCount": 607,
+          "averageWatts": 0.027674453333333335
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09229865263811672,
+        "incrementalJoules": -0.03625788463811672,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825342744,
+      "endedAt": 1786825344820,
+      "timing": {
+        "durationMs": 2076,
+        "domContentLoadedMs": 40,
+        "loadMs": 40
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 27477,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1781
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 29.448974609375
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 904,
+            "status": 200,
+            "durationMs": 29.4208984375
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 27477,
+        "estimatedGrams": 0.004072091400000001,
+        "consumerDeviceGrams": 0.0021853557180000005,
+        "networkGrams": 0.000977301936,
+        "dataCenterGrams": 0.0009094337460000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2076,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0705329496,
+          "sampleCount": 623,
+          "averageWatts": 0.03397540924855492
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09462321129715077,
+        "incrementalJoules": -0.02409026169715077,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825346331,
+      "endedAt": 1786825348391,
+      "timing": {
+        "durationMs": 2060,
+        "domContentLoadedMs": 51,
+        "loadMs": 51
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 81034,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 81034,
+        "estimatedGrams": 0.012009238799999999,
+        "consumerDeviceGrams": 0.006444958156,
+        "networkGrams": 0.0028822173119999995,
+        "dataCenterGrams": 0.002682063332
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2061,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.32054337,
+          "sampleCount": 618,
+          "averageWatts": 0.15552807860262008
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09393951757390546,
+        "incrementalJoules": 0.22660385242609454
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825348401,
+      "endedAt": 1786825350438,
+      "timing": {
+        "durationMs": 2037,
+        "domContentLoadedMs": 32,
+        "loadMs": 32
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2037,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0582731172,
+          "sampleCount": 610,
+          "averageWatts": 0.028607323122238588
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09284560761671297,
+        "incrementalJoules": -0.03457249041671297,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825350449,
+      "endedAt": 1786825352482,
+      "timing": {
+        "durationMs": 2033,
+        "domContentLoadedMs": 36,
+        "loadMs": 36
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2033,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.09740804759999999,
+          "sampleCount": 610,
+          "averageWatts": 0.04791345184456468
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09266328929051422,
+        "incrementalJoules": 0.004744758309485772
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825352491,
+      "endedAt": 1786825354509,
+      "timing": {
+        "durationMs": 2018,
+        "domContentLoadedMs": 13,
+        "loadMs": 20
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2018,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0624409452,
+          "sampleCount": 606,
+          "averageWatts": 0.030941994648166504
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0919795955672689,
+        "incrementalJoules": -0.029538650367268895,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825354519,
+      "endedAt": 1786825356546,
+      "timing": {
+        "durationMs": 2027,
+        "domContentLoadedMs": 26,
+        "loadMs": 26
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2027,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.061077348,
+          "sampleCount": 607,
+          "averageWatts": 0.030131893438579176
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0923898118012161,
+        "incrementalJoules": -0.0313124638012161,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825356555,
+      "endedAt": 1786825358629,
+      "timing": {
+        "durationMs": 2074,
+        "domContentLoadedMs": 39,
+        "loadMs": 39
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 27477,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1781
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 27.15283203125
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 904,
+            "status": 200,
+            "durationMs": 27.10400390625
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 27477,
+        "estimatedGrams": 0.004072091400000001,
+        "consumerDeviceGrams": 0.0021853557180000005,
+        "networkGrams": 0.000977301936,
+        "dataCenterGrams": 0.0009094337460000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2074,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.07084659239999999,
+          "sampleCount": 623,
+          "averageWatts": 0.03415939845708775
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09453205213405139,
+        "incrementalJoules": -0.023685459734051395,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825360141,
+      "endedAt": 1786825362192,
+      "timing": {
+        "durationMs": 2051,
+        "domContentLoadedMs": 42,
+        "loadMs": 42
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 81034,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 81034,
+        "estimatedGrams": 0.012009238799999999,
+        "consumerDeviceGrams": 0.006444958156,
+        "networkGrams": 0.0028822173119999995,
+        "dataCenterGrams": 0.002682063332
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2051,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.319732434,
+          "sampleCount": 616,
+          "averageWatts": 0.1558909965870307
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09348372175840859,
+        "incrementalJoules": 0.22624871224159143
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825362201,
+      "endedAt": 1786825364246,
+      "timing": {
+        "durationMs": 2045,
+        "domContentLoadedMs": 42,
+        "loadMs": 42
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2045,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.05848239959999999,
+          "sampleCount": 612,
+          "averageWatts": 0.028597750415647917
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09321024426911047,
+        "incrementalJoules": -0.034727844669110476,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825364254,
+      "endedAt": 1786825366281,
+      "timing": {
+        "durationMs": 2027,
+        "domContentLoadedMs": 33,
+        "loadMs": 42
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2027,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.102672234,
+          "sampleCount": 608,
+          "averageWatts": 0.05065231080414405
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0923898118012161,
+        "incrementalJoules": 0.010282422198783905
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825366290,
+      "endedAt": 1786825368314,
+      "timing": {
+        "durationMs": 2024,
+        "domContentLoadedMs": 17,
+        "loadMs": 24
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2024,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.060601482000000005,
+          "sampleCount": 607,
+          "averageWatts": 0.02994144367588933
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09225307305656703,
+        "incrementalJoules": -0.03165159105656703,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825368320,
+      "endedAt": 1786825370343,
+      "timing": {
+        "durationMs": 2023,
+        "domContentLoadedMs": 21,
+        "loadMs": 27
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2023,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.04826979,
+          "sampleCount": 606,
+          "averageWatts": 0.02386049925852694
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09220749347501735,
+        "incrementalJoules": -0.043937703475017346,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825370353,
+      "endedAt": 1786825372703,
+      "timing": {
+        "durationMs": 2350,
+        "domContentLoadedMs": 41,
+        "loadMs": 42
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 27478,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1782
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 97.066162109375
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 905,
+            "status": 200,
+            "durationMs": 300.923828125
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 27478,
+        "estimatedGrams": 0.0040722396,
+        "consumerDeviceGrams": 0.002185435252,
+        "networkGrams": 0.000977337504,
+        "dataCenterGrams": 0.0009094668439999999
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2350,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0753380424,
+          "sampleCount": 705,
+          "averageWatts": 0.03205874144680851
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.10711201664176509,
+        "incrementalJoules": -0.03177397424176509,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825374216,
+      "endedAt": 1786825376270,
+      "timing": {
+        "durationMs": 2054,
+        "domContentLoadedMs": 31,
+        "loadMs": 31
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 81034,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 81034,
+        "estimatedGrams": 0.012009238799999999,
+        "consumerDeviceGrams": 0.006444958156,
+        "networkGrams": 0.0028822173119999995,
+        "dataCenterGrams": 0.002682063332
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2054,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.5248052747999999,
+          "sampleCount": 617,
+          "averageWatts": 0.2555040286270691
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09362046050305764,
+        "incrementalJoules": 0.43118481429694233
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825376275,
+      "endedAt": 1786825378306,
+      "timing": {
+        "durationMs": 2031,
+        "domContentLoadedMs": 28,
+        "loadMs": 33
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2031,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.075702312,
+          "sampleCount": 609,
+          "averageWatts": 0.03727341802067946
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09257213012741485,
+        "incrementalJoules": -0.01686981812741485,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825378316,
+      "endedAt": 1786825380342,
+      "timing": {
+        "durationMs": 2026,
+        "domContentLoadedMs": 32,
+        "loadMs": 40
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2026,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.1405591704,
+          "sampleCount": 609,
+          "averageWatts": 0.0693776754195459
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0923442322196664,
+        "incrementalJoules": 0.048214938180333594
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825380354,
+      "endedAt": 1786825382378,
+      "timing": {
+        "durationMs": 2024,
+        "domContentLoadedMs": 19,
+        "loadMs": 25
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2024,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0654712056,
+          "sampleCount": 606,
+          "averageWatts": 0.03234743359683794
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09225307305656703,
+        "incrementalJoules": -0.026781867456567035,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825382388,
+      "endedAt": 1786825384416,
+      "timing": {
+        "durationMs": 2028,
+        "domContentLoadedMs": 24,
+        "loadMs": 27
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2028,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0699656148,
+          "sampleCount": 609,
+          "averageWatts": 0.0344998100591716
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09243539138276578,
+        "incrementalJoules": -0.022469776582765777,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825384424,
+      "endedAt": 1786825386473,
+      "timing": {
+        "durationMs": 2049,
+        "domContentLoadedMs": 26,
+        "loadMs": 29
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 27477,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1781
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 18.376953125
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 904,
+            "status": 200,
+            "durationMs": 18.58203125
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 27477,
+        "estimatedGrams": 0.004072091400000001,
+        "consumerDeviceGrams": 0.0021853557180000005,
+        "networkGrams": 0.000977301936,
+        "dataCenterGrams": 0.0009094337460000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2049,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0714771072,
+          "sampleCount": 615,
+          "averageWatts": 0.034883898096632504
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09339256259530922,
+        "incrementalJoules": -0.021915455395309216,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825387985,
+      "endedAt": 1786825390024,
+      "timing": {
+        "durationMs": 2039,
+        "domContentLoadedMs": 31,
+        "loadMs": 34
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 81034,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 81034,
+        "estimatedGrams": 0.012009238799999999,
+        "consumerDeviceGrams": 0.006444958156,
+        "networkGrams": 0.0028822173119999995,
+        "dataCenterGrams": 0.002682063332
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2039,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.3085112952,
+          "sampleCount": 612,
+          "averageWatts": 0.15130519627268266
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09293676677981234,
+        "incrementalJoules": 0.21557452842018765
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825390035,
+      "endedAt": 1786825392066,
+      "timing": {
+        "durationMs": 2031,
+        "domContentLoadedMs": 28,
+        "loadMs": 31
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2031,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.06749524439999999,
+          "sampleCount": 609,
+          "averageWatts": 0.03323251816838995
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09257213012741485,
+        "incrementalJoules": -0.025076885727414858,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825392072,
+      "endedAt": 1786825394095,
+      "timing": {
+        "durationMs": 2023,
+        "domContentLoadedMs": 27,
+        "loadMs": 36
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2023,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.15861129119999998,
+          "sampleCount": 606,
+          "averageWatts": 0.07840399960454768
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09220749347501735,
+        "incrementalJoules": 0.06640379772498263
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825394105,
+      "endedAt": 1786825396132,
+      "timing": {
+        "durationMs": 2027,
+        "domContentLoadedMs": 21,
+        "loadMs": 28
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2027,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.17093162879999999,
+          "sampleCount": 609,
+          "averageWatts": 0.08432739457326097
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0923898118012161,
+        "incrementalJoules": 0.07854181699878389
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825396145,
+      "endedAt": 1786825398170,
+      "timing": {
+        "durationMs": 2025,
+        "domContentLoadedMs": 22,
+        "loadMs": 24
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2025,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.1076556816,
+          "sampleCount": 607,
+          "averageWatts": 0.05316329955555556
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09229865263811672,
+        "incrementalJoules": 0.015357028961883276
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825398174,
+      "endedAt": 1786825400232,
+      "timing": {
+        "durationMs": 2058,
+        "domContentLoadedMs": 25,
+        "loadMs": 25
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 27477,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1781
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 19.639892578125
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 904,
+            "status": 200,
+            "durationMs": 20.277099609375
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 27477,
+        "estimatedGrams": 0.004072091400000001,
+        "consumerDeviceGrams": 0.0021853557180000005,
+        "networkGrams": 0.000977301936,
+        "dataCenterGrams": 0.0009094337460000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2058,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.1023876864,
+          "sampleCount": 618,
+          "averageWatts": 0.04975106239067056
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09380277882925639,
+        "incrementalJoules": 0.008584907570743608
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825401746,
+      "endedAt": 1786825403783,
+      "timing": {
+        "durationMs": 2037,
+        "domContentLoadedMs": 32,
+        "loadMs": 34
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 81034,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 81034,
+        "estimatedGrams": 0.012009238799999999,
+        "consumerDeviceGrams": 0.006444958156,
+        "networkGrams": 0.0028822173119999995,
+        "dataCenterGrams": 0.002682063332
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2037,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.308006892,
+          "sampleCount": 612,
+          "averageWatts": 0.1512061325478645
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09284560761671297,
+        "incrementalJoules": 0.21516128438328702
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825403796,
+      "endedAt": 1786825405824,
+      "timing": {
+        "durationMs": 2028,
+        "domContentLoadedMs": 24,
+        "loadMs": 29
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2028,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.055950008399999994,
+          "sampleCount": 609,
+          "averageWatts": 0.027588761538461536
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09243539138276578,
+        "incrementalJoules": -0.03648538298276579,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825405834,
+      "endedAt": 1786825407861,
+      "timing": {
+        "durationMs": 2027,
+        "domContentLoadedMs": 30,
+        "loadMs": 39
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2027,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0912896208,
+          "sampleCount": 609,
+          "averageWatts": 0.04503681341884558
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0923898118012161,
+        "incrementalJoules": -0.001100191001216097,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825407864,
+      "endedAt": 1786825409882,
+      "timing": {
+        "durationMs": 2018,
+        "domContentLoadedMs": 15,
+        "loadMs": 21
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2018,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0939565404,
+          "sampleCount": 606,
+          "averageWatts": 0.04655923706640238
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0919795955672689,
+        "incrementalJoules": 0.0019769448327311007
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825409889,
+      "endedAt": 1786825411911,
+      "timing": {
+        "durationMs": 2022,
+        "domContentLoadedMs": 19,
+        "loadMs": 20
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2022,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.05313051,
+          "sampleCount": 608,
+          "averageWatts": 0.026276216617210683
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09216191389346765,
+        "incrementalJoules": -0.039031403893467646,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825411918,
+      "endedAt": 1786825413972,
+      "timing": {
+        "durationMs": 2054,
+        "domContentLoadedMs": 29,
+        "loadMs": 30
+      },
+      "network": {
+        "requests": 11,
+        "transferBytes": 32590,
+        "thirdPartyRequests": 1,
+        "thirdPartyBytes": 1329,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "stylesheet": {
+            "requests": 2,
+            "bytes": 5113
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1781
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap",
+            "domain": "fonts.googleapis.com",
+            "thirdParty": true,
+            "resourceType": "stylesheet",
+            "transferBytes": 1329,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/css/app.css?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 3784,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 20.554931640625
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 904,
+            "status": 200,
+            "durationMs": 20.843017578125
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 32590,
+        "estimatedGrams": 0.0048298379999999995,
+        "consumerDeviceGrams": 0.0025920130599999995,
+        "networkGrams": 0.0011591611199999999,
+        "dataCenterGrams": 0.0010786638199999999
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2054,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.08347041,
+          "sampleCount": 618,
+          "averageWatts": 0.04063797955209348
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09362046050305764,
+        "incrementalJoules": -0.010150050503057645,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825415487,
+      "endedAt": 1786825417529,
+      "timing": {
+        "durationMs": 2042,
+        "domContentLoadedMs": 30,
+        "loadMs": 33
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 81034,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 81034,
+        "estimatedGrams": 0.012009238799999999,
+        "consumerDeviceGrams": 0.006444958156,
+        "networkGrams": 0.0028822173119999995,
+        "dataCenterGrams": 0.002682063332
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2042,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.310983966,
+          "sampleCount": 610,
+          "averageWatts": 0.15229381292850147
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09307350552446139,
+        "incrementalJoules": 0.2179104604755386
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825417540,
+      "endedAt": 1786825419571,
+      "timing": {
+        "durationMs": 2031,
+        "domContentLoadedMs": 27,
+        "loadMs": 30
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2031,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.060854472,
+          "sampleCount": 610,
+          "averageWatts": 0.029962812407680943
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09257213012741485,
+        "incrementalJoules": -0.031717658127414845,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825419577,
+      "endedAt": 1786825421601,
+      "timing": {
+        "durationMs": 2024,
+        "domContentLoadedMs": 40,
+        "loadMs": 40
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2024,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.11167536959999999,
+          "sampleCount": 606,
+          "averageWatts": 0.05517557786561264
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09225307305656703,
+        "incrementalJoules": 0.019422296543432957
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825421606,
+      "endedAt": 1786825423625,
+      "timing": {
+        "durationMs": 2019,
+        "domContentLoadedMs": 17,
+        "loadMs": 25
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2019,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0648534348,
+          "sampleCount": 606,
+          "averageWatts": 0.03212156255572065
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0920251751488186,
+        "incrementalJoules": -0.0271717403488186,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825423632,
+      "endedAt": 1786825425654,
+      "timing": {
+        "durationMs": 2022,
+        "domContentLoadedMs": 18,
+        "loadMs": 20
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2022,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.059767304400000006,
+          "sampleCount": 606,
+          "averageWatts": 0.029558508605341254
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09216191389346765,
+        "incrementalJoules": -0.03239460949346764,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825425667,
+      "endedAt": 1786825427726,
+      "timing": {
+        "durationMs": 2059,
+        "domContentLoadedMs": 34,
+        "loadMs": 36
+      },
+      "network": {
+        "requests": 11,
+        "transferBytes": 32590,
+        "thirdPartyRequests": 1,
+        "thirdPartyBytes": 1329,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "stylesheet": {
+            "requests": 2,
+            "bytes": 5113
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1781
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap",
+            "domain": "fonts.googleapis.com",
+            "thirdParty": true,
+            "resourceType": "stylesheet",
+            "transferBytes": 1329,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/css/app.css?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 3784,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 17.484130859375
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 904,
+            "status": 200,
+            "durationMs": 20.406005859375
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 32590,
+        "estimatedGrams": 0.0048298379999999995,
+        "consumerDeviceGrams": 0.0025920130599999995,
+        "networkGrams": 0.0011591611199999999,
+        "dataCenterGrams": 0.0010786638199999999
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2059,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0708022584,
+          "sampleCount": 618,
+          "averageWatts": 0.034386720932491496
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09384835841080609,
+        "incrementalJoules": -0.023046100010806092,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825429237,
+      "endedAt": 1786825431275,
+      "timing": {
+        "durationMs": 2038,
+        "domContentLoadedMs": 30,
+        "loadMs": 32
+      },
+      "network": {
+        "requests": 5,
+        "transferBytes": 84871,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "stylesheet": {
+            "requests": 1,
+            "bytes": 3837
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/styles.css",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 3837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 84871,
+        "estimatedGrams": 0.012577882199999998,
+        "consumerDeviceGrams": 0.0067501301139999996,
+        "networkGrams": 0.0030186917279999997,
+        "dataCenterGrams": 0.0028090603579999994
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2038,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.31126701599999995,
+          "sampleCount": 612,
+          "averageWatts": 0.15273160745829242
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09289118719826264,
+        "incrementalJoules": 0.2183758288017373
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825431282,
+      "endedAt": 1786825433307,
+      "timing": {
+        "durationMs": 2025,
+        "domContentLoadedMs": 24,
+        "loadMs": 29
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2025,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0623658132,
+          "sampleCount": 607,
+          "averageWatts": 0.030797932444444447
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09229865263811672,
+        "incrementalJoules": -0.02993283943811672,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825433321,
+      "endedAt": 1786825435347,
+      "timing": {
+        "durationMs": 2026,
+        "domContentLoadedMs": 35,
+        "loadMs": 48
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2026,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.1172881512,
+          "sampleCount": 604,
+          "averageWatts": 0.05789148627838105
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0923442322196664,
+        "incrementalJoules": 0.0249439189803336
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825435355,
+      "endedAt": 1786825437375,
+      "timing": {
+        "durationMs": 2020,
+        "domContentLoadedMs": 19,
+        "loadMs": 25
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2020,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.060630408000000004,
+          "sampleCount": 605,
+          "averageWatts": 0.030015053465346535
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09207075473036828,
+        "incrementalJoules": -0.03144034673036828,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825437383,
+      "endedAt": 1786825439406,
+      "timing": {
+        "durationMs": 2023,
+        "domContentLoadedMs": 20,
+        "loadMs": 22
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2023,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.07356701880000001,
+          "sampleCount": 609,
+          "averageWatts": 0.03636530835392981
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09220749347501735,
+        "incrementalJoules": -0.018640474675017338,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825439421,
+      "endedAt": 1786825441474,
+      "timing": {
+        "durationMs": 2053,
+        "domContentLoadedMs": 29,
+        "loadMs": 32
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 27477,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1781
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 17.31787109375
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 904,
+            "status": 200,
+            "durationMs": 18.857177734375
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 27477,
+        "estimatedGrams": 0.004072091400000001,
+        "consumerDeviceGrams": 0.0021853557180000005,
+        "networkGrams": 0.000977301936,
+        "dataCenterGrams": 0.0009094337460000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2053,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.108928152,
+          "sampleCount": 615,
+          "averageWatts": 0.053058037993180714
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09357488092150797,
+        "incrementalJoules": 0.015353271078492034
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/",
+      "startedAt": 1786825442981,
+      "endedAt": 1786825445021,
+      "timing": {
+        "durationMs": 2040,
+        "domContentLoadedMs": 36,
+        "loadMs": 38
+      },
+      "network": {
+        "requests": 5,
+        "transferBytes": 84871,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 3115
+          },
+          "stylesheet": {
+            "requests": 1,
+            "bytes": 3837
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 11233
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 66686
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 3115,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/styles.css",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 3837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/app.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 8433,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/src/filters.mjs",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2800,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/data/site-data.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 66686,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 84871,
+        "estimatedGrams": 0.012577882199999998,
+        "consumerDeviceGrams": 0.0067501301139999996,
+        "networkGrams": 0.0030186917279999997,
+        "dataCenterGrams": 0.0028090603579999994
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2040,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.3459407508,
+          "sampleCount": 603,
+          "averageWatts": 0.16957879941176468
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09298234636136203,
+        "incrementalJoules": 0.25295840443863793
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786825445027,
+      "endedAt": 1786825447061,
+      "timing": {
+        "durationMs": 2034,
+        "domContentLoadedMs": 36,
+        "loadMs": 37
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18009,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8394
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8180
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1435
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8394,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5804,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1435,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2376,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18009,
+        "estimatedGrams": 0.0026689338,
+        "consumerDeviceGrams": 0.001432327806,
+        "networkGrams": 0.000640544112,
+        "dataCenterGrams": 0.000596061882
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2034,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.06973965359999999,
+          "sampleCount": 606,
+          "averageWatts": 0.03428694867256637
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.0927088688720639,
+        "incrementalJoules": -0.0229692152720639,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786825447072,
+      "endedAt": 1786825449100,
+      "timing": {
+        "durationMs": 2028,
+        "domContentLoadedMs": 33,
+        "loadMs": 41
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 35815,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 35815
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 35815,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 35815,
+        "estimatedGrams": 0.005307783000000001,
+        "consumerDeviceGrams": 0.0028485102100000003,
+        "networkGrams": 0.0012738679200000002,
+        "dataCenterGrams": 0.0011854048700000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2028,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.1003289688,
+          "sampleCount": 609,
+          "averageWatts": 0.049471878106508875
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09243539138276578,
+        "incrementalJoules": 0.007893577417234218
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/trends.html",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/trends.html",
+      "startedAt": 1786825449103,
+      "endedAt": 1786825451124,
+      "timing": {
+        "durationMs": 2021,
+        "domContentLoadedMs": 16,
+        "loadMs": 25
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 6582,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 6582
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/trends.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 6582,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 6582,
+        "estimatedGrams": 0.0009754524,
+        "consumerDeviceGrams": 0.0005234927880000001,
+        "networkGrams": 0.000234108576,
+        "dataCenterGrams": 0.00021785103600000002
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2021,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0891459504,
+          "sampleCount": 606,
+          "averageWatts": 0.04410982206828303
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09211633431191797,
+        "incrementalJoules": -0.002970383911917965,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/alt-text-scan/",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/alt-text-scan/",
+      "startedAt": 1786825451131,
+      "endedAt": 1786825453156,
+      "timing": {
+        "durationMs": 2025,
+        "domContentLoadedMs": 24,
+        "loadMs": 28
+      },
+      "network": {
+        "requests": 2,
+        "transferBytes": 11173,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 5837
+          },
+          "script": {
+            "requests": 1,
+            "bytes": 5336
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5837,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/alt-text-scan/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5336,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 11173,
+        "estimatedGrams": 0.0016558386,
+        "consumerDeviceGrams": 0.000888633382,
+        "networkGrams": 0.000397401264,
+        "dataCenterGrams": 0.000369803954
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2025,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.05276241,
+          "sampleCount": 603,
+          "averageWatts": 0.026055511111111113
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09229865263811672,
+        "incrementalJoules": -0.03953624263811672,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/top-task-finder/",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/top-task-finder/",
+      "startedAt": 1786825453161,
+      "endedAt": 1786825455228,
+      "timing": {
+        "durationMs": 2067,
+        "domContentLoadedMs": 32,
+        "loadMs": 34
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 27477,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4501
+          },
+          "script": {
+            "requests": 6,
+            "bytes": 21195
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 1781
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/top-task-finder/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4501,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/app.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6398,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/local-ai.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 4771,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/theme.js?v=1786632328",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1550,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/selection.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1610,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/cache.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1370,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/assets/js/discovery.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5496,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/runtime.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 904,
+            "status": 200,
+            "durationMs": 29.2939453125
+          },
+          {
+            "url": "https://mgifford.github.io/top-task-finder/config/limits.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 877,
+            "status": 200,
+            "durationMs": 29.389892578125
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 27477,
+        "estimatedGrams": 0.004072091400000001,
+        "consumerDeviceGrams": 0.0021853557180000005,
+        "networkGrams": 0.000977301936,
+        "dataCenterGrams": 0.0009094337460000001
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2067,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0693141696,
+          "sampleCount": 619,
+          "averageWatts": 0.033533705660377354
+        },
+        "baselineWatts": 0.04557958154968727,
+        "estimatedIdleJoules": 0.09421299506320359,
+        "incrementalJoules": -0.024898825463203586,
+        "negativeIncremental": true
+      }
+    }
+  ],
+  "baseline": {
+    "watts": 0.04557958154968727,
+    "durationMs": 11512,
+    "samples": 3453,
+    "adapterId": "firefox-profiler"
+  },
+  "warnings": []
+}
