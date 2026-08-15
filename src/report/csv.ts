@@ -8,7 +8,7 @@ const COLUMNS = [
   'raw_joules', 'baseline_watts', 'estimated_idle_joules', 'incremental_joules',
   'energy_scope', 'energy_type', 'energy_adapter', 'energy_samples',
   'firefox_version', 'playwright_version', 'co2js_version',
-  'os', 'architecture', 'headed', 'cache_mode', 'on_battery', 'valid',
+  'os', 'architecture', 'headed', 'cache_mode', 'on_battery', 'low_power_mode', 'valid',
 ] as const;
 
 /** RFC4180-style escaping. */
@@ -59,6 +59,7 @@ export function toCsv(result: BenchmarkResult): string {
       headed: env.headed,
       cache_mode: cacheMode,
       on_battery: env.onBattery,
+      low_power_mode: env.lowPowerMode,
       valid: s.valid,
     };
     lines.push(COLUMNS.map((c) => cell(row[c])).join(','));

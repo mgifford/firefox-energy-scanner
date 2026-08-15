@@ -27,22 +27,37 @@ export function playwrightVersion(): string {
 export interface PowerState {
   onBattery?: boolean;
   batteryPercent?: number;
+  /**
+   * macOS Low Power Mode. It throttles CPU frequency and therefore suppresses
+   * measured energy, so runs made with it on are not comparable to runs with
+   * it off.
+   */
+  lowPowerMode?: boolean;
 }
 
 /** Read power source on macOS. Power state materially affects energy behaviour. */
 export async function readPowerState(): Promise<PowerState> {
   if (process.platform !== 'darwin') return {};
+  const state: PowerState = {};
+
   try {
     const { stdout } = await execFileAsync('pmset', ['-g', 'ps'], { timeout: 4000 });
-    const onBattery = /Now drawing from 'Battery Power'/.test(stdout);
+    state.onBattery = /Now drawing from 'Battery Power'/.test(stdout);
     const pct = /(\d+)%/.exec(stdout);
-    return {
-      onBattery,
-      ...(pct ? { batteryPercent: Number.parseInt(pct[1]!, 10) } : {}),
-    };
+    if (pct) state.batteryPercent = Number.parseInt(pct[1]!, 10);
   } catch {
-    return {};
+    /* power source unavailable */
   }
+
+  try {
+    const { stdout } = await execFileAsync('pmset', ['-g'], { timeout: 4000 });
+    const match = /^\s*lowpowermode\s+(\d+)/m.exec(stdout);
+    if (match) state.lowPowerMode = match[1] === '1';
+  } catch {
+    /* low power mode unavailable */
+  }
+
+  return state;
 }
 
 async function machineModel(): Promise<string | undefined> {

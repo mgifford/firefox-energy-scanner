@@ -51,10 +51,15 @@ export async function loginDrupal(page: Page, options: DrupalLoginOptions): Prom
   await nameField.fill(options.username);
   await passField.fill(options.password);
 
+  // Wait for the navigation the submit triggers, rather than racing a
+  // waitForLoadState against the current document: Drupal redirects after
+  // login, and a premature resolve leaves document.body still null.
   await Promise.all([
-    page.waitForLoadState('domcontentloaded'),
+    page.waitForURL((url) => !url.pathname.endsWith(loginPath), { timeout: 30000 }).catch(() => {}),
     page.locator('#edit-submit, input[type="submit"], button[type="submit"]').first().click(),
   ]);
+  await page.waitForLoadState('load').catch(() => {});
+  await page.waitForSelector('body', { timeout: 15000 }).catch(() => {});
 
   if (!(await isLoggedIn(page))) {
     // Deliberately does not echo the submitted credentials.
@@ -72,12 +77,15 @@ export async function loginDrupal(page: Page, options: DrupalLoginOptions): Prom
  */
 export async function isLoggedIn(page: Page): Promise<boolean> {
   try {
+    // The document may still be parsing straight after a redirect.
+    await page.waitForSelector('body', { timeout: 5000 }).catch(() => {});
     const hasLoggedInClass = await page
       .locator('body.user-logged-in')
       .count()
       .then((c) => c > 0);
     if (hasLoggedInClass) return true;
-    const logout = await page.locator('a[href$="/user/logout"], a[href*="/user/logout?"]').count();
+    // Logout links carry a CSRF token query string, so match on the path.
+    const logout = await page.locator('a[href*="/user/logout"]').count();
     return logout > 0;
   } catch {
     return false;

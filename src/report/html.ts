@@ -254,7 +254,20 @@ ${
     <dt>Browser mode</dt><dd>${env.headed ? 'headed' : 'headless'}</dd>
     <dt>Viewport</dt><dd>${esc(env.viewport.width)}×${esc(env.viewport.height)}</dd>
     <dt>Power source</dt><dd>${env.onBattery === undefined ? 'unknown' : env.onBattery ? 'battery' : 'AC'}</dd>
+    <dt>Low Power Mode</dt><dd>${env.lowPowerMode === undefined ? 'unknown' : env.lowPowerMode ? 'ON — CPU throttled, energy suppressed' : 'off'}</dd>
   </dl>
+  ${
+    env.lowPowerMode || env.onBattery
+      ? `<p class="warning">
+      These measurements were taken
+      ${env.onBattery ? 'on <strong>battery power</strong>' : ''}
+      ${env.onBattery && env.lowPowerMode ? ' with ' : ''}
+      ${env.lowPowerMode ? '<strong>Low Power Mode enabled</strong>' : ''}.
+      Both change CPU and power-management behaviour. Compare these results only
+      against runs made under the same conditions.
+    </p>`
+      : ''
+  }
 </section>
 
 <section aria-labelledby="method-h">

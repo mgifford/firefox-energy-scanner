@@ -186,6 +186,17 @@ async function cmdDoctor(): Promise<number> {
     ok('Running on AC power');
   }
 
+  if (power.lowPowerMode === undefined) {
+    warn('Low Power Mode state could not be determined');
+  } else if (power.lowPowerMode) {
+    warn(
+      'Low Power Mode is ON. It throttles CPU frequency and suppresses measured energy. ' +
+        'Turn it off for benchmarking, and never compare these runs against runs made with it off.',
+    );
+  } else {
+    ok('Low Power Mode is off');
+  }
+
   lines.push('');
   lines.push('Credentials');
   if (process.env.DRUPAL_USERNAME && process.env.DRUPAL_PASSWORD) {

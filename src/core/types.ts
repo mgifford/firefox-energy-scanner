@@ -159,6 +159,8 @@ export interface EnvironmentInfo {
   viewport: { width: number; height: number };
   onBattery?: boolean;
   batteryPercent?: number;
+  /** macOS Low Power Mode throttles the CPU and suppresses measured energy. */
+  lowPowerMode?: boolean;
   /** Omitted when identifying data collection is disabled. */
   hostname?: string;
 }
