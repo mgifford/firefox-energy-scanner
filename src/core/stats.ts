@@ -95,6 +95,63 @@ export function spearman(xs: number[], ys: number[]): number {
   return den === 0 ? Number.NaN : num / den;
 }
 
+/**
+ * Is a measured effect larger than its own run-to-run scatter?
+ *
+ * Lightweight static pages often produce a signal smaller than the noise: the
+ * page paints and the browser goes idle, so there is little to detect. Saying
+ * so explicitly stops a difference that is indistinguishable from noise being
+ * read as a real one.
+ */
+export interface Resolution {
+  /** Median of the measured values. */
+  median: number;
+  /** Interquartile range, used as the noise estimate. */
+  noise: number;
+  /** |median| / IQR. Above 1 the effect exceeds its own scatter. */
+  ratio: number;
+  resolved: boolean;
+  note?: string;
+}
+
+export function resolution(values: number[]): Resolution {
+  const s = summarize(values);
+  const noise = s.iqr;
+  const ratio = noise > 0 ? Math.abs(s.median) / noise : Number.POSITIVE_INFINITY;
+
+  // A negative median means the workload measured below the idle baseline.
+  // However tight the cluster, that is not a positive energy cost: the
+  // workload is at or under the noise floor and cannot be resolved.
+  if (s.count === 0) {
+    return { median: s.median, noise, ratio, resolved: false, note: 'No energy measurements.' };
+  }
+  if (s.median <= 0) {
+    return {
+      median: s.median,
+      noise,
+      ratio,
+      resolved: false,
+      note:
+        'Median incremental energy is at or below zero: the workload did not measurably exceed ' +
+        'idle. It is below the resolution of this setup; do not report it as an energy cost.',
+    };
+  }
+  const resolved = Number.isFinite(ratio) ? ratio >= 1 : true;
+  return {
+    median: s.median,
+    noise,
+    ratio,
+    resolved,
+    ...(resolved
+      ? {}
+      : {
+          note:
+            'The measured effect is smaller than the run-to-run spread (|median| < IQR). ' +
+            'This workload is below the resolution of the measurement setup; do not report it as a difference.',
+        }),
+  };
+}
+
 export interface ComparisonResult {
   a: Summary;
   b: Summary;

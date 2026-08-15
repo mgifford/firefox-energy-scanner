@@ -20,7 +20,7 @@ import { loadMatrix, triageMatrix, baselineOf } from './matrix.js';
 import { interleavedOrderN } from '../core/stats.js';
 import { toCsv, groupByStep } from '../report/csv.js';
 import { toHtml } from '../report/html.js';
-import { summarize, compare, interleavedOrder, median } from '../core/stats.js';
+import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import { SCHEMA_VERSION, type BenchmarkResult, type StepResult } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
@@ -233,22 +233,40 @@ function printSummary(steps: StepResult[]): void {
     console.log('\nNo measured runs recorded.');
     return;
   }
-  console.log('\nScenario                         Transfer     CO2.js       Energy');
-  console.log('-------------------------------------------------------------------');
+  console.log('\nScenario                         Transfer     CO2.js       Energy  Resolved');
+  console.log('-----------------------------------------------------------------------------');
+  let unresolved = 0;
   for (const [step, runs] of byStep) {
     const bytes = summarize(runs.map((r) => r.network?.transferBytes ?? Number.NaN));
     const co2 = summarize(runs.map((r) => r.co2?.estimatedGrams ?? Number.NaN));
-    const energy = summarize(
-      runs.map((r) => r.energy?.incrementalJoules).filter((v): v is number => v !== undefined),
-    );
-    const name = step.length > 30 ? `${step.slice(0, 27)}...` : step.padEnd(30);
+    const energyValues = runs
+      .map((r) => r.energy?.incrementalJoules)
+      .filter((v): v is number => v !== undefined);
+    const energy = summarize(energyValues);
+    const res = resolution(energyValues);
+
+    // Show the tail of long URLs rather than the head; the distinguishing part
+    // of a URL is usually at the end.
+    const name = (step.length > 30 ? `...${step.slice(-27)}` : step).padEnd(30);
     const kb = Number.isFinite(bytes.median) ? `${(bytes.median / 1024).toFixed(0)} KB`.padStart(10) : '        — ';
     const mg = Number.isFinite(co2.median) ? `${(co2.median * 1000).toFixed(3)} mg`.padStart(12) : '           —';
     const mwh = energy.count
       ? `${joulesToMilliwattHours(energy.median).toFixed(3)} mWh`.padStart(12)
       : '           —';
-    console.log(`${name}${kb}${mg}${mwh}`);
+    const flag = energy.count === 0 ? '    —' : res.resolved ? '  yes' : '   NO';
+    if (energy.count > 0 && !res.resolved) unresolved++;
+    console.log(`${name}${kb}${mg}${mwh}${flag}`);
   }
+
+  if (unresolved > 0) {
+    console.log(
+      `\nwarning: ${unresolved} scenario(s) marked NO under "Resolved": the measured energy is\n` +
+        'smaller than its own run-to-run spread (|median| < IQR). Those values are below the\n' +
+        'resolution of this setup and must not be reported as differences. Lightweight static\n' +
+        'pages commonly fall here — they paint and then the browser goes idle.',
+    );
+  }
+
   console.log(
     '\nCO2.js is a modelled estimate from transferred bytes. Energy is observed on this client.\nThey have different system boundaries and are not interchangeable.',
   );

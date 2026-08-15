@@ -6,6 +6,7 @@ import {
   spearman,
   compare,
   interleavedOrder,
+  resolution,
 } from '../src/core/stats.js';
 
 describe('percentile / median', () => {
@@ -106,5 +107,44 @@ describe('interleavedOrder', () => {
     const order = interleavedOrder(10, 'x').join('');
     expect(order).not.toBe('a'.repeat(10) + 'b'.repeat(10));
     expect(order).not.toBe('b'.repeat(10) + 'a'.repeat(10));
+  });
+});
+
+describe('resolution', () => {
+  it('resolves an effect larger than its own spread', () => {
+    const r = resolution([1.0, 1.05, 0.95, 1.02, 0.98]);
+    expect(r.resolved).toBe(true);
+    expect(r.note).toBeUndefined();
+  });
+
+  it('does not resolve an effect smaller than its spread', () => {
+    // median ~0.01, IQR ~1.0
+    const r = resolution([-0.5, 0.01, 0.5, -0.4, 0.45]);
+    expect(r.resolved).toBe(false);
+    expect(r.note).toMatch(/smaller than the run-to-run spread/);
+  });
+
+  /**
+   * A tight cluster below the idle baseline is still unresolvable: the
+   * workload did not measurably exceed idle, however consistent the readings.
+   */
+  it('does not resolve a consistently negative median', () => {
+    const r = resolution([-0.009, -0.0091, -0.0089, -0.0092, -0.0088]);
+    expect(r.resolved).toBe(false);
+    expect(r.note).toMatch(/at or below zero/);
+  });
+
+  it('does not resolve a zero median', () => {
+    expect(resolution([0, 0, 0]).resolved).toBe(false);
+  });
+
+  it('does not resolve an empty set', () => {
+    const r = resolution([]);
+    expect(r.resolved).toBe(false);
+    expect(r.note).toMatch(/No energy measurements/);
+  });
+
+  it('resolves a positive median with zero spread', () => {
+    expect(resolution([2, 2, 2]).resolved).toBe(true);
   });
 });

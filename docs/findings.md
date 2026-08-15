@@ -97,7 +97,58 @@ frontend-oriented (#3568172, moving `.js-show`/`.js-hide` styles to a conditiona
 loaded library; #3587098, `sizes="auto"` for lazy-loaded images). Client-side energy
 regression testing is most applicable to that minority.
 
-## 5. Defects caught by the validation protocol
+## 5. Lightweight static sites fall below the resolution of this setup
+
+Six GitHub Pages sites (mgifford.github.io and open-scans), 8 measured runs each,
+on battery with Low Power Mode ON:
+
+| Page | Transfer | CO2.js | Energy | Resolved |
+|---|---|---|---|---|
+| `/` | 79 KB | 12.009 mg | 0.062 mWh | yes |
+| `/open-scans/` | 18 KB | 2.669 mg | −0.009 mWh | **NO** |
+| `/open-scans/reports.html` | 35 KB | 5.308 mg | 0.004 mWh | **NO** |
+| `/open-scans/trends.html` | 6 KB | 0.975 mg | −0.007 mWh | **NO** |
+| `/alt-text-scan/` | 11 KB | 1.656 mg | −0.009 mWh | **NO** |
+| `/top-task-finder/` | 27 KB | 4.072 mg | −0.006 mWh | **NO** |
+
+Five of six measured *below* the idle baseline, and 28 of 48 runs were negative.
+These are static pages: they load, paint, and the browser goes idle. There is very
+little client-side work to detect, and what exists sits under the noise floor —
+especially with Low Power Mode throttling the CPU.
+
+**This is a negative result and is reported as one.** Only the root page produced a
+resolvable measurement. The other five must not be ranked against each other; the
+differences between them are indistinguishable from run-to-run scatter.
+
+This prompted a `resolution()` check, now shown as a "Resolved" column. A scenario is
+unresolved when either:
+
+- the median incremental energy is at or below zero (the workload did not measurably
+  exceed idle), or
+- `|median| < IQR` (the effect is smaller than its own run-to-run spread).
+
+### Where this tool does and does not work
+
+| Workload | Resolvable? |
+|---|---|
+| CPU-heavy pages (busy JS, heavy render) | yes, easily — 134x separation observed |
+| Authenticated app UIs (Drupal admin) | yes — 0/48 negative runs, clear per-step differences |
+| Interactions (filter, submit, re-render) | yes — the highest-energy step measured |
+| Lightweight static pages | **no** — below the noise floor |
+
+The tool is built for application interfaces and interactions, not for ranking small
+static pages. For those, transferred bytes and request counts remain the useful
+metrics, and CO2.js models them directly.
+
+### A note on transferred bytes
+
+An apparent discrepancy during this run turned out to be correct behaviour.
+`reports.html` is 470,169 bytes uncompressed but measured 35,815 bytes. The server
+sends it gzipped at 35,040 bytes, so the measurement reflects **actual bytes over the
+wire** plus response headers. That is the correct input for CO2.js. A naive `curl`
+without `Accept-Encoding: gzip` overstates transfer by 13x here.
+
+## 6. Defects caught by the validation protocol
 
 Recorded because they demonstrate the value of validating rather than assuming.
 

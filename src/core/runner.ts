@@ -246,6 +246,12 @@ export function buildStepResults(
       }
     }
 
+    if ((energy?.sampleCount ?? Infinity) < 100) {
+      step.warnings.push(
+        `Only ${energy?.sampleCount ?? 0} power samples in this window. Short steps yield few samples and unreliable energy.`,
+      );
+    }
+
     results.push(step);
   }
 
