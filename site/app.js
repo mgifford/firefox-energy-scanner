@@ -231,8 +231,17 @@
     if (entry.firefoxVersion) bits.push('Firefox ' + entry.firefoxVersion);
     if (entry.onBattery) bits.push('on battery');
     if (entry.lowPowerMode) bits.push('Low Power Mode ON');
+    if (entry.tier) bits.push(entry.tier + ' tier');
     text(meta, bits.join(' · '));
     head.appendChild(meta);
+
+    // State plainly what this host could not measure, so an absent energy
+    // figure is never read as a measured zero.
+    if (entry.tierSummary && entry.tier === 'structural') {
+      const note = make('p', 'tier-note');
+      text(note, entry.tierSummary);
+      head.appendChild(note);
+    }
     wrap.appendChild(head);
 
     const scroll = make('div', 'table-scroll');
@@ -297,6 +306,21 @@
     scroll.appendChild(table);
     wrap.appendChild(scroll);
 
+    // Structure and findings need no power hardware, so they appear on every
+    // host — this is the bulk of the actionable output on a hosted runner.
+    entry.scenarios.forEach(function (s) {
+      const anatomy = anatomyNode(s);
+      const findings = findingsNode(s);
+      if (!anatomy && !findings) return;
+      const section = make('div', 'scenario-detail');
+      const label = make('p', 'scenario-detail-label');
+      text(label, s.step.length > 60 ? '…' + s.step.slice(-58) : s.step);
+      section.appendChild(label);
+      if (anatomy) section.appendChild(anatomy);
+      if (findings) section.appendChild(findings);
+      wrap.appendChild(section);
+    });
+
     if (entry.runnerNote) {
       const p = make('p', 'run-warning');
       text(p, entry.runnerNote);
@@ -349,6 +373,53 @@
    * of measured scenarios where energy rose above the noise floor, which is the
    * honest indicator of how much of this data can actually be used.
    */
+  /**
+   * Structural findings, available on every host regardless of energy hardware.
+   * Built as DOM nodes rather than HTML strings: selectors and titles come from
+   * scanned pages and are untrusted.
+   */
+  function findingsNode(scenario) {
+    if (!scenario.findings || scenario.findings.length === 0) return null;
+    const details = make('details', 'findings');
+    const summary = make('summary');
+    text(summary, scenario.findings.length + ' structural finding' +
+      (scenario.findings.length === 1 ? '' : 's'));
+    details.appendChild(summary);
+
+    const ul = make('ul');
+    scenario.findings.forEach(function (f) {
+      const li = make('li');
+      const sev = make('strong');
+      text(sev, f.severity.toUpperCase());
+      li.appendChild(sev);
+      li.appendChild(document.createTextNode(' ' + f.title));
+      li.appendChild(make('br'));
+      const action = make('span', 'muted');
+      text(action, f.action);
+      li.appendChild(action);
+      ul.appendChild(li);
+    });
+    details.appendChild(ul);
+    return details;
+  }
+
+  function anatomyNode(scenario) {
+    const a = scenario.anatomy;
+    if (!a) return null;
+    const bits = [
+      a.domNodes + ' nodes (depth ' + a.domDepth + ')',
+      a.cssSelectors + ' selectors',
+      a.scripts + ' scripts',
+      a.images + ' images',
+    ];
+    if (a.animatedElements) bits.push(a.animatedElements + ' animated');
+    if (a.lcpElement) bits.push('LCP: ' + a.lcpElement);
+    if (a.heaviestSubtree) bits.push('heaviest: ' + a.heaviestSubtree);
+    const p = make('p', 'anatomy muted');
+    text(p, bits.join(' \u00b7 '));
+    return p;
+  }
+
   function renderStats() {
     const set = function (id, value) {
       const el = document.getElementById(id);

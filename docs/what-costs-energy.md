@@ -112,6 +112,26 @@ The heaviest-subtree selectors are usually recognisable to a Drupal developer wi
 any of this — `div.dialog-off-canvas-main-canvas`, `div#page-wrapper`, `div.region` and
 similar map directly onto theme templates.
 
+## Running this locally versus on a hosted runner
+
+`diagnose` needs energy measurement for its CPU-attribution table, so the full command
+is local-only. But `measure` and `crawl` now collect page structure and findings on
+**every** host, because none of that depends on power hardware.
+
+| | hosted runner | local Mac |
+|---|---|---|
+| DOM size, depth, heaviest subtrees | yes | yes |
+| CSS selector surface, expensive selectors | yes | yes |
+| oversized images, missing dimensions | yes | yes |
+| script and iframe counts, animations | yes | yes |
+| LCP element | yes | yes |
+| **energy split by work category** | no | yes |
+| **apportioned millijoules per category** | no | yes |
+
+So the workflow that makes sense is: **scan broadly on hosted runners** to find
+structurally heavy pages, then **run `diagnose` locally** on the handful worth
+understanding in depth.
+
 ## What to do with a result
 
 `diagnose` prints ranked findings with an action for each:

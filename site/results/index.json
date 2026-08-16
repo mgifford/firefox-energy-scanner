@@ -1,7 +1,60 @@
 {
-  "generatedAt": "2026-08-16T00:32:03.939Z",
+  "generatedAt": "2026-08-16T03:36:31.490Z",
   "schemaVersion": 1,
   "entries": [
+    {
+      "id": "26363e4a-3f27-4a12-a429-f9aa6be38d61",
+      "file": "measure-2026-08-16T03-36-30-635Z.json",
+      "timestamp": "2026-08-16T03:36:30.634Z",
+      "mode": "measure",
+      "tier": "full",
+      "tierSummary": "Full tier: power counters produced samples, so energy measurement and A/B regression are available alongside all structural metrics.",
+      "target": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+      "energyAvailable": true,
+      "platform": "darwin",
+      "architecture": "arm64",
+      "firefoxVersion": "153.0",
+      "onBattery": true,
+      "lowPowerMode": true,
+      "scenarios": [
+        {
+          "step": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+          "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+          "anatomy": {
+            "domNodes": 114,
+            "domDepth": 16,
+            "cssSelectors": 301,
+            "scripts": 5,
+            "images": 0,
+            "animatedElements": 12,
+            "heaviestSubtree": "html.js",
+            "lcpElement": "div"
+          },
+          "findings": [
+            {
+              "severity": "medium",
+              "title": "12 elements with animations or transitions",
+              "action": "Running animations keep the refresh driver and compositor awake, drawing power even when nothing is interacting. Prefer transform/opacity, and honour prefers-reduced-motion."
+            },
+            {
+              "severity": "low",
+              "title": "10 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            }
+          ],
+          "runs": 2,
+          "transferBytes": 100911,
+          "requests": 9,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0149550102,
+          "co2Model": "swd",
+          "durationMs": 2140,
+          "resolved": false,
+          "resolutionNote": "Median incremental energy is at or below zero: the workload did not measurably exceed idle. It is below the resolution of this setup; do not report it as an energy cost."
+        }
+      ],
+      "warnings": []
+    },
     {
       "id": "52319cd2-bdef-4719-8875-e6d3e6699a8d",
       "file": "crawl-2026-08-16T00-32-03-027Z.json",

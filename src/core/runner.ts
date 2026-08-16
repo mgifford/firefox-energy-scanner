@@ -11,6 +11,8 @@ import { estimateCo2 } from './co2.js';
 import { applyBaseline, deriveBaseline, type Baseline } from './baseline.js';
 import type { JourneyDefinition } from './journey.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
+import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
+import { buildFindings } from '../report/findings.js';
 
 export interface StepRecord {
   label: string;
@@ -21,6 +23,9 @@ export interface StepRecord {
   network: NetworkSummary;
   valid: boolean;
   warnings: string[];
+  /** Page structure; collected on every host, since it needs no power hardware. */
+  anatomy?: import('../core/types.js').AnatomySummary;
+  findings?: import('../core/types.js').FindingSummary[];
 }
 
 /**
@@ -35,7 +40,14 @@ export class StepRunner {
   constructor(
     private readonly session: BrowserSession,
     private readonly config: Config,
+    /** Collecting anatomy walks the whole DOM, so it is opt-in per run. */
+    private collectAnatomy = false,
   ) {}
+
+  /** Enable structural collection for subsequent steps. */
+  enableAnatomy(): void {
+    this.collectAnatomy = true;
+  }
 
   /** Measure a named block of work. */
   async measure(label: string, fn: () => Promise<void>): Promise<void> {
@@ -63,6 +75,38 @@ export class StepRunner {
       ? await readTimings(page, endedAt - startedAt)
       : { durationMs: endedAt - startedAt };
 
+    // Page structure needs no power hardware, so it is collected everywhere.
+    // Only on the final run per step, to avoid repeating a full DOM walk.
+    let anatomy;
+    let findings;
+    if (valid && this.collectAnatomy) {
+      const full = await collectPageAnatomy(page);
+      if (full) {
+        const lcp = await readLcp(page);
+        if (lcp) full.lcpElement = lcp;
+        anatomy = {
+          domNodes: full.domNodes,
+          domDepth: full.domDepth,
+          cssRules: full.cssRules,
+          cssSelectors: full.cssSelectors,
+          scripts: full.scripts,
+          images: full.images,
+          iframes: full.iframes,
+          animatedElements: full.animatedElements,
+          heaviestSubtrees: full.heaviestSubtrees,
+          ...(full.lcpElement ? { lcpElement: full.lcpElement } : {}),
+        };
+        findings = buildFindings(full, undefined).map((f) => ({
+          id: f.id,
+          severity: f.severity,
+          title: f.title,
+          evidence: f.evidence,
+          action: f.action,
+          category: f.category,
+        }));
+      }
+    }
+
     this.records.push({
       label,
       url: page.url(),
@@ -72,6 +116,8 @@ export class StepRunner {
       network,
       valid,
       warnings,
+      ...(anatomy ? { anatomy } : {}),
+      ...(findings && findings.length > 0 ? { findings } : {}),
     });
   }
 
@@ -122,6 +168,10 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
     const runner = new StepRunner(session, config);
     const totalRuns = config.benchmark.warmups + config.benchmark.runs;
 
+    // LCP entries are emitted during load, so the observer must be installed
+    // before any navigation.
+    await installLcpObserver(session.getPage());
+
     // Idle baseline, captured inside the same session so the browser and
     // environment match the measured workload as closely as possible.
     if (config.energy.baseline && useEnergy) {
@@ -146,6 +196,9 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
       );
 
       await session.applyCacheMode();
+      // Structure is identical across runs of the same page, so collect it once
+      // on the final run rather than repeating a full DOM walk every time.
+      if (i === totalRuns - 1) runner.enableAnatomy();
       const label = (name: string) => `${warmup ? 'warmup' : 'run'}:${runIndex}:${name}`;
 
       if (options.journey) {
@@ -231,6 +284,8 @@ export function buildStepResults(
       network: record.network,
       valid: record.valid,
       warnings: [...record.warnings],
+      ...(record.anatomy ? { anatomy: record.anatomy } : {}),
+      ...(record.findings ? { findings: record.findings } : {}),
     };
 
     if (config.co2.enabled && record.network.transferBytes > 0) {

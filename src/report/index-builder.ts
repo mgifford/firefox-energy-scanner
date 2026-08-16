@@ -16,6 +16,18 @@ import { joulesToMilliwattHours } from '../core/baseline.js';
 export interface IndexScenario {
   step: string;
   url?: string;
+  /** Structural metrics, available regardless of energy hardware. */
+  anatomy?: {
+    domNodes: number;
+    domDepth: number;
+    cssSelectors: number;
+    scripts: number;
+    images: number;
+    animatedElements: number;
+    heaviestSubtree?: string;
+    lcpElement?: string;
+  };
+  findings?: { severity: string; title: string; action: string }[];
   runs: number;
   transferBytes: number;
   requests: number;
@@ -35,6 +47,9 @@ export interface IndexEntry {
   file: string;
   timestamp: string;
   mode: string;
+  /** What this host could measure. 'structural' means no energy hardware. */
+  tier?: 'full' | 'structural';
+  tierSummary?: string;
   target?: string;
   targetLabel?: string;
   issue?: number;
@@ -76,9 +91,36 @@ function summarizeScenarios(steps: StepResult[]): IndexScenario[] {
     const co2 = summarize(runs.map((r) => r.co2?.estimatedGrams ?? Number.NaN));
     const dur = summarize(runs.map((r) => r.timing.durationMs));
 
+    // Structure is identical across runs, so take it from whichever run has it.
+    const withAnatomy = runs.find((r) => r.anatomy);
+    const a = withAnatomy?.anatomy;
+
     out.push({
       step,
       ...(runs[0]?.url ? { url: runs[0].url } : {}),
+      ...(a
+        ? {
+            anatomy: {
+              domNodes: a.domNodes,
+              domDepth: a.domDepth,
+              cssSelectors: a.cssSelectors,
+              scripts: a.scripts,
+              images: a.images,
+              animatedElements: a.animatedElements,
+              ...(a.heaviestSubtrees?.[0] ? { heaviestSubtree: a.heaviestSubtrees[0].selector } : {}),
+              ...(a.lcpElement ? { lcpElement: a.lcpElement.selector } : {}),
+            },
+          }
+        : {}),
+      ...(withAnatomy?.findings?.length
+        ? {
+            findings: withAnatomy.findings.map((f) => ({
+              severity: f.severity,
+              title: f.title,
+              action: f.action,
+            })),
+          }
+        : {}),
       runs: runs.length,
       transferBytes: Math.round(bytes.median || 0),
       requests: Math.round(reqs.median || 0),
@@ -112,6 +154,7 @@ export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry 
     file,
     timestamp: env.timestamp,
     mode: result.session.mode,
+    ...(result.capabilities ? { tier: result.capabilities.tier, tierSummary: result.capabilities.summary } : {}),
     ...(result.target?.url ? { target: result.target.url } : {}),
     ...(result.target?.label ? { targetLabel: result.target.label } : {}),
     energyAvailable,

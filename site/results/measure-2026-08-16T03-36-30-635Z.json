@@ -1,0 +1,648 @@
+{
+  "schemaVersion": 1,
+  "session": {
+    "id": "26363e4a-3f27-4a12-a429-f9aa6be38d61",
+    "startedAt": "2026-08-16T03:36:30.595Z",
+    "mode": "measure"
+  },
+  "capabilities": {
+    "tier": "full",
+    "summary": "Full tier: power counters produced samples, so energy measurement and A/B regression are available alongside all structural metrics.",
+    "unavailable": []
+  },
+  "environment": {
+    "timestamp": "2026-08-16T03:36:30.634Z",
+    "os": "darwin",
+    "osVersion": "25.5.0",
+    "architecture": "arm64",
+    "cpuCount": 8,
+    "totalMemoryBytes": 17179869184,
+    "machineModel": "Mac14,2",
+    "firefoxVersion": "153.0",
+    "playwrightVersion": "1.62.1",
+    "co2jsVersion": "0.19.0",
+    "energyAdapter": "auto",
+    "headed": true,
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "onBattery": true,
+    "batteryPercent": 100,
+    "lowPowerMode": true
+  },
+  "target": {
+    "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login"
+  },
+  "configuration": {
+    "browser": {
+      "name": "firefox",
+      "headed": true,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      }
+    },
+    "benchmark": {
+      "warmups": 1,
+      "runs": 2,
+      "settle_ms": 1500,
+      "cache_mode": "warm"
+    },
+    "stability": {
+      "network_idle_ms": 500,
+      "post_idle_ms": 1500,
+      "max_wait_ms": 10000
+    },
+    "crawl": {
+      "enabled": false,
+      "max_pages": 100,
+      "max_depth": 5,
+      "same_origin": true,
+      "include": [],
+      "exclude": [],
+      "query_strategy": "strip",
+      "respect_robots": true,
+      "delay_ms": 250
+    },
+    "energy": {
+      "adapter": "auto",
+      "baseline": true,
+      "baseline_duration_ms": 10000,
+      "baseline_settle_ms": 5000,
+      "profiler_interval_ms": 10,
+      "retain_profile": false
+    },
+    "co2": {
+      "enabled": true,
+      "model": "swd",
+      "check_green_hosting": false
+    },
+    "sitespeed": {
+      "enabled": false
+    },
+    "output": {
+      "directory": "site/results",
+      "json": true,
+      "csv": true,
+      "html": true,
+      "collect_hostname": false
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "measure",
+      "step": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+      "startedAt": 1786851375901,
+      "endedAt": 1786851378506,
+      "timing": {
+        "durationMs": 2605,
+        "ttfbMs": 296,
+        "responseMs": 298,
+        "domContentLoadedMs": 616,
+        "loadMs": 628
+      },
+      "network": {
+        "requests": 15,
+        "transferBytes": 118468,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4959
+          },
+          "font": {
+            "requests": 4,
+            "bytes": 86040
+          },
+          "stylesheet": {
+            "requests": 6,
+            "bytes": 17557
+          },
+          "script": {
+            "requests": 4,
+            "bytes": 9912
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4959,
+            "status": 200,
+            "durationMs": 308.364990234375
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/lora/lora-v14-latin-regular.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 25004,
+            "status": 200,
+            "durationMs": 114.845947265625
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-SemiBold.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 27016,
+            "status": 200,
+            "durationMs": 188.48388671875
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-Regular.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 16840,
+            "status": 200,
+            "durationMs": 189.803955078125
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/css/css_JowyXuqzGgllnF7Wh1sSyU_MSc93qSy21v3mv6RQ3kU.css?language=en&theme=olivero&libraries=eJwrriwuSc3VT0osTtUpJo0NALKpFtw&category=component",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 933,
+            "status": 200,
+            "durationMs": 189.424072265625
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/css/css_1or5VOLDNy9zTnXqh2j6iP63VsNqeSK_j9_qJapzqqY.css?delta=3&language=en&theme=olivero&include=eJxNjEEKwCAMwD6k-KZWi5RVK604_P0uQ7wmISq8yDR1WFxhsvbolLUXsB30l0NfMioRd0TR_ATfPqklBKcTVVEEiT63cK8HX-Nh3O7tBPQPrlsyRQ",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 1162,
+            "status": 200,
+            "durationMs": 189.341064453125
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/css/css_5Ic_vHnamGNfd57EE3Wd0KGZa3_gt9zsRvzFa9-aieA.css?language=en&theme=olivero&libraries=eJzLz8ksSy3K10_PyU9KzNEtLqnMycxL18knRRgAnzUa3g&category=base",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 2348,
+            "status": 200,
+            "durationMs": 190.386962890625
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/css/css_jqgRQTDo2j5-77kvPHjbWv6jUVr8o85apraxZ_8_hrM.css?language=en&theme=olivero&libraries=eJzLz8ksSy3K10_PyU9KzNEtLqnMycxL18kfFR4VppMwAD88_Ck&category=component",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 7999,
+            "status": 200,
+            "durationMs": 258.798828125
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-Bold.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 17180,
+            "status": 200,
+            "durationMs": 261.3349609375
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/js/js_LdyACrJCHGyK34RnnjhsoTI9_U6Sr_CNpsoRreOuiJ0.js?scope=footer&language=en&theme=olivero&libraries=eJzLz8ksSy3K189LLMtMTyzJzM_TTUosTtXJh4qn5-QnJeboFpdU5mTmpcOFkZQXFGXmJhZVwqVKEpOKAcOjIew",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 3385,
+            "status": 200,
+            "durationMs": 260.883056640625
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/assets/vendor/tabbable/index.umd.min.js?v=6.3.0",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2992,
+            "status": 200,
+            "durationMs": 260.989990234375
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/assets/vendor/once/once.min.js?v=1.0.1",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1205,
+            "status": 200,
+            "durationMs": 261.08203125
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/css/css_WbnN7ms4kTXqQ2KgMyXCSvs99YXCCbdBynJya_e8g3M.css?delta=5&language=en&theme=olivero&include=eJxNjEEKwCAMwD6k-KZWi5RVK604_P0uQ7wmISq8yDR1WFxhsvbolLUXsB30l0NfMioRd0TR_ATfPqklBKcTVVEEiT63cK8HX-Nh3O7tBPQPrlsyRQ",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 3194,
+            "status": 200,
+            "durationMs": 261.287109375
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/js/js_7isasz0T3Y_WrAr0MdEMmQmM1jFpP-bxuAE3Mxz8G4Y.js?scope=footer&language=en&theme=olivero&libraries=eJxLzi9K1U8pKi1IzAlOLSnJzEsv1klGiAEAw90MPg",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2330,
+            "status": 200,
+            "durationMs": 261.305908203125
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/css/css_hJtfj9pDlzw7vg1HZMVFWj9Du-2iOZbSv051DyPWMgg.css?language=en&theme=olivero&libraries=eJzLz8ksSy3K10_PyU9KzNEtLqnMycxL18kfCcIA6cxi9g&category=layout",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 1921,
+            "status": 200,
+            "durationMs": 261.549072265625
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 118468,
+        "estimatedGrams": 0.017556957600000003,
+        "consumerDeviceGrams": 0.009422233912000002,
+        "networkGrams": 0.004213669824,
+        "dataCenterGrams": 0.003921053864
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2605,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.385358166,
+          "sampleCount": 780,
+          "averageWatts": 0.1479301980806142
+        },
+        "baselineWatts": 0.05623882445930688,
+        "estimatedIdleJoules": 0.14650213771649442,
+        "incrementalJoules": 0.23885602828350558
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+      "startedAt": 1786851380024,
+      "endedAt": 1786851382167,
+      "timing": {
+        "durationMs": 2143,
+        "ttfbMs": 110,
+        "responseMs": 110,
+        "domContentLoadedMs": 143,
+        "loadMs": 143
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 100911,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4959
+          },
+          "font": {
+            "requests": 4,
+            "bytes": 86040
+          },
+          "script": {
+            "requests": 4,
+            "bytes": 9912
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4959,
+            "status": 200,
+            "durationMs": 111.516845703125
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-Regular.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 16840,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-SemiBold.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 27016,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-Bold.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 17180,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/lora/lora-v14-latin-regular.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 25004,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/js/js_7isasz0T3Y_WrAr0MdEMmQmM1jFpP-bxuAE3Mxz8G4Y.js?scope=footer&language=en&theme=olivero&libraries=eJxLzi9K1U8pKi1IzAlOLSnJzEsv1klGiAEAw90MPg",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2330,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/assets/vendor/once/once.min.js?v=1.0.1",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1205,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/assets/vendor/tabbable/index.umd.min.js?v=6.3.0",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2992,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/js/js_LdyACrJCHGyK34RnnjhsoTI9_U6Sr_CNpsoRreOuiJ0.js?scope=footer&language=en&theme=olivero&libraries=eJzLz8ksSy3K189LLMtMTyzJzM_TTUosTtXJh4qn5-QnJeboFpdU5mTmpcOFkZQXFGXmJhZVwqVKEpOKAcOjIew",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 3385,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 100911,
+        "estimatedGrams": 0.0149550102,
+        "consumerDeviceGrams": 0.008025855474,
+        "networkGrams": 0.0035892024479999996,
+        "dataCenterGrams": 0.003339952278
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2143,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.0762141996,
+          "sampleCount": 642,
+          "averageWatts": 0.03556425552963136
+        },
+        "baselineWatts": 0.05623882445930688,
+        "estimatedIdleJoules": 0.12051980081629463,
+        "incrementalJoules": -0.04430560121629462,
+        "negativeIncremental": true
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+      "startedAt": 1786851383674,
+      "endedAt": 1786851385810,
+      "timing": {
+        "durationMs": 2136,
+        "ttfbMs": 104,
+        "responseMs": 104,
+        "domContentLoadedMs": 133,
+        "loadMs": 133
+      },
+      "network": {
+        "requests": 9,
+        "transferBytes": 100911,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 4959
+          },
+          "font": {
+            "requests": 4,
+            "bytes": 86040
+          },
+          "script": {
+            "requests": 4,
+            "bytes": 9912
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/user/login",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 4959,
+            "status": 200,
+            "durationMs": 104.79296875
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-Regular.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 16840,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-SemiBold.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 27016,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/metropolis/Metropolis-Bold.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 17180,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/themes/olivero/fonts/lora/lora-v14-latin-regular.woff2",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 25004,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/js/js_7isasz0T3Y_WrAr0MdEMmQmM1jFpP-bxuAE3Mxz8G4Y.js?scope=footer&language=en&theme=olivero&libraries=eJxLzi9K1U8pKi1IzAlOLSnJzEsv1klGiAEAw90MPg",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2330,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/assets/vendor/once/once.min.js?v=1.0.1",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1205,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/core/assets/vendor/tabbable/index.umd.min.js?v=6.3.0",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2992,
+            "status": 200
+          },
+          {
+            "url": "https://mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com/sites/default/files/js/js_LdyACrJCHGyK34RnnjhsoTI9_U6Sr_CNpsoRreOuiJ0.js?scope=footer&language=en&theme=olivero&libraries=eJzLz8ksSy3K189LLMtMTyzJzM_TTUosTtXJh4qn5-QnJeboFpdU5mTmpcOFkZQXFGXmJhZVwqVKEpOKAcOjIew",
+            "domain": "mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3.tugboatqa.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 3385,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Incremental energy is negative: the workload measured below the idle baseline. Treat this run as noisy."
+      ],
+      "anatomy": {
+        "domNodes": 114,
+        "domDepth": 16,
+        "cssRules": 255,
+        "cssSelectors": 301,
+        "scripts": 5,
+        "images": 0,
+        "iframes": 0,
+        "animatedElements": 12,
+        "heaviestSubtrees": [
+          {
+            "selector": "html.js",
+            "nodes": 113
+          },
+          {
+            "selector": "body.path-frontpage",
+            "nodes": 93
+          },
+          {
+            "selector": "div.dialog-off-canvas-main-canvas",
+            "nodes": 86
+          },
+          {
+            "selector": "div#page-wrapper",
+            "nodes": 85
+          },
+          {
+            "selector": "div#page",
+            "nodes": 84
+          }
+        ],
+        "lcpElement": {
+          "selector": "div",
+          "renderTimeMs": 137,
+          "sizePx": 10928
+        }
+      },
+      "findings": [
+        {
+          "id": "animations",
+          "severity": "medium",
+          "title": "12 elements with animations or transitions",
+          "evidence": "12 elements have a non-zero animation or transition.",
+          "action": "Running animations keep the refresh driver and compositor awake, drawing power even when nothing is interacting. Prefer transform/opacity, and honour prefers-reduced-motion.",
+          "category": "Graphics"
+        },
+        {
+          "id": "css-expensive-selectors",
+          "severity": "low",
+          "title": "10 selectors with high match cost",
+          "evidence": "* (universal selector); [data-contextual-id]:not(.contextual) (costly pseudo-class); .layout--pass--content-narrow > * .grid-full (universal selector)",
+          "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element.",
+          "category": "Layout"
+        }
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 100911,
+        "estimatedGrams": 0.0149550102,
+        "consumerDeviceGrams": 0.008025855474,
+        "networkGrams": 0.0035892024479999996,
+        "dataCenterGrams": 0.003339952278
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2136,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "totalJoules": 0.071642502,
+          "sampleCount": 642,
+          "averageWatts": 0.03354049719101123
+        },
+        "baselineWatts": 0.05623882445930688,
+        "estimatedIdleJoules": 0.1201261290450795,
+        "incrementalJoules": -0.0484836270450795,
+        "negativeIncremental": true
+      }
+    }
+  ],
+  "baseline": {
+    "watts": 0.05623882445930688,
+    "durationMs": 11513,
+    "samples": 3450,
+    "adapterId": "firefox-profiler"
+  },
+  "warnings": []
+}

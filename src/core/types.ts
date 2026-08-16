@@ -126,6 +126,29 @@ export interface TimingResult {
 
 export type CacheMode = 'warm' | 'cold-context' | 'new-browser';
 
+/** Structural snapshot of the page, independent of any power hardware. */
+export interface AnatomySummary {
+  domNodes: number;
+  domDepth: number;
+  cssRules: number;
+  cssSelectors: number;
+  scripts: number;
+  images: number;
+  iframes: number;
+  animatedElements: number;
+  heaviestSubtrees?: { selector: string; nodes: number }[];
+  lcpElement?: { selector: string; renderTimeMs: number; sizePx: number };
+}
+
+export interface FindingSummary {
+  id: string;
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  evidence: string;
+  action: string;
+  category: string;
+}
+
 export interface StepResult {
   scenario: string;
   step: string;
@@ -138,6 +161,9 @@ export interface StepResult {
   network?: NetworkSummary;
   co2?: Co2Result;
   energy?: EnergyWithBaseline;
+  /** Page structure. Available on every host, energy or not. */
+  anatomy?: AnatomySummary;
+  findings?: FindingSummary[];
   /** False when navigation failed or the measurement is not trustworthy. */
   valid: boolean;
   warnings: string[];
@@ -185,6 +211,15 @@ export interface BenchmarkResult {
   schemaVersion: number;
   session: SessionInfo;
   environment: EnvironmentInfo;
+  /**
+   * What this host could and could not measure. Declared explicitly so an
+   * absent energy figure is never mistaken for a measured zero.
+   */
+  capabilities?: {
+    tier: 'full' | 'structural';
+    summary: string;
+    unavailable: { metric: string; reason: string }[];
+  };
   target?: TargetInfo;
   targets?: TargetInfo[];
   configuration: unknown;

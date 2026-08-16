@@ -215,6 +215,24 @@ jobs:
             }
 
             const isCrawl = '${{ needs.prepare.outputs.mode }}' === 'crawl';
+
+            // Structural findings need no power hardware, so they are the main
+            // actionable output on a hosted runner.
+            const allFindings = [];
+            for (const s of (result.scenarios || [])) {
+              for (const f of (s.findings || [])) {
+                if (!allFindings.some((x) => x.id === f.id)) allFindings.push(f);
+              }
+            }
+            const findingsBlock = allFindings.length
+              ? '\n### Structural findings\n\n' +
+                allFindings
+                  .slice(0, 8)
+                  .map((f) => `- **${f.severity.toUpperCase()}** ${f.title}\n  ${f.action}`)
+                  .join('\n') +
+                '\n\nThese come from page structure and need no power hardware, so they are ' +
+                'valid on any runner.\n'
+              : '';
             const parserNotes = `${{ needs.prepare.outputs.notes }}`.trim();
 
             const notes = [
@@ -237,7 +255,7 @@ jobs:
               parserNotes ? '\n**Notes on this request:**\n' + parserNotes.split('\n').map(n => '- ' + n).join('\n') : '',
               '',
               'Full results: https://mgifford.github.io/firefox-energy-scanner/',
-            ].filter(Boolean).join('\n');
+            ].filter(Boolean).join('\n') + findingsBlock;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

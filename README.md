@@ -32,6 +32,32 @@ together or converts one into the other:
 The measurement boundary is the **client machine**. Results say nothing about server,
 PHP, database, or data-centre energy, and are not a total carbon figure for a site.
 
+## Two tiers: local and hosted
+
+The same commands run everywhere. What differs is whether the host has physical
+power-measurement hardware, and every result declares its tier so an absent energy
+figure is never read as a measured zero.
+
+| | **Structural tier** (any host) | **Full tier** (physical Apple Silicon) |
+|---|---|---|
+| transferred bytes, requests, resource types | yes | yes |
+| CO2.js modelled emissions | yes | yes |
+| navigation timings, LCP | yes | yes |
+| DOM size, depth, heaviest subtrees | yes | yes |
+| CSS rule and selector counts | yes | yes |
+| expensive-selector and image findings | yes | yes |
+| payload triage between two targets | yes | yes |
+| **observed energy (joules / mWh)** | no | **yes** |
+| **idle baseline subtraction** | no | **yes** |
+| **resolution check** | no | **yes** |
+| **energy by work category** | no | **yes** |
+| **A/B energy regression** | no | **yes** |
+
+The practical consequence: **most of the actionable output does not need energy
+hardware.** A hosted scan still tells you the DOM is 4,000 nodes, that a stylesheet
+carries 12,000 selectors, and which images are served ten times larger than displayed.
+Only the energy questions need a Mac.
+
 ## Hosted scanning
 
 **<https://mgifford.github.io/firefox-energy-scanner/>**

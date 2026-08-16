@@ -35,6 +35,7 @@ import { summarize, compare, interleavedOrder, median, resolution } from '../cor
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import { SCHEMA_VERSION, type BenchmarkResult, type StepResult } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
+import { describeCapabilities, detectVirtualisation } from '../core/capability.js';
 
 const USAGE = `web-energy — client-side browser energy and modelled CO2e benchmarking
 
@@ -281,6 +282,23 @@ async function cmdDoctor(): Promise<number> {
   return failures === 0 ? 0 : 1;
 }
 
+/**
+ * Declare what this host could measure, so an absent energy figure is never
+ * read as a measured zero.
+ */
+async function capabilitiesFor(
+  energyAvailable: boolean,
+): Promise<BenchmarkResult['capabilities']> {
+  const virtualised = await detectVirtualisation();
+  const c = describeCapabilities({
+    powerSamplesObserved: energyAvailable,
+    platform: process.platform,
+    architecture: process.arch,
+    ...(virtualised !== undefined ? { virtualised } : {}),
+  });
+  return { tier: c.tier, summary: c.summary, unavailable: c.unavailable };
+}
+
 async function writeOutputs(result: BenchmarkResult, config: Config): Promise<string> {
   const dir = resolve(config.output.directory);
   await mkdir(dir, { recursive: true });
@@ -357,6 +375,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'measure' },
+    capabilities: await capabilitiesFor(outcome.energyAvailable),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,
@@ -404,6 +423,7 @@ async function cmdJourney(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'journey' },
+    capabilities: await capabilitiesFor(outcome.energyAvailable),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,
@@ -442,6 +462,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'crawl' },
+    capabilities: await capabilitiesFor(outcome.energyAvailable),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,

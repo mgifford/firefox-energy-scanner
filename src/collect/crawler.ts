@@ -18,6 +18,8 @@ export interface CrawlOutcome {
   warnings: string[];
   firefoxVersion: string;
   discovered: string[];
+  /** True only when power counters produced real samples. */
+  energyAvailable: boolean;
 }
 
 interface QueueItem {
@@ -39,12 +41,15 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
   const session = await BrowserSession.create(config, useEnergy);
   const firefoxVersion = await session.version();
   const runner = new StepRunner(session, config);
+  // Each crawled page is visited once, so structural collection is always on.
+  runner.enableAnatomy();
 
   const visited = new Set<string>();
   const discovered: string[] = [];
   let robotsDisallow: string[] = [];
   let baseline: Baseline | undefined;
   let closed = false;
+  let energyAvailable = false;
   const steps: StepResult[] = [];
 
   try {
@@ -114,7 +119,8 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     closed = true;
 
     const energyByLabel = (await session.energy?.finalize()) ?? new Map<string, EnergyResult>();
-    if (useEnergy && !(session.energy?.hasPowerData() ?? false)) {
+    energyAvailable = session.energy?.hasPowerData() ?? false;
+    if (useEnergy && !energyAvailable) {
       warnings.push(
         'No power counters were found in the Gecko profile. Energy values are unavailable on this platform; timing and network metrics are still valid.',
       );
@@ -127,7 +133,14 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     if (!closed) await session.close().catch(() => {});
   }
 
-  return { steps, baseline, warnings, firefoxVersion, discovered: sortUrls(discovered) };
+  return {
+    steps,
+    baseline,
+    warnings,
+    firefoxVersion,
+    discovered: sortUrls(discovered),
+    energyAvailable,
+  };
 }
 
 /** Collect same-origin links that pass include/exclude and robots rules. */
