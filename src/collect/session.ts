@@ -13,6 +13,8 @@ export interface SessionOptions {
   /** When set, the Gecko Profiler is enabled for this browser session. */
   energyAdapter?: FirefoxProfilerAdapter;
   profilePath?: string;
+  /** Extra profiler features, e.g. stack sampling for diagnostic runs. */
+  extraFeatures?: string[];
 }
 
 /** Owns the Firefox process and per-step network collection. */
@@ -26,7 +28,16 @@ export class BrowserSession {
 
   constructor(private readonly options: SessionOptions) {}
 
-  static async create(config: Config, withEnergy: boolean): Promise<BrowserSession> {
+  /**
+   * @param extraFeatures additional Gecko profiler features. Stack sampling
+   *   ('js', 'stackwalk') is needed to attribute work to categories, but adds
+   *   observer overhead, so it is opt-in for diagnostic runs only.
+   */
+  static async create(
+    config: Config,
+    withEnergy: boolean,
+    extraFeatures: string[] = [],
+  ): Promise<BrowserSession> {
     let adapter: FirefoxProfilerAdapter | undefined;
     let profilePath: string | undefined;
     if (withEnergy) {
@@ -34,11 +45,22 @@ export class BrowserSession {
       adapter = new FirefoxProfilerAdapter(profilePath, {
         intervalMs: config.energy.profiler_interval_ms,
         retainProfile: config.energy.retain_profile,
+        features: extraFeatures,
       });
     }
-    const session = new BrowserSession({ config, energyAdapter: adapter, profilePath });
+    const session = new BrowserSession({
+      config,
+      energyAdapter: adapter,
+      profilePath,
+      extraFeatures,
+    });
     await session.launch();
     return session;
+  }
+
+  /** Path to the raw Gecko profile, when profiling is enabled. */
+  profilePath(): string | undefined {
+    return this.options.profilePath;
   }
 
   get energy(): FirefoxProfilerAdapter | undefined {
@@ -52,6 +74,7 @@ export class BrowserSession {
           ...(process.env as Record<string, string>),
           ...profilerLaunchEnv(profilePath, {
             intervalMs: config.energy.profiler_interval_ms,
+            features: this.options.extraFeatures ?? [],
           }),
         }
       : undefined;

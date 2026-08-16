@@ -21,6 +21,11 @@ import { NoopAdapter } from '../energy/noop.js';
 import { crawl } from '../collect/crawler.js';
 import { fingerprint, triage } from './triage.js';
 import { loadMatrix, triageMatrix, baselineOf } from './matrix.js';
+import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
+import { attributeEnergy } from '../energy/attribution.js';
+import { buildFindings } from '../report/findings.js';
+import { BrowserSession, waitForStablePage } from '../collect/session.js';
+import { readFile } from 'node:fs/promises';
 import { parseScanRequest } from './issue-parser.js';
 import { buildIndex } from '../report/index-builder.js';
 import { interleavedOrderN } from '../core/stats.js';
@@ -44,6 +49,7 @@ Usage:
   web-energy profile --journey <file> [--step <name>]
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
+  web-energy diagnose <url> [--runs <n>]
 
 Options:
   --config <file>        YAML configuration file
@@ -836,6 +842,148 @@ async function cmdBuildIndex(args: Args): Promise<number> {
   return 0;
 }
 
+/**
+ * Explain WHERE a page spends browser effort.
+ *
+ * Firefox's power counter is whole-process and the profile carries no DOM node
+ * references, so no tool can attribute joules to an element. This instead
+ * reports category CPU shares (apportioning the measured energy) alongside the
+ * page structures that drive that work.
+ */
+async function cmdDiagnose(args: Args): Promise<number> {
+  const url = args._[1];
+  if (!url) {
+    console.error('diagnose requires a URL');
+    return 1;
+  }
+  const config = await buildConfig(args);
+  // Stack sampling is needed to attribute categories, which adds overhead —
+  // acceptable here because this is a diagnostic run, not a benchmark.
+  const diagnosticConfig: Config = {
+    ...config,
+    benchmark: { ...config.benchmark, runs: 1, warmups: 1 },
+    energy: { ...config.energy, retain_profile: true },
+  };
+
+  console.log(`Diagnosing ${url}\n`);
+  console.log(
+    'Note: this is a diagnostic run. Stack sampling changes the workload, so these\n' +
+      'numbers must not be mixed with benchmark results.\n',
+  );
+
+  // 'cpu' is what populates threadCPUDelta; without it sample rows are
+  // truncated and carry no CPU time, so attribution has nothing to weight by.
+  const session = await BrowserSession.create(diagnosticConfig, true, [
+    'js',
+    'stackwalk',
+    'cpu',
+  ]);
+  let anatomy;
+  let lcp;
+  let energyJoules: number | undefined;
+  let profile: unknown;
+  let windowStart = 0;
+  let windowEnd = 0;
+
+  try {
+    const page = session.getPage();
+    await installLcpObserver(page);
+
+    // Warmup, then the measured pass.
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await waitForStablePage(page, diagnosticConfig.stability);
+
+    const handle = await session.energy?.start({ label: 'diagnose' });
+    windowStart = handle?.startedAt ?? Date.now();
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await waitForStablePage(page, diagnosticConfig.stability);
+    windowEnd = Date.now();
+    if (handle) await session.energy?.stop(handle);
+
+    anatomy = await collectPageAnatomy(page);
+    lcp = await readLcp(page);
+    if (anatomy && lcp) anatomy.lcpElement = lcp;
+
+    const profilePath = session.profilePath();
+    await session.close();
+
+    // Read the raw profile BEFORE finalize(), which deletes it unless
+    // retain_profile is set. Attribution needs the full profile, not just the
+    // power counters finalize() extracts.
+    if (profilePath) {
+      profile = JSON.parse(await readFile(profilePath, 'utf8').catch(() => 'null'));
+    }
+    const results = (await session.energy?.finalize()) ?? new Map();
+    energyJoules = results.get('diagnose')?.totalJoules;
+  } finally {
+    await session.close().catch(() => {});
+  }
+
+  const attribution = profile
+    ? attributeEnergy(profile, windowStart, windowEnd, energyJoules)
+    : undefined;
+
+  if (attribution && attribution.totalCpuMs > 0) {
+    console.log('Where the browser spent CPU time');
+    console.log('  category          CPU ms     share' + (energyJoules !== undefined ? '   apportioned' : ''));
+    for (const c of attribution.categories) {
+      const line =
+        '  ' + c.category.padEnd(16) +
+        c.cpuMs.toFixed(0).padStart(8) +
+        (c.share * 100).toFixed(1).padStart(9) + '%';
+      console.log(
+        line + (c.apportionedJoules !== undefined ? `${(c.apportionedJoules * 1000).toFixed(1)} mJ`.padStart(14) : ''),
+      );
+    }
+    console.log(`\n  ${attribution.assumption}`);
+    if (energyJoules === undefined) {
+      console.log('  (No energy measured on this host, so only CPU shares are shown.)');
+    }
+    console.log('');
+  }
+
+  if (anatomy) {
+    console.log('Page composition');
+    console.log(`  DOM nodes        ${anatomy.domNodes.toLocaleString()} (max depth ${anatomy.domDepth})`);
+    console.log(`  CSS              ${anatomy.cssRules.toLocaleString()} rules, ${anatomy.cssSelectors.toLocaleString()} selectors, ${anatomy.stylesheets} sheets`);
+    console.log(`  Scripts          ${anatomy.scripts} (${anatomy.inlineScripts} inline)`);
+    console.log(`  Images           ${anatomy.images} (${anatomy.imagesWithoutDimensions} without dimensions)`);
+    console.log(`  Iframes          ${anatomy.iframes}`);
+    console.log(`  Animated         ${anatomy.animatedElements} elements`);
+    if (anatomy.lcpElement) {
+      console.log(
+        `  LCP element      ${anatomy.lcpElement.selector} at ${Math.round(anatomy.lcpElement.renderTimeMs)} ms`,
+      );
+    }
+    if (anatomy.heaviestSubtrees.length > 0) {
+      console.log('\n  Heaviest subtrees');
+      for (const s of anatomy.heaviestSubtrees) {
+        console.log(`    ${s.selector.padEnd(40)} ${s.nodes.toLocaleString()} nodes`);
+      }
+    }
+    console.log('');
+  }
+
+  const findings = buildFindings(anatomy, attribution);
+  if (findings.length === 0) {
+    console.log('No structural findings above the reporting thresholds.');
+  } else {
+    console.log(`Findings (${findings.length})`);
+    for (const f of findings) {
+      console.log(`\n  [${f.severity.toUpperCase()}] ${f.title}   (${f.category})`);
+      console.log(`    ${f.evidence}`);
+      console.log(`    -> ${f.action}`);
+    }
+  }
+
+  console.log(
+    '\nWhat this cannot tell you: Firefox has no per-element power counter, and the\n' +
+      'profile carries no DOM node references (Mozilla bugs 789712 and 713031 remain open).\n' +
+      'These are the structures that drive browser work, not per-element energy.',
+  );
+  return 0;
+}
+
 async function cmdReport(args: Args): Promise<number> {
   const file = args._[1];
   if (!file) {
@@ -911,6 +1059,7 @@ async function main(): Promise<number> {
       case 'profile': return await cmdProfile(args);
       case 'triage': return await cmdTriage(args);
       case 'matrix': return await cmdMatrix(args);
+      case 'diagnose': return await cmdDiagnose(args);
       case 'parse-issue': return await cmdParseIssue(args);
       case 'build-index': return await cmdBuildIndex(args);
       default:
