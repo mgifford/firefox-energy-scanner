@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web energy benchmark — https://civicactions.com</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#fff; --muted:#555; --line:#d0d0d0; --accent:#0b5fff; --warn:#8a5300; --warnbg:#fff6e5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e8e8e8; --bg:#141414; --muted:#aaa; --line:#3a3a3a; --accent:#7aa7ff; --warn:#ffcf80; --warnbg:#3a2c10; }
+  }
+  body { font: 16px/1.55 system-ui, sans-serif; color: var(--fg); background: var(--bg);
+         margin: 0 auto; max-width: 68rem; padding: 2rem 1rem; }
+  h1,h2,h3 { line-height: 1.25; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  caption { text-align: left; font-weight: 600; padding-bottom: .5rem; }
+  th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: right; }
+  th[scope="row"], td:first-child, th:first-child { text-align: left; }
+  thead th { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+  .note { color: var(--muted); font-size: .92rem; }
+  .warning { background: var(--warnbg); border-left: 4px solid var(--warn); padding: .75rem 1rem; margin: 1rem 0; }
+  .boundary { border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 1rem; margin: 1.5rem 0; }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; }
+  dl.meta dt { color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  code { font-size: .9em; }
+</style>
+</head>
+<body>
+<h1>Web energy benchmark</h1>
+<p class="note">
+  Session <code>52319cd2-bdef-4719-8875-e6d3e6699a8d</code>, mode <code>crawl</code>,
+  generated 2026-08-16T00:32:03.026Z.
+</p>
+
+<section class="boundary" aria-labelledby="boundary-h">
+  <h2 id="boundary-h">What these numbers mean</h2>
+  <p>
+    This report contains <strong>two different classes of sustainability indicator</strong>.
+    They have different system boundaries and different units, and they are not interchangeable.
+  </p>
+  <dl>
+    <dt><strong>Modelled CO2e (CO2.js)</strong></dt>
+    <dd>Estimated emissions derived from transferred bytes and model assumptions. Not a measurement.</dd>
+    <dt><strong>Observed client energy (Firefox power counters)</strong></dt>
+    <dd>
+      Energy drawn by Firefox processes on this client machine during the workload.
+      Scope is the browser's processes — not the display, not the server, and not the network.
+    </dd>
+  </dl>
+  <p>
+    The measurement boundary is the <strong>client machine only</strong>. These results do not
+    measure server, PHP, database, data-centre, or whole-Internet energy, and they are not a
+    total carbon figure for the site.
+  </p>
+</section>
+
+<section aria-labelledby="warn-h"><h2 id="warn-h">Warnings</h2><p class="warning">Crawl mode is for discovery and broad assessment. It is not a controlled regression workload; use journey mode for A/B comparisons.</p></section>
+
+<section aria-labelledby="summary-h">
+  <h2 id="summary-h">Per-step summary</h2>
+  <p class="note">
+    Median is the headline statistic. Warmup runs are excluded.
+    No energy values were captured in this session.
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Measured steps (n = number of non-warmup runs)</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th><th scope="col">n</th>
+        <th scope="col">Duration median (ms)</th>
+        <th scope="col">Transfer median (KB)</th>
+        <th scope="col">CO2.js median (mg)</th>
+        <th scope="col">Incremental energy median (mWh)</th>
+        <th scope="col">Energy IQR (mWh)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">https://civicactions.com/</th>
+        <td>1</td>
+        <td>3108</td>
+        <td>1967.0</td>
+        <td>298.510</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/accessibility-statement</th>
+        <td>1</td>
+        <td>2543</td>
+        <td>876.0</td>
+        <td>132.934</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/careers</th>
+        <td>1</td>
+        <td>2743</td>
+        <td>2782.5</td>
+        <td>422.267</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies</th>
+        <td>1</td>
+        <td>3142</td>
+        <td>15051.8</td>
+        <td>2284.212</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/cms-web-experience-services</th>
+        <td>1</td>
+        <td>2773</td>
+        <td>1570.1</td>
+        <td>238.276</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/dept-of-education-system-lifecycle-development-management</th>
+        <td>1</td>
+        <td>2573</td>
+        <td>8273.3</td>
+        <td>1255.531</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/va-cms-modernization</th>
+        <td>1</td>
+        <td>3010</td>
+        <td>11472.4</td>
+        <td>1741.013</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/contact</th>
+        <td>1</td>
+        <td>3293</td>
+        <td>1437.9</td>
+        <td>218.204</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/contracting</th>
+        <td>1</td>
+        <td>2449</td>
+        <td>987.9</td>
+        <td>149.918</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/feedback</th>
+        <td>1</td>
+        <td>4656</td>
+        <td>5235.3</td>
+        <td>794.486</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/licensing</th>
+        <td>1</td>
+        <td>2480</td>
+        <td>836.0</td>
+        <td>126.875</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press</th>
+        <td>1</td>
+        <td>2347</td>
+        <td>865.7</td>
+        <td>131.373</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/privacy</th>
+        <td>1</td>
+        <td>2552</td>
+        <td>837.7</td>
+        <td>127.127</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/services</th>
+        <td>1</td>
+        <td>2307</td>
+        <td>869.7</td>
+        <td>131.986</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/services/ditap</th>
+        <td>1</td>
+        <td>2427</td>
+        <td>1780.8</td>
+        <td>270.241</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/sustainability</th>
+        <td>1</td>
+        <td>2521</td>
+        <td>856.4</td>
+        <td>129.962</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/team</th>
+        <td>1</td>
+        <td>2368</td>
+        <td>1064.2</td>
+        <td>161.498</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/Drupal-10</th>
+        <td>1</td>
+        <td>2372</td>
+        <td>1426.6</td>
+        <td>216.500</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/cms-design-challenge-mvp</th>
+        <td>1</td>
+        <td>2529</td>
+        <td>1229.2</td>
+        <td>186.543</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/cybergeek</th>
+        <td>1</td>
+        <td>2547</td>
+        <td>1039.2</td>
+        <td>157.711</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/fcc-website-modernization</th>
+        <td>1</td>
+        <td>2662</td>
+        <td>1333.3</td>
+        <td>202.339</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/georgia-workforce-open-data</th>
+        <td>1</td>
+        <td>2688</td>
+        <td>3242.9</td>
+        <td>492.137</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/globalnet-platform-support</th>
+        <td>1</td>
+        <td>3259</td>
+        <td>12736.6</td>
+        <td>1932.861</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/nsf-website-redesign</th>
+        <td>1</td>
+        <td>3108</td>
+        <td>12707.4</td>
+        <td>1928.429</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/nyc-metro-transit-digital-clocks</th>
+        <td>1</td>
+        <td>2624</td>
+        <td>3528.9</td>
+        <td>535.531</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/open-acr</th>
+        <td>1</td>
+        <td>2538</td>
+        <td>1082.1</td>
+        <td>164.224</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/va-alt-text</th>
+        <td>1</td>
+        <td>2626</td>
+        <td>2907.8</td>
+        <td>441.272</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/cms-web-experience-services/fearless.tech</th>
+        <td>1</td>
+        <td>2488</td>
+        <td>1763.3</td>
+        <td>267.587</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2</th>
+        <td>1</td>
+        <td>2547</td>
+        <td>872.5</td>
+        <td>132.410</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2022-01-05-civicactions-named-govtech-100-top-government-technology-companies-list</th>
+        <td>1</td>
+        <td>2728</td>
+        <td>864.3</td>
+        <td>131.170</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2022-04-21-civicactions-announces-Ryerson-partnership-digital-accessibility</th>
+        <td>1</td>
+        <td>2609</td>
+        <td>865.8</td>
+        <td>131.396</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2024-01-05-CivicActions-Partners-with-aamdsif</th>
+        <td>1</td>
+        <td>2504</td>
+        <td>865.8</td>
+        <td>131.387</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2024-01-16-CivicActions-Announces-Impact-Report</th>
+        <td>1</td>
+        <td>2533</td>
+        <td>865.3</td>
+        <td>131.315</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2024-07-09-CivicActions-Appoints-Mike-Gifford</th>
+        <td>1</td>
+        <td>2342</td>
+        <td>866.7</td>
+        <td>131.526</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/nyc-metro-transit-digital-clocks%20</th>
+        <td>1</td>
+        <td>2230</td>
+        <td>629.7</td>
+        <td>95.562</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/services/ditap/register</th>
+        <td>1</td>
+        <td>3622</td>
+        <td>5229.9</td>
+        <td>793.670</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-05-03-civicactions-wins-nsf-recompete</th>
+        <td>1</td>
+        <td>2392</td>
+        <td>865.6</td>
+        <td>131.362</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-05-11-civicactions-wins-department-of-ed-recompete</th>
+        <td>1</td>
+        <td>2471</td>
+        <td>865.0</td>
+        <td>131.275</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-07-08-gsa-engages-civicactions-to-modernize-vpat</th>
+        <td>1</td>
+        <td>2430</td>
+        <td>865.5</td>
+        <td>131.343</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-07-19-civicactions-announces-va-ditap-graduation</th>
+        <td>1</td>
+        <td>2443</td>
+        <td>865.8</td>
+        <td>131.396</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-09-08-civicactions-announces-ditap-grads-across-federal-agencies</th>
+        <td>1</td>
+        <td>2382</td>
+        <td>866.3</td>
+        <td>131.471</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/3</th>
+        <td>1</td>
+        <td>2527</td>
+        <td>866.2</td>
+        <td>131.458</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2020-03-02-civicactions-wins-cms-contract</th>
+        <td>1</td>
+        <td>2420</td>
+        <td>865.1</td>
+        <td>131.277</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2020-08-14-civicactions-certified-to-deliver-ditap</th>
+        <td>1</td>
+        <td>2517</td>
+        <td>865.6</td>
+        <td>131.366</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2020-11-09-civicactions-acquires-openconcept</th>
+        <td>1</td>
+        <td>2386</td>
+        <td>865.6</td>
+        <td>131.363</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section aria-labelledby="compare-h">
+  <h2 id="compare-h">Modelled CO2e versus observed energy</h2>
+  <p class="note">
+    Presented side by side in their own units. These columns are deliberately
+    <strong>not</strong> summed or converted into one another.
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Model and measurement, per step</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th>
+        <th scope="col">Transfer (KB)</th>
+        <th scope="col">CO2.js total (mg)</th>
+        <th scope="col">CO2.js device segment (mg)</th>
+        <th scope="col">Observed energy (mWh)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">https://civicactions.com/</th>
+        <td>1967.0</td>
+        <td>298.510</td>
+        <td>160.200</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/accessibility-statement</th>
+        <td>876.0</td>
+        <td>132.934</td>
+        <td>71.341</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/careers</th>
+        <td>2782.5</td>
+        <td>422.267</td>
+        <td>226.617</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies</th>
+        <td>15051.8</td>
+        <td>2284.212</td>
+        <td>1225.860</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/cms-web-experience-services</th>
+        <td>1570.1</td>
+        <td>238.276</td>
+        <td>127.875</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/dept-of-education-system-lifecycle-development-management</th>
+        <td>8273.3</td>
+        <td>1255.531</td>
+        <td>673.802</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/va-cms-modernization</th>
+        <td>11472.4</td>
+        <td>1741.013</td>
+        <td>934.344</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/contact</th>
+        <td>1437.9</td>
+        <td>218.204</td>
+        <td>117.103</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/contracting</th>
+        <td>987.9</td>
+        <td>149.918</td>
+        <td>80.456</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/feedback</th>
+        <td>5235.3</td>
+        <td>794.486</td>
+        <td>426.374</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/licensing</th>
+        <td>836.0</td>
+        <td>126.875</td>
+        <td>68.089</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press</th>
+        <td>865.7</td>
+        <td>131.373</td>
+        <td>70.504</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/privacy</th>
+        <td>837.7</td>
+        <td>127.127</td>
+        <td>68.225</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/services</th>
+        <td>869.7</td>
+        <td>131.986</td>
+        <td>70.833</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/services/ditap</th>
+        <td>1780.8</td>
+        <td>270.241</td>
+        <td>145.030</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/sustainability</th>
+        <td>856.4</td>
+        <td>129.962</td>
+        <td>69.746</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/team</th>
+        <td>1064.2</td>
+        <td>161.498</td>
+        <td>86.670</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/Drupal-10</th>
+        <td>1426.6</td>
+        <td>216.500</td>
+        <td>116.188</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/cms-design-challenge-mvp</th>
+        <td>1229.2</td>
+        <td>186.543</td>
+        <td>100.111</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/cybergeek</th>
+        <td>1039.2</td>
+        <td>157.711</td>
+        <td>84.638</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/fcc-website-modernization</th>
+        <td>1333.3</td>
+        <td>202.339</td>
+        <td>108.588</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/georgia-workforce-open-data</th>
+        <td>3242.9</td>
+        <td>492.137</td>
+        <td>264.114</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/globalnet-platform-support</th>
+        <td>12736.6</td>
+        <td>1932.861</td>
+        <td>1037.302</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/nsf-website-redesign</th>
+        <td>12707.4</td>
+        <td>1928.429</td>
+        <td>1034.923</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/nyc-metro-transit-digital-clocks</th>
+        <td>3528.9</td>
+        <td>535.531</td>
+        <td>287.402</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/open-acr</th>
+        <td>1082.1</td>
+        <td>164.224</td>
+        <td>88.133</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/va-alt-text</th>
+        <td>2907.8</td>
+        <td>441.272</td>
+        <td>236.816</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/cms-web-experience-services/fearless.tech</th>
+        <td>1763.3</td>
+        <td>267.587</td>
+        <td>143.605</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2</th>
+        <td>872.5</td>
+        <td>132.410</td>
+        <td>71.060</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2022-01-05-civicactions-named-govtech-100-top-government-technology-companies-list</th>
+        <td>864.3</td>
+        <td>131.170</td>
+        <td>70.394</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2022-04-21-civicactions-announces-Ryerson-partnership-digital-accessibility</th>
+        <td>865.8</td>
+        <td>131.396</td>
+        <td>70.516</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2024-01-05-CivicActions-Partners-with-aamdsif</th>
+        <td>865.8</td>
+        <td>131.387</td>
+        <td>70.511</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2024-01-16-CivicActions-Announces-Impact-Report</th>
+        <td>865.3</td>
+        <td>131.315</td>
+        <td>70.472</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2024-07-09-CivicActions-Appoints-Mike-Gifford</th>
+        <td>866.7</td>
+        <td>131.526</td>
+        <td>70.586</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/case-studies/nyc-metro-transit-digital-clocks%20</th>
+        <td>629.7</td>
+        <td>95.562</td>
+        <td>51.285</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/services/ditap/register</th>
+        <td>5229.9</td>
+        <td>793.670</td>
+        <td>425.936</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-05-03-civicactions-wins-nsf-recompete</th>
+        <td>865.6</td>
+        <td>131.362</td>
+        <td>70.498</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-05-11-civicactions-wins-department-of-ed-recompete</th>
+        <td>865.0</td>
+        <td>131.275</td>
+        <td>70.451</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-07-08-gsa-engages-civicactions-to-modernize-vpat</th>
+        <td>865.5</td>
+        <td>131.343</td>
+        <td>70.487</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-07-19-civicactions-announces-va-ditap-graduation</th>
+        <td>865.8</td>
+        <td>131.396</td>
+        <td>70.516</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2021-09-08-civicactions-announces-ditap-grads-across-federal-agencies</th>
+        <td>866.3</td>
+        <td>131.471</td>
+        <td>70.556</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/3</th>
+        <td>866.2</td>
+        <td>131.458</td>
+        <td>70.549</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2020-03-02-civicactions-wins-cms-contract</th>
+        <td>865.1</td>
+        <td>131.277</td>
+        <td>70.452</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2020-08-14-civicactions-certified-to-deliver-ditap</th>
+        <td>865.6</td>
+        <td>131.366</td>
+        <td>70.499</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://civicactions.com/press/2020-11-09-civicactions-acquires-openconcept</th>
+        <td>865.6</td>
+        <td>131.363</td>
+        <td>70.498</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Not enough measured runs to report correlations.</p>
+</section>
+
+<section aria-labelledby="dist-h">
+  <h2 id="dist-h">Distributions</h2>
+  <p class="note">Full descriptive statistics, given as a table rather than a chart image.</p>
+  <div class="scroll">
+  <table>
+    <caption>Incremental energy per step (mWh)</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th><th scope="col">n</th><th scope="col">min</th>
+        <th scope="col">p25</th><th scope="col">median</th><th scope="col">p75</th>
+        <th scope="col">p95</th><th scope="col">max</th><th scope="col">sd</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="9">No energy data.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section aria-labelledby="env-h">
+  <h2 id="env-h">Environment</h2>
+  <dl class="meta">
+    <dt>OS</dt><dd>darwin 25.5.0 (arm64)</dd>
+    <dt>CPU count</dt><dd>3</dd>
+    <dt>Firefox</dt><dd>153.0</dd>
+    <dt>Playwright</dt><dd>1.62.1</dd>
+    <dt>CO2.js</dt><dd>0.19.0</dd>
+    <dt>Energy adapter</dt><dd>auto</dd>
+    <dt>Browser mode</dt><dd>headless</dd>
+    <dt>Viewport</dt><dd>1440×900</dd>
+    <dt>Power source</dt><dd>AC</dd>
+    <dt>Low Power Mode</dt><dd>unknown</dd>
+  </dl>
+  
+</section>
+
+<section aria-labelledby="method-h">
+  <h2 id="method-h">Methodology</h2>
+  <p>
+    Energy is attributed to a step by <strong>time window</strong>: the harness records
+    wall-clock boundaries and integrates Firefox's power counters over that range.
+    Any concurrent browser activity inside the window is included. Counter samples are
+    picowatt-hours, converted with <code>joules = pWh × 1e-12 × 3600</code>.
+  </p>
+  <p>
+    Baseline correction retains all three values — raw measured energy, the estimated idle
+    energy, and the incremental difference. Negative incremental values are reported as-is
+    and flagged as noisy rather than clamped to zero.
+  </p>
+</section>
+</body>
+</html>
