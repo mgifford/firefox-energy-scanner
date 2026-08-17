@@ -148,7 +148,54 @@ sends it gzipped at 35,040 bytes, so the measurement reflects **actual bytes ove
 wire** plus response headers. That is the correct input for CO2.js. A naive `curl`
 without `Accept-Encoding: gzip` overstates transfer by 13x here.
 
-## 6. Defects caught by the validation protocol
+## 6. End-to-end A/B validation (synthetic pair)
+
+Real Drupal preview pairs were not obtainable — Tugboat hosts embed an opaque
+per-preview token (`mr16629-lltdcuaqvslul8xtiwwyr8qx91pp8su3`), the bare `mr<N>` form
+404s, and MR comments require GitLab authentication. So the A/B path was validated
+against a synthetic pair shaped like a real frontend patch: identical content and
+markup, with the "baseline" loading one extra stylesheet that animates every row.
+
+**Triage first**, in seconds:
+
+```
+Stylesheets  a=2  b=1  DIFFER
+    - style  /extra.css
+Verdict: WORTH MEASURING
+  Stylesheet set differs (0 added, 1 removed). Different CSS means different style
+  recalculation and layout work.
+```
+
+**Then the interleaved comparison**, 10 runs per side:
+
+```
+Interleaved order (seed 3db68f31…): b a b a a b b a b a b a a b b a a b a b
+
+Scenario                    baseline    patch       Change
+load                        0.023 mWh   0.003 mWh   -87.7%
+```
+
+Scrutiny of the result:
+
+| | median | IQR | resolved |
+|---|---|---|---|
+| baseline | 22.85 µJ | 2.75 µJ | **yes** |
+| patch | 2.81 µJ | 8.95 µJ | **no** |
+
+- effect is **3.43x the combined IQR**, so it is well above noise
+- 10 runs per side, so no small-sample qualification was attached
+- page anatomy confirms the mechanism: **800 animated elements → 0**
+
+Note the second row. After the fix the page sits at the noise floor, and the tool
+**refuses to treat 2.81 µJ as a measurement** even though it is the "good" result.
+That is the resolution check doing its job in the direction that matters: it would be
+easy, and wrong, to report a precise post-fix number here.
+
+This is the shape a real Drupal frontend patch would take — for example issue 3587098
+(`sizes="auto"` for lazy images) or 3568172 (conditionally loaded `.js-show`/`.js-hide`
+CSS). The pipeline is proven; only the preview URLs are missing.
+
+## 7. Defects caught by the validation protocol
 
 Recorded because they demonstrate the value of validating rather than assuming.
 
