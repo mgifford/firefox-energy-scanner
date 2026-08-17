@@ -1,0 +1,2450 @@
+{
+  "schemaVersion": 1,
+  "session": {
+    "id": "a0fe7aff-d242-4c0d-837a-5eb9b426d45e",
+    "startedAt": "2026-08-17T19:32:23.167Z",
+    "mode": "measure"
+  },
+  "capabilities": {
+    "tier": "full",
+    "summary": "Full tier: power counters produced samples, so energy measurement and A/B regression are available alongside all structural metrics.",
+    "unavailable": []
+  },
+  "environment": {
+    "timestamp": "2026-08-17T19:32:23.218Z",
+    "os": "darwin",
+    "osVersion": "25.5.0",
+    "architecture": "arm64",
+    "cpuCount": 3,
+    "totalMemoryBytes": 7516192768,
+    "machineModel": "VirtualMac2,1",
+    "firefoxVersion": "153.0",
+    "playwrightVersion": "1.62.1",
+    "co2jsVersion": "0.19.0",
+    "energyAdapter": "auto",
+    "headed": false,
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "onBattery": false
+  },
+  "target": {
+    "url": "https://mgifford.github.io/open-scans/"
+  },
+  "configuration": {
+    "browser": {
+      "name": "firefox",
+      "headed": false,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      }
+    },
+    "benchmark": {
+      "warmups": 2,
+      "runs": 8,
+      "settle_ms": 1500,
+      "cache_mode": "warm"
+    },
+    "stability": {
+      "network_idle_ms": 500,
+      "post_idle_ms": 1500,
+      "max_wait_ms": 10000
+    },
+    "crawl": {
+      "enabled": false,
+      "max_pages": 100,
+      "max_depth": 5,
+      "same_origin": true,
+      "include": [],
+      "exclude": [],
+      "query_strategy": "strip",
+      "respect_robots": true,
+      "delay_ms": 250
+    },
+    "energy": {
+      "adapter": "auto",
+      "baseline": true,
+      "baseline_duration_ms": 10000,
+      "baseline_settle_ms": 5000,
+      "profiler_interval_ms": 10,
+      "retain_profile": false
+    },
+    "co2": {
+      "enabled": true,
+      "model": "swd",
+      "check_green_hosting": false
+    },
+    "sitespeed": {
+      "enabled": false
+    },
+    "output": {
+      "directory": "site/results",
+      "json": true,
+      "csv": true,
+      "html": true,
+      "collect_hostname": false
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995061749,
+      "endedAt": 1786995064200,
+      "timing": {
+        "durationMs": 2451,
+        "ttfbMs": 155,
+        "responseMs": 155,
+        "domContentLoadedMs": 430,
+        "loadMs": 430
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200,
+            "durationMs": 169.119873046875
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200,
+            "durationMs": 100.8291015625
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200,
+            "durationMs": 103.55419921875
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200,
+            "durationMs": 88.9931640625
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2451,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995064211,
+      "endedAt": 1786995066371,
+      "timing": {
+        "durationMs": 2160,
+        "ttfbMs": 111,
+        "responseMs": 112,
+        "domContentLoadedMs": 164,
+        "loadMs": 164
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200,
+            "durationMs": 112.76318359375
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2160,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 0,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995066378,
+      "endedAt": 1786995068674,
+      "timing": {
+        "durationMs": 2296,
+        "ttfbMs": 252,
+        "responseMs": 254,
+        "domContentLoadedMs": 356,
+        "loadMs": 356
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200,
+            "durationMs": 255.045166015625
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2296,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995070191,
+      "endedAt": 1786995072247,
+      "timing": {
+        "durationMs": 2056,
+        "domContentLoadedMs": 57,
+        "loadMs": 58
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2056,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995072256,
+      "endedAt": 1786995074306,
+      "timing": {
+        "durationMs": 2050,
+        "domContentLoadedMs": 35,
+        "loadMs": 40
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2050,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 1,
+      "warmup": true,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995074313,
+      "endedAt": 1786995076348,
+      "timing": {
+        "durationMs": 2035,
+        "domContentLoadedMs": 92,
+        "loadMs": 92
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2035,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995077861,
+      "endedAt": 1786995079915,
+      "timing": {
+        "durationMs": 2054,
+        "domContentLoadedMs": 37,
+        "loadMs": 37
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2054,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995079924,
+      "endedAt": 1786995081962,
+      "timing": {
+        "durationMs": 2038,
+        "domContentLoadedMs": 33,
+        "loadMs": 43
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2038,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 0,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995081973,
+      "endedAt": 1786995084016,
+      "timing": {
+        "durationMs": 2043,
+        "domContentLoadedMs": 117,
+        "loadMs": 117
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2043,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995085529,
+      "endedAt": 1786995087581,
+      "timing": {
+        "durationMs": 2052,
+        "domContentLoadedMs": 45,
+        "loadMs": 46
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2052,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995087596,
+      "endedAt": 1786995089647,
+      "timing": {
+        "durationMs": 2051,
+        "domContentLoadedMs": 58,
+        "loadMs": 58
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2051,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 1,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995089658,
+      "endedAt": 1786995091715,
+      "timing": {
+        "durationMs": 2057,
+        "domContentLoadedMs": 199,
+        "loadMs": 199
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2057,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995093229,
+      "endedAt": 1786995095270,
+      "timing": {
+        "durationMs": 2041,
+        "domContentLoadedMs": 34,
+        "loadMs": 35
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2041,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995095280,
+      "endedAt": 1786995097310,
+      "timing": {
+        "durationMs": 2030,
+        "domContentLoadedMs": 37,
+        "loadMs": 56
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2030,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 2,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995097314,
+      "endedAt": 1786995099352,
+      "timing": {
+        "durationMs": 2038,
+        "domContentLoadedMs": 133,
+        "loadMs": 134
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2038,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995100870,
+      "endedAt": 1786995102925,
+      "timing": {
+        "durationMs": 2055,
+        "domContentLoadedMs": 83,
+        "loadMs": 84
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2055,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995102930,
+      "endedAt": 1786995104974,
+      "timing": {
+        "durationMs": 2044,
+        "domContentLoadedMs": 57,
+        "loadMs": 57
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2044,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 3,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995104985,
+      "endedAt": 1786995107029,
+      "timing": {
+        "durationMs": 2044,
+        "domContentLoadedMs": 137,
+        "loadMs": 138
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2044,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995108539,
+      "endedAt": 1786995110594,
+      "timing": {
+        "durationMs": 2055,
+        "domContentLoadedMs": 48,
+        "loadMs": 49
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2055,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995110606,
+      "endedAt": 1786995112663,
+      "timing": {
+        "durationMs": 2057,
+        "domContentLoadedMs": 75,
+        "loadMs": 75
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2057,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 4,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995112676,
+      "endedAt": 1786995114724,
+      "timing": {
+        "durationMs": 2048,
+        "domContentLoadedMs": 105,
+        "loadMs": 105
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2048,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995116238,
+      "endedAt": 1786995118294,
+      "timing": {
+        "durationMs": 2056,
+        "domContentLoadedMs": 43,
+        "loadMs": 45
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2056,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995118299,
+      "endedAt": 1786995120323,
+      "timing": {
+        "durationMs": 2024,
+        "domContentLoadedMs": 24,
+        "loadMs": 32
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2024,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 5,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995120330,
+      "endedAt": 1786995122367,
+      "timing": {
+        "durationMs": 2037,
+        "domContentLoadedMs": 92,
+        "loadMs": 92
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2037,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995123888,
+      "endedAt": 1786995125970,
+      "timing": {
+        "durationMs": 2082,
+        "domContentLoadedMs": 75,
+        "loadMs": 76
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2082,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995125984,
+      "endedAt": 1786995128030,
+      "timing": {
+        "durationMs": 2046,
+        "domContentLoadedMs": 45,
+        "loadMs": 54
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2046,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 6,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995128037,
+      "endedAt": 1786995130080,
+      "timing": {
+        "durationMs": 2043,
+        "domContentLoadedMs": 104,
+        "loadMs": 104
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2043,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/",
+      "startedAt": 1786995131596,
+      "endedAt": 1786995133658,
+      "timing": {
+        "durationMs": 2062,
+        "domContentLoadedMs": 58,
+        "loadMs": 58
+      },
+      "network": {
+        "requests": 4,
+        "transferBytes": 18007,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 8396
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 8182
+          },
+          "fetch": {
+            "requests": 1,
+            "bytes": 1429
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 8396,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/submit.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 5805,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/stats.json",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 1429,
+            "status": 200
+          },
+          {
+            "url": "https://mgifford.github.io/open-scans/scan-context.js",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2377,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "anatomy": {
+        "domNodes": 183,
+        "domDepth": 9,
+        "cssRules": 83,
+        "cssSelectors": 87,
+        "scripts": 4,
+        "images": 0,
+        "iframes": 0,
+        "animatedElements": 7,
+        "heaviestSubtrees": [
+          {
+            "selector": "html",
+            "nodes": 182
+          },
+          {
+            "selector": "body",
+            "nodes": 165
+          },
+          {
+            "selector": "div.container",
+            "nodes": 161
+          },
+          {
+            "selector": "main#main-content",
+            "nodes": 131
+          },
+          {
+            "selector": "section",
+            "nodes": 55
+          }
+        ],
+        "lcpElement": {
+          "selector": "p",
+          "renderTimeMs": 86,
+          "sizePx": 18203
+        }
+      },
+      "findings": [
+        {
+          "id": "css-expensive-selectors",
+          "severity": "low",
+          "title": "2 selectors with high match cost",
+          "evidence": "* (universal selector); button:hover:not(:disabled) (costly pseudo-class)",
+          "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element.",
+          "category": "Layout"
+        }
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 18007,
+        "estimatedGrams": 0.0026686374,
+        "consumerDeviceGrams": 0.001432168738,
+        "networkGrams": 0.0006404729759999999,
+        "dataCenterGrams": 0.000595995686
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2062,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports.html",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports.html",
+      "startedAt": 1786995133705,
+      "endedAt": 1786995135769,
+      "timing": {
+        "durationMs": 2064,
+        "domContentLoadedMs": 82,
+        "loadMs": 82
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 36020,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 36020
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 36020,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "anatomy": {
+        "domNodes": 6124,
+        "domDepth": 9,
+        "cssRules": 54,
+        "cssSelectors": 54,
+        "scripts": 1,
+        "images": 0,
+        "iframes": 0,
+        "animatedElements": 0,
+        "heaviestSubtrees": [
+          {
+            "selector": "html",
+            "nodes": 6123
+          },
+          {
+            "selector": "body",
+            "nodes": 6117
+          },
+          {
+            "selector": "div.container",
+            "nodes": 6115
+          },
+          {
+            "selector": "main#main-content",
+            "nodes": 6106
+          },
+          {
+            "selector": "div.table-wrapper",
+            "nodes": 6019
+          }
+        ],
+        "lcpElement": {
+          "selector": "p",
+          "renderTimeMs": 87,
+          "sizePx": 8447
+        }
+      },
+      "findings": [
+        {
+          "id": "dom-size",
+          "severity": "high",
+          "title": "Large DOM (6,124 nodes)",
+          "evidence": "6,124 elements, maximum depth 9. Heaviest subtree: html (6,123 nodes).",
+          "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling.",
+          "category": "Layout"
+        },
+        {
+          "id": "css-expensive-selectors",
+          "severity": "low",
+          "title": "1 selectors with high match cost",
+          "evidence": "* (universal selector)",
+          "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element.",
+          "category": "Layout"
+        }
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 36020,
+        "estimatedGrams": 0.005338164,
+        "consumerDeviceGrams": 0.00286481468,
+        "networkGrams": 0.00128115936,
+        "dataCenterGrams": 0.00119218996
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2064,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    },
+    {
+      "scenario": "measure",
+      "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "run": 7,
+      "warmup": false,
+      "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+      "startedAt": 1786995135897,
+      "endedAt": 1786995137937,
+      "timing": {
+        "durationMs": 2040,
+        "domContentLoadedMs": 104,
+        "loadMs": 104
+      },
+      "network": {
+        "requests": 1,
+        "transferBytes": 128405,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 1,
+            "bytes": 128405
+          }
+        },
+        "resources": [
+          {
+            "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+            "domain": "mgifford.github.io",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 128405,
+            "status": 200
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [
+        "Only 0 power samples in this window. Short steps yield few samples and unreliable energy."
+      ],
+      "anatomy": {
+        "domNodes": 24385,
+        "domDepth": 13,
+        "cssRules": 278,
+        "cssSelectors": 279,
+        "scripts": 1,
+        "images": 0,
+        "iframes": 0,
+        "animatedElements": 199,
+        "heaviestSubtrees": [
+          {
+            "selector": "html",
+            "nodes": 24384
+          },
+          {
+            "selector": "body",
+            "nodes": 24378
+          },
+          {
+            "selector": "div#main-content",
+            "nodes": 24375
+          },
+          {
+            "selector": "section.change-tracking-section",
+            "nodes": 20215
+          },
+          {
+            "selector": "details.change-details",
+            "nodes": 12727
+          }
+        ],
+        "lcpElement": {
+          "selector": "h1",
+          "renderTimeMs": 121,
+          "sizePx": 14905
+        }
+      },
+      "findings": [
+        {
+          "id": "dom-size",
+          "severity": "high",
+          "title": "Large DOM (24,385 nodes)",
+          "evidence": "24,385 elements, maximum depth 13. Heaviest subtree: html (24,384 nodes).",
+          "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling.",
+          "category": "Layout"
+        },
+        {
+          "id": "animations",
+          "severity": "medium",
+          "title": "199 elements with animations or transitions",
+          "evidence": "199 elements have a non-zero animation or transition.",
+          "action": "Running animations keep the refresh driver and compositor awake, drawing power even when nothing is interacting. Prefer transform/opacity, and honour prefers-reduced-motion.",
+          "category": "Graphics"
+        },
+        {
+          "id": "css-expensive-selectors",
+          "severity": "low",
+          "title": "3 selectors with high match cost",
+          "evidence": "* (universal selector); .priority-table thead th.axe-col-header .priority-sort-btn (deep descendant chain); .priority-table thead th.axe-col-header .priority-sort-btn:hover (deep descendant chain)",
+          "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element.",
+          "category": "Layout"
+        }
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 128405,
+        "estimatedGrams": 0.019029620999999997,
+        "consumerDeviceGrams": 0.010212563269999999,
+        "networkGrams": 0.00456710904,
+        "dataCenterGrams": 0.00424994869
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 2040,
+          "measurementScope": "process",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler",
+          "sampleCount": 0
+        }
+      }
+    }
+  ],
+  "warnings": []
+}

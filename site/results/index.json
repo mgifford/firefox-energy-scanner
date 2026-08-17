@@ -1,7 +1,130 @@
 {
-  "generatedAt": "2026-08-17T19:26:34.867Z",
+  "generatedAt": "2026-08-17T19:32:23.758Z",
   "schemaVersion": 1,
   "entries": [
+    {
+      "id": "a0fe7aff-d242-4c0d-837a-5eb9b426d45e",
+      "file": "measure-2026-08-17T19-32-23-219Z.json",
+      "timestamp": "2026-08-17T19:32:23.218Z",
+      "mode": "measure",
+      "tier": "full",
+      "tierSummary": "Full tier: power counters produced samples, so energy measurement and A/B regression are available alongside all structural metrics.",
+      "target": "https://mgifford.github.io/open-scans/",
+      "energyAvailable": false,
+      "platform": "darwin",
+      "architecture": "arm64",
+      "firefoxVersion": "153.0",
+      "onBattery": false,
+      "runnerNote": "No power counters on darwin/arm64. Network, CO2.js and timing metrics are valid; energy was not measured.",
+      "scenarios": [
+        {
+          "step": "https://mgifford.github.io/open-scans/",
+          "url": "https://mgifford.github.io/open-scans/",
+          "anatomy": {
+            "domNodes": 183,
+            "domDepth": 9,
+            "cssSelectors": 87,
+            "scripts": 4,
+            "images": 0,
+            "animatedElements": 7,
+            "heaviestSubtree": "html",
+            "lcpElement": "p"
+          },
+          "findings": [
+            {
+              "severity": "low",
+              "title": "2 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 18007,
+          "requests": 4,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0026686374,
+          "co2Model": "swd",
+          "durationMs": 2055,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://mgifford.github.io/open-scans/reports.html",
+          "url": "https://mgifford.github.io/open-scans/reports.html",
+          "anatomy": {
+            "domNodes": 6124,
+            "domDepth": 9,
+            "cssSelectors": 54,
+            "scripts": 1,
+            "images": 0,
+            "animatedElements": 0,
+            "heaviestSubtree": "html",
+            "lcpElement": "p"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (6,124 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "low",
+              "title": "1 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 36020,
+          "requests": 1,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.005338164,
+          "co2Model": "swd",
+          "durationMs": 2045,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+          "url": "https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html",
+          "anatomy": {
+            "domNodes": 24385,
+            "domDepth": 13,
+            "cssSelectors": 279,
+            "scripts": 1,
+            "images": 0,
+            "animatedElements": 199,
+            "heaviestSubtree": "html",
+            "lcpElement": "h1"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (24,385 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "medium",
+              "title": "199 elements with animations or transitions",
+              "action": "Running animations keep the refresh driver and compositor awake, drawing power even when nothing is interacting. Prefer transform/opacity, and honour prefers-reduced-motion."
+            },
+            {
+              "severity": "low",
+              "title": "3 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 128405,
+          "requests": 1,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.019029620999999997,
+          "co2Model": "swd",
+          "durationMs": 2043,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        }
+      ],
+      "warnings": []
+    },
     {
       "id": "b00d708e-1062-40d7-94a6-8ca445a2c955",
       "file": "measure-2026-08-17T19-26-33-998Z.json",
