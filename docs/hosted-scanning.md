@@ -12,6 +12,28 @@ Either use the web form (which pre-fills a GitHub issue — you still review and
 it yourself), or open an issue titled `SCAN: <description>` using the
 *Energy scan request* template.
 
+### The issue is the run control
+
+Issue state tracks the request, so there is no separate queue to inspect:
+
+| State | Meaning |
+|---|---|
+| **open** | queued, running, or failed — not yet serviced |
+| **closed** | scan completed and results were posted |
+
+When a scan finishes, the workflow posts its results and **closes the issue**.
+**Reopening it runs the scan again**, so re-running is one click. Edit the request body
+before reopening to change URLs, run counts, or the runner.
+
+The two failure paths deliberately leave the issue **open**, because an open issue
+means "not yet serviced":
+
+- **invalid request** (no usable URLs, bad include pattern, over budget) — the errors
+  are posted as a comment and the scan never starts.
+- **failed scan** (target unreachable, timed out) — a comment links the run log.
+
+Both say to close and reopen to retry.
+
 ## GitHub-hosted runners cannot measure energy
 
 **No GitHub-hosted runner can produce energy data**, and no configuration changes that.
