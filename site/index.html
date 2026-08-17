@@ -75,8 +75,8 @@
       <li>
         <span class="step-num" aria-hidden="true">2</span>
         <strong>A runner measures it.</strong> A GitHub Action drives Firefox and
-        records network, CO<sub>2</sub>e and timing data. Energy needs physical
-        Apple Silicon hardware, so hosted scans omit it.
+        records network, CO<sub>2</sub>e, timing and page-structure data. Energy needs
+        a self-hosted physical Apple Silicon runner.
       </li>
       <li>
         <span class="step-num" aria-hidden="true">3</span>
@@ -135,12 +135,12 @@
       <fieldset class="field">
         <legend>Runner</legend>
         <p class="hint" id="runner-hint">
-          <strong>Neither hosted runner can measure energy.</strong> GitHub's macOS
-          runners are virtual machines, and Apple's Virtualization framework does not
-          expose the SoC power-manager hardware to a guest — so Firefox's power counters
-          exist but never produce a sample. Hosted scans report network,
-          CO<sub>2</sub>e and timing only. Energy needs a physical Apple Silicon machine
-          (a self-hosted runner, or the CLI locally).
+          <strong>Only a self-hosted physical Apple Silicon runner can measure
+          energy.</strong> GitHub's hosted macOS runners are virtual machines, and
+          Apple's Virtualization framework does not expose the SoC power-manager
+          hardware to a guest — so Firefox's power counters exist but never produce a
+          sample. Both hosted options report network, CO<sub>2</sub>e, timing and page
+          structure.
         </p>
         <div class="radio-row">
           <input type="radio" id="runner-linux" name="runner" value="linux" checked
@@ -155,6 +155,17 @@
             macOS <span class="muted">— same metrics, closer to a desktop browser profile</span>
           </label>
         </div>
+        <div class="radio-row">
+          <input type="radio" id="runner-self" name="runner" value="self-hosted">
+          <label for="runner-self">
+            Self-hosted Apple Silicon <span class="muted">— includes energy, if a runner is online</span>
+          </label>
+        </div>
+        <p class="hint indent">
+          Self-hosted requires a physical Apple Silicon machine registered as a runner
+          on this repository. If none is online the scan falls back to a hosted runner
+          and reports structural metrics only.
+        </p>
       </fieldset>
 
       <div class="field" id="runs-field">

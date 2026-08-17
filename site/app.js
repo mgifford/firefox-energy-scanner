@@ -152,9 +152,12 @@
         ? 'crawl — follow links from one URL, once each (up to 200 pages)'
         : 'measure — repeat a few URLs many times (up to 20 URLs)');
       params.set('urls', result.urls.join('\n'));
-      params.set('runner', runner === 'macos'
-        ? 'macos — same metrics, closer to a desktop browser profile'
-        : 'linux — network + CO2e + timing (faster)');
+      params.set('runner',
+        runner === 'self-hosted'
+          ? 'self-hosted — physical Apple Silicon, includes ENERGY'
+          : runner === 'macos'
+            ? 'macos — structural only, desktop-like browser profile'
+            : 'linux — structural only (fastest, always available)');
       params.set('runs', String(runs));
       params.set('max-pages', String(maxPages));
       if (include) params.set('include', include);

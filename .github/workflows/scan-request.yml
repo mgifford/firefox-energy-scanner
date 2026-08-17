@@ -2,10 +2,12 @@ name: Run energy scan
 
 # Processes a scan request filed as an issue titled "SCAN: ...".
 #
-# Energy measurement requires Apple Silicon. Verified on GitHub-hosted runners:
-#   macos-latest  -> arm64, power counters available, AC power
-#   ubuntu-latest -> x86_64, NO power counters (network/CO2e/timing only)
-# See docs/decision-record.md TDR-007.
+# Energy measurement requires PHYSICAL Apple Silicon. Verified empirically:
+#   ubuntu-latest      -> x86_64, no power counters
+#   macos-latest       -> arm64 but VIRTUALISED (VirtualMac2,1); the counter
+#                         exists and emits zero samples, so no energy
+#   self-hosted macOS  -> real hardware, real energy
+# See docs/decision-record.md TDR-007 and TDR-008.
 
 on:
   issues:
@@ -41,6 +43,7 @@ jobs:
       viewport_width: ${{ steps.parse.outputs.viewport_width }}
       viewport_height: ${{ steps.parse.outputs.viewport_height }}
       issue: ${{ steps.parse.outputs.issue }}
+      runner_available: ${{ steps.runner-check.outputs.available }}
       valid: ${{ steps.parse.outputs.valid }}
       errors: ${{ steps.parse.outputs.errors }}
       notes: ${{ steps.parse.outputs.notes }}
@@ -107,11 +110,40 @@ jobs:
           appendFileSync(process.env.GITHUB_OUTPUT, out.join('\n') + '\n', 'utf8');
           NODE
 
+      # A self-hosted job queues indefinitely when no runner is registered, so
+      # check first and fall back rather than leaving the request hanging.
+      - name: Check for a registered self-hosted runner
+        id: runner-check
+        if: steps.parse.outputs.runner == 'self-hosted'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let available = false;
+            try {
+              const { data } = await github.rest.actions.listSelfHostedRunnersForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              available = (data.runners || []).some(
+                (r) => r.status === 'online' && !r.busy,
+              );
+              core.info(`self-hosted runners: ${data.total_count}, usable: ${available}`);
+            } catch (err) {
+              // Token may lack admin scope; assume unavailable rather than hang.
+              core.warning(`Could not list self-hosted runners: ${err.message}`);
+            }
+            core.setOutput('available', available ? 'true' : 'false');
+
   scan:
     needs: prepare
     if: needs.prepare.outputs.valid == 'true'
-    # macOS gives real energy data; Linux is the faster network/CO2e-only path.
-    runs-on: ${{ needs.prepare.outputs.runner == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
+    # Only a registered self-hosted macOS runner can measure energy. If one was
+    # requested but is not online, fall back to a hosted runner so the request
+    # still returns structural results instead of queuing forever.
+    runs-on: >-
+      ${{ (needs.prepare.outputs.runner == 'self-hosted' && needs.prepare.outputs.runner_available == 'true')
+          && fromJSON('["self-hosted","macOS","ARM64"]')
+          || (needs.prepare.outputs.runner == 'macos' && 'macos-latest' || 'ubuntu-latest') }}
     # The request budget is 90 minutes of scanning; this leaves room for
     # checkout, install, commit and comment without hitting the 360-minute cap.
     timeout-minutes: 120
@@ -188,7 +220,11 @@ jobs:
             const fs = require('fs');
             const files = fs.readdirSync('site/results').filter(f => f.endsWith('.json') && f !== 'index.json');
             const latest = files.sort().pop();
-            const isMac = '${{ needs.prepare.outputs.runner }}' === 'macos';
+            const requestedRunner = '${{ needs.prepare.outputs.runner }}';
+            const selfHostedUsed =
+              requestedRunner === 'self-hosted' &&
+              '${{ needs.prepare.outputs.runner_available }}' === 'true';
+            const fellBack = requestedRunner === 'self-hosted' && !selfHostedUsed;
 
             let table = '';
             try {
@@ -245,9 +281,11 @@ jobs:
               isCrawl
                 ? '_Crawl mode measures each page **once**. That is enough to rank pages and find outliers, but a single run cannot separate a real difference from noise — use measure mode for comparisons._'
                 : '',
-              isMac
-                ? '_Energy measured on a GitHub-hosted macOS (Apple Silicon) runner. Shared runners have no thermal or noisy-neighbour control, so treat these as indicative, not as regression-grade numbers._'
-                : '_Ran on a Linux runner, which has no Firefox power counters. Network, CO2e and timing metrics are valid; **no energy was measured**._',
+              selfHostedUsed
+                ? '_Ran on a self-hosted physical Apple Silicon runner, so energy was measured. Check the power-source and Low Power Mode flags in the result before comparing against other runs._'
+                : fellBack
+                  ? '_A self-hosted runner was requested but none was online, so this ran on a hosted runner. Structural metrics are complete; **no energy was measured**._'
+                  : '_Ran on a GitHub-hosted runner, which has no power-measurement hardware. Network, CO2e, timing and page-structure metrics are all valid; **no energy was measured**._',
               '',
               '`not resolved` means the measured energy was smaller than its own run-to-run spread,',
               'or at/below idle. Small static pages usually land here — there is nothing above the',

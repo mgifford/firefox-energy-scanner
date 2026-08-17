@@ -9,10 +9,12 @@
 
 export type ScanMode = 'measure' | 'crawl';
 
+export type RunnerChoice = 'linux' | 'macos' | 'self-hosted';
+
 export interface ScanRequest {
   mode: ScanMode;
   urls: string[];
-  runner: 'macos' | 'linux';
+  runner: RunnerChoice;
   runs: number;
   /** Crawl mode only. */
   maxPages: number;
@@ -199,8 +201,20 @@ export function parseScanRequest(body: string): ScanRequest {
     urls.length = MAX_URLS;
   }
 
-  const runnerRaw = (extractSection(body, 'Measurement type') ?? 'macos').toLowerCase();
-  const runner: 'macos' | 'linux' = runnerRaw.includes('linux') ? 'linux' : 'macos';
+  // 'self-hosted' is the only option that can produce energy data, and only
+  // when a physical Apple Silicon runner is actually registered.
+  const runnerRaw = (extractSection(body, 'Measurement type') ?? 'linux').toLowerCase();
+  const runner: RunnerChoice = runnerRaw.includes('self')
+    ? 'self-hosted'
+    : runnerRaw.includes('macos')
+      ? 'macos'
+      : 'linux';
+  if (runner !== 'self-hosted') {
+    notes.push(
+      'Hosted runners have no power-measurement hardware, so this scan reports network, ' +
+        'CO2e, timing and page structure only — no energy.',
+    );
+  }
 
   const runsRaw = extractSection(body, 'Measured runs per URL');
   let runs = DEFAULT_RUNS;

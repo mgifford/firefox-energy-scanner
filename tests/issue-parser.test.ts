@@ -120,8 +120,27 @@ describe('parseScanRequest', () => {
     expect(parseScanRequest(build(['https://a.com'], 'linux')).runner).toBe('linux');
   });
 
-  it('defaults to the macos runner', () => {
-    expect(parseScanRequest(build(['https://a.com'], 'something else')).runner).toBe('macos');
+  it('defaults to the linux runner', () => {
+    // Hosted macOS gives no energy advantage, so the faster runner is the
+    // sensible default.
+    expect(parseScanRequest(build(['https://a.com'], 'something else')).runner).toBe('linux');
+  });
+
+  it('selects the self-hosted runner when requested', () => {
+    const r = parseScanRequest(build(['https://a.com'], 'self-hosted — physical Apple Silicon'));
+    expect(r.runner).toBe('self-hosted');
+  });
+
+  it('warns that hosted runners cannot measure energy', () => {
+    expect(parseScanRequest(build(['https://a.com'], 'linux')).notes.join(' '))
+      .toMatch(/no power-measurement hardware/i);
+    expect(parseScanRequest(build(['https://a.com'], 'macos')).notes.join(' '))
+      .toMatch(/no power-measurement hardware/i);
+  });
+
+  it('does not add the no-energy note for self-hosted', () => {
+    expect(parseScanRequest(build(['https://a.com'], 'self-hosted')).notes.join(' '))
+      .not.toMatch(/no power-measurement hardware/i);
   });
 
   it('drops private URLs and reports them', () => {

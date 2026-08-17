@@ -82,6 +82,11 @@ than a laptop (mains power, stable thermals, no Low Power Mode).
 Results are labelled "no energy data" rather than quietly omitting the column, and
 `doctor` probes for real samples rather than trusting the platform.
 
+To get energy in CI, register a physical Apple Silicon Mac as a self-hosted runner —
+see [docs/self-hosted-runner.md](docs/self-hosted-runner.md). The workflow checks
+whether one is online before dispatching and falls back to a hosted runner rather than
+queuing forever.
+
 Only public `http(s)` URLs are accepted. Localhost and private address ranges are
 rejected, so the scanner cannot be pointed at internal networks.
 
@@ -199,6 +204,9 @@ canvas charts) are generated alongside.
 - [docs/methodology.md](docs/methodology.md) — boundaries and what the numbers mean
 - [docs/energy-measurement.md](docs/energy-measurement.md) — how energy is captured
 - [docs/limitations.md](docs/limitations.md) — confounders and known limits
+- [docs/self-hosted-runner.md](docs/self-hosted-runner.md) — energy measurement in CI
+- [docs/what-costs-energy.md](docs/what-costs-energy.md) — which parts of a page cost most
+- [docs/comparisons.md](docs/comparisons.md) — comparing patches without confounding
 
 ## Licence
 
