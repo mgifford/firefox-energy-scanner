@@ -232,9 +232,11 @@ jobs:
             const fellBack = requestedRunner === 'self-hosted' && !selfHostedUsed;
 
             let table = '';
+            // Declared outside the try so the findings block below can use it.
+            let entry = null;
             try {
               const index = JSON.parse(fs.readFileSync('site/results/index.json', 'utf8'));
-              const entry = index.entries[0];
+              entry = index.entries[0];
               if (entry) {
                 table = [
                   '',
@@ -260,7 +262,7 @@ jobs:
             // Structural findings need no power hardware, so they are the main
             // actionable output on a hosted runner.
             const allFindings = [];
-            for (const s of (result.scenarios || [])) {
+            for (const s of ((entry && entry.scenarios) || [])) {
               for (const f of (s.findings || [])) {
                 if (!allFindings.some((x) => x.id === f.id)) allFindings.push(f);
               }
