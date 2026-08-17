@@ -141,6 +141,10 @@ body:
         comment here and published to
         [GitHub Pages](https://mgifford.github.io/firefox-energy-scanner/).
 
+        **The issue is closed when the scan finishes. Reopen it to run the scan again** —
+        edit the request above first if you want different settings. A request that fails
+        or is rejected stays open, with an explanation.
+
         Scans run on shared GitHub runners, which have no thermal or noisy-neighbour
         control. Treat the numbers as indicative; regression-grade comparison needs a
         dedicated machine.
