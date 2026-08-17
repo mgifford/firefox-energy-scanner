@@ -24,6 +24,7 @@ import { loadMatrix, triageMatrix, baselineOf } from './matrix.js';
 import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
 import { attributeEnergy } from '../energy/attribution.js';
 import { buildFindings } from '../report/findings.js';
+import { collectTwigTemplates } from '../drupal/twig-debug.js';
 import { BrowserSession, waitForStablePage } from '../collect/session.js';
 import { readFile } from 'node:fs/promises';
 import { parseScanRequest } from './issue-parser.js';
@@ -901,6 +902,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
   ]);
   let anatomy;
   let lcp;
+  let twig;
   let energyJoules: number | undefined;
   let profile: unknown;
   let windowStart = 0;
@@ -924,6 +926,9 @@ async function cmdDiagnose(args: Args): Promise<number> {
     anatomy = await collectPageAnatomy(page);
     lcp = await readLcp(page);
     if (anatomy && lcp) anatomy.lcpElement = lcp;
+    // Drupal only: maps rendered markup back to Twig templates when the target
+    // has debug enabled. Silently reports "not enabled" otherwise.
+    twig = await collectTwigTemplates(page);
 
     const profilePath = session.profilePath();
     await session.close();
@@ -983,6 +988,26 @@ async function cmdDiagnose(args: Args): Promise<number> {
       }
     }
     console.log('');
+  }
+
+  if (twig?.enabled && twig.templates.length > 0) {
+    console.log('Twig templates (Drupal)');
+    console.log('  template                        renders   owns   within');
+    for (const t of twig.templates.slice(0, 10)) {
+      console.log(
+        '  ' + t.name.slice(0, 30).padEnd(32) +
+          String(t.occurrences).padStart(5) +
+          String(t.nodesExclusive).padStart(8) +
+          String(t.nodesInclusive).padStart(9),
+      );
+    }
+    console.log(
+      '\n  "owns" excludes markup produced by nested templates, so it points at the\n' +
+        '  template actually responsible. "within" includes everything inside it.',
+    );
+    console.log(`  ${twig.note}\n`);
+  } else if (twig) {
+    console.log(`Twig templates: not available. ${twig.note}\n`);
   }
 
   const findings = buildFindings(anatomy, attribution);

@@ -95,15 +95,36 @@ Ranked by how often they dominate, and how much control you have.
 Template-level attribution is not exposed to the browser: by the time Firefox sees the
 page, Twig has already rendered to HTML and the template boundary is gone.
 
-Two practical ways to recover it:
+**This is now implemented.** With `twig.config.debug: true` set on a development
+target, `diagnose` reads Drupal's debug comments out of the DOM and reports which
+templates own the markup:
 
-- **Enable Twig debug** (`twig.config.debug: true` in `services.yml`). Drupal then emits
-  HTML comments naming the template for each region:
-  `<!-- BEGIN OUTPUT from 'core/themes/olivero/templates/node.html.twig' -->`.
-  Those comments sit in the DOM, so the heaviest-subtree output can be read against
-  them to see which template produced the heavy markup. Do this on a development
-  environment — never in production, and note that debug mode itself changes
-  performance, so do not benchmark with it on.
+```
+Twig templates (Drupal)
+  template                        renders   owns   within
+  node.html.twig                        2      8        8
+  region.html.twig                      1      1        9
+
+  "owns" excludes markup produced by nested templates, so it points at the
+  template actually responsible. "within" includes everything inside it.
+```
+
+The `owns` column is the one to act on. A region template that wraps 900 elements but
+owns 2 of them is not the problem; the template rendered 40 times that owns 20 each is.
+
+Enable it with `twig.config.debug: true` in `development.services.yml`, or via
+*Configure → Development settings* on Drupal 10.1+. Two warnings the tool repeats in
+its own output:
+
+- **development environments only** — debug mode can break some output, notably Views
+- **never while benchmarking** — debug changes performance, so template attribution
+  identifies *which* templates are heavy, and separate measured runs establish *how*
+  heavy
+
+When debug is off, `diagnose` says so and explains how to turn it on, rather than
+failing.
+
+Other practical route:
 - **Correlate structure with libraries.** `#attached['library']` determines which JS and
   CSS a page loads. If `diagnose` shows a large script count or CSS surface, the
   question is which libraries are attached and whether they are needed on that route.
