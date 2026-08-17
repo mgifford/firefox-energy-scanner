@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web energy benchmark — https://mgifford.github.io/open-scans/</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#fff; --muted:#555; --line:#d0d0d0; --accent:#0b5fff; --warn:#8a5300; --warnbg:#fff6e5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e8e8e8; --bg:#141414; --muted:#aaa; --line:#3a3a3a; --accent:#7aa7ff; --warn:#ffcf80; --warnbg:#3a2c10; }
+  }
+  body { font: 16px/1.55 system-ui, sans-serif; color: var(--fg); background: var(--bg);
+         margin: 0 auto; max-width: 68rem; padding: 2rem 1rem; }
+  h1,h2,h3 { line-height: 1.25; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  caption { text-align: left; font-weight: 600; padding-bottom: .5rem; }
+  th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: right; }
+  th[scope="row"], td:first-child, th:first-child { text-align: left; }
+  thead th { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+  .note { color: var(--muted); font-size: .92rem; }
+  .warning { background: var(--warnbg); border-left: 4px solid var(--warn); padding: .75rem 1rem; margin: 1rem 0; }
+  .boundary { border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 1rem; margin: 1.5rem 0; }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; }
+  dl.meta dt { color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  code { font-size: .9em; }
+</style>
+</head>
+<body>
+<h1>Web energy benchmark</h1>
+<p class="note">
+  Session <code>b00d708e-1062-40d7-94a6-8ca445a2c955</code>, mode <code>measure</code>,
+  generated 2026-08-17T19:26:33.996Z.
+</p>
+
+<section class="boundary" aria-labelledby="boundary-h">
+  <h2 id="boundary-h">What these numbers mean</h2>
+  <p>
+    This report contains <strong>two different classes of sustainability indicator</strong>.
+    They have different system boundaries and different units, and they are not interchangeable.
+  </p>
+  <dl>
+    <dt><strong>Modelled CO2e (CO2.js)</strong></dt>
+    <dd>Estimated emissions derived from transferred bytes and model assumptions. Not a measurement.</dd>
+    <dt><strong>Observed client energy (Firefox power counters)</strong></dt>
+    <dd>
+      Energy drawn by Firefox processes on this client machine during the workload.
+      Scope is the browser's processes — not the display, not the server, and not the network.
+    </dd>
+  </dl>
+  <p>
+    The measurement boundary is the <strong>client machine only</strong>. These results do not
+    measure server, PHP, database, data-centre, or whole-Internet energy, and they are not a
+    total carbon figure for the site.
+  </p>
+</section>
+
+
+
+<section aria-labelledby="summary-h">
+  <h2 id="summary-h">Per-step summary</h2>
+  <p class="note">
+    Median is the headline statistic. Warmup runs are excluded.
+    No energy values were captured in this session.
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Measured steps (n = number of non-warmup runs)</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th><th scope="col">n</th>
+        <th scope="col">Duration median (ms)</th>
+        <th scope="col">Transfer median (KB)</th>
+        <th scope="col">CO2.js median (mg)</th>
+        <th scope="col">Incremental energy median (mWh)</th>
+        <th scope="col">Energy IQR (mWh)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">https://mgifford.github.io/open-scans/</th>
+        <td>8</td>
+        <td>2057</td>
+        <td>17.6</td>
+        <td>2.671</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://mgifford.github.io/open-scans/reports.html</th>
+        <td>8</td>
+        <td>2028</td>
+        <td>35.2</td>
+        <td>5.338</td>
+        <td>—</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html</th>
+        <td>8</td>
+        <td>2032</td>
+        <td>125.4</td>
+        <td>19.030</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section aria-labelledby="compare-h">
+  <h2 id="compare-h">Modelled CO2e versus observed energy</h2>
+  <p class="note">
+    Presented side by side in their own units. These columns are deliberately
+    <strong>not</strong> summed or converted into one another.
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Model and measurement, per step</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th>
+        <th scope="col">Transfer (KB)</th>
+        <th scope="col">CO2.js total (mg)</th>
+        <th scope="col">CO2.js device segment (mg)</th>
+        <th scope="col">Observed energy (mWh)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">https://mgifford.github.io/open-scans/</th>
+        <td>17.6</td>
+        <td>2.671</td>
+        <td>1.433</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://mgifford.github.io/open-scans/reports.html</th>
+        <td>35.2</td>
+        <td>5.338</td>
+        <td>2.865</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://mgifford.github.io/open-scans/reports/issues/issue-58/2026-08-15T03-05-39-722Z/report.html</th>
+        <td>125.4</td>
+        <td>19.030</td>
+        <td>10.213</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Not enough measured runs to report correlations.</p>
+</section>
+
+<section aria-labelledby="dist-h">
+  <h2 id="dist-h">Distributions</h2>
+  <p class="note">Full descriptive statistics, given as a table rather than a chart image.</p>
+  <div class="scroll">
+  <table>
+    <caption>Incremental energy per step (mWh)</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th><th scope="col">n</th><th scope="col">min</th>
+        <th scope="col">p25</th><th scope="col">median</th><th scope="col">p75</th>
+        <th scope="col">p95</th><th scope="col">max</th><th scope="col">sd</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="9">No energy data.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section aria-labelledby="env-h">
+  <h2 id="env-h">Environment</h2>
+  <dl class="meta">
+    <dt>OS</dt><dd>darwin 25.5.0 (arm64)</dd>
+    <dt>CPU count</dt><dd>3</dd>
+    <dt>Firefox</dt><dd>153.0</dd>
+    <dt>Playwright</dt><dd>1.62.1</dd>
+    <dt>CO2.js</dt><dd>0.19.0</dd>
+    <dt>Energy adapter</dt><dd>auto</dd>
+    <dt>Browser mode</dt><dd>headless</dd>
+    <dt>Viewport</dt><dd>1440×900</dd>
+    <dt>Power source</dt><dd>AC</dd>
+    <dt>Low Power Mode</dt><dd>unknown</dd>
+  </dl>
+  
+</section>
+
+<section aria-labelledby="method-h">
+  <h2 id="method-h">Methodology</h2>
+  <p>
+    Energy is attributed to a step by <strong>time window</strong>: the harness records
+    wall-clock boundaries and integrates Firefox's power counters over that range.
+    Any concurrent browser activity inside the window is included. Counter samples are
+    picowatt-hours, converted with <code>joules = pWh × 1e-12 × 3600</code>.
+  </p>
+  <p>
+    Baseline correction retains all three values — raw measured energy, the estimated idle
+    energy, and the incremental difference. Negative incremental values are reported as-is
+    and flagged as noisy rather than clamped to zero.
+  </p>
+</section>
+</body>
+</html>
