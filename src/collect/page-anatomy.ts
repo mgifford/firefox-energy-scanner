@@ -65,7 +65,11 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
       let domDepth = 0;
       const depthOf = (node: Element, level: number): number => {
         let max = level;
-        for (const child of node.children) max = Math.max(max, depthOf(child, level + 1));
+        // Array.from rather than for-of: HTMLCollection is not iterable under
+        // every DOM lib configuration, and a bare for-of fails to compile.
+        for (const child of Array.from(node.children)) {
+          max = Math.max(max, depthOf(child, level + 1));
+        }
         return max;
       };
       if (document.body) domDepth = depthOf(document.body, 0);

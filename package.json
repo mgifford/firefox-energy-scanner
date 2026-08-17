@@ -13,9 +13,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "web-energy": "node --experimental-strip-types src/cli/index.ts",
-    "test": "vitest run",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@tgwf/co2": "^0.19.0",
