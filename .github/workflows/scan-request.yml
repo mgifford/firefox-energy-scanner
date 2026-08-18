@@ -287,7 +287,7 @@ jobs:
               '',
               isCrawl
                 ? '_Crawl mode measures each page **once**. That is enough to rank pages and find outliers, but a single run cannot separate a real difference from noise — use measure mode for comparisons._'
-                : '',
+                : null,
               selfHostedUsed
                 ? '_Ran on a self-hosted physical Apple Silicon runner, so energy was measured. Check the power-source and Low Power Mode flags in the result before comparing against other runs._'
                 : fellBack
@@ -297,10 +297,13 @@ jobs:
               '`not resolved` means the measured energy was smaller than its own run-to-run spread,',
               'or at/below idle. Small static pages usually land here — there is nothing above the',
               'noise floor to measure.',
-              parserNotes ? '\n**Notes on this request:**\n' + parserNotes.split('\n').map(n => '- ' + n).join('\n') : '',
+              parserNotes ? '\n**Notes on this request:**\n' + parserNotes.split('\n').map(n => '- ' + n).join('\n') : null,
               '',
               'Full results: https://mgifford.github.io/firefox-energy-scanner/',
-            ].filter(Boolean).join('\n') + findingsBlock +
+            // Conditionals yield null when omitted; '' entries are deliberate
+            // blank lines. filter(Boolean) dropped both, which collapsed every
+            // paragraph break in the comment.
+            ].filter((line) => line !== null).join('\n') + findingsBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
               'scan again** — edit the request body first if you want different settings._';
 
