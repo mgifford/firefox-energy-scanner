@@ -1,7 +1,464 @@
 {
-  "generatedAt": "2026-08-17T19:32:23.758Z",
+  "generatedAt": "2026-10-22T03:46:09.051Z",
   "schemaVersion": 1,
   "entries": [
+    {
+      "id": "b4b77e97-8232-4d98-8f7f-721968161544",
+      "file": "measure-2026-10-22T03-46-08-578Z.json",
+      "timestamp": "2026-10-22T03:46:08.576Z",
+      "mode": "measure",
+      "tier": "structural",
+      "tierSummary": "Structural tier: no energy measurement on this host. Network, CO2.js, timing and page-structure metrics are fully valid — none of them depend on power hardware.",
+      "target": "https://cms.gov/digital-service/findsupportgov",
+      "energyAvailable": false,
+      "platform": "linux",
+      "architecture": "x64",
+      "firefoxVersion": "153.0",
+      "runnerNote": "No power counters on linux/x64. Network, CO2.js and timing metrics are valid; energy was not measured.",
+      "scenarios": [
+        {
+          "step": "https://cms.gov/digital-service/findsupportgov",
+          "url": "https://www.cms.gov/digital-service/findsupportgov",
+          "anatomy": {
+            "domNodes": 1764,
+            "domDepth": 24,
+            "cssSelectors": 6996,
+            "scripts": 21,
+            "images": 7,
+            "animatedElements": 1,
+            "heaviestSubtree": "html.js",
+            "lcpElement": "h2"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (1,764 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "high",
+              "title": "1 image(s) far larger than displayed",
+              "action": "Decoding happens at natural size regardless of CSS scaling, so this is wasted CPU and memory as well as bytes. Serve responsive variants sized to the layout."
+            },
+            {
+              "severity": "medium",
+              "title": "Large stylesheet surface (6,996 selectors)",
+              "action": "The style system may match many of these against every element. Split CSS per route so pages load only what they use, and drop rules for components not present."
+            },
+            {
+              "severity": "medium",
+              "title": "21 script elements",
+              "action": "Each script is parsed, compiled and executed. In Drupal, check whether libraries are attached globally that only some pages need."
+            },
+            {
+              "severity": "low",
+              "title": "10 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            },
+            {
+              "severity": "low",
+              "title": "2 of 7 images lack width/height",
+              "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 524969,
+          "requests": 29,
+          "thirdPartyRequests": 20,
+          "co2Grams": 0.0778003317,
+          "co2Model": "swd",
+          "durationMs": 2785,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/",
+          "url": "https://www.cms.gov/",
+          "anatomy": {
+            "domNodes": 1959,
+            "domDepth": 31,
+            "cssSelectors": 6985,
+            "scripts": 21,
+            "images": 6,
+            "animatedElements": 10,
+            "heaviestSubtree": "html.js",
+            "lcpElement": "div"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (1,959 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "medium",
+              "title": "Large stylesheet surface (6,985 selectors)",
+              "action": "The style system may match many of these against every element. Split CSS per route so pages load only what they use, and drop rules for components not present."
+            },
+            {
+              "severity": "medium",
+              "title": "21 script elements",
+              "action": "Each script is parsed, compiled and executed. In Drupal, check whether libraries are attached globally that only some pages need."
+            },
+            {
+              "severity": "medium",
+              "title": "10 elements with animations or transitions",
+              "action": "Running animations keep the refresh driver and compositor awake, drawing power even when nothing is interacting. Prefer transform/opacity, and honour prefers-reduced-motion."
+            },
+            {
+              "severity": "low",
+              "title": "10 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            },
+            {
+              "severity": "low",
+              "title": "2 of 6 images lack width/height",
+              "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 766737,
+          "requests": 44,
+          "thirdPartyRequests": 33,
+          "co2Grams": 0.1136304234,
+          "co2Model": "swd",
+          "durationMs": 3009,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/digital-service/digital-accessibility",
+          "url": "https://www.cms.gov/digital-service/digital-accessibility",
+          "anatomy": {
+            "domNodes": 1645,
+            "domDepth": 23,
+            "cssSelectors": 6999,
+            "scripts": 21,
+            "images": 3,
+            "animatedElements": 1,
+            "heaviestSubtree": "html.js",
+            "lcpElement": "p"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (1,645 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "medium",
+              "title": "Large stylesheet surface (6,999 selectors)",
+              "action": "The style system may match many of these against every element. Split CSS per route so pages load only what they use, and drop rules for components not present."
+            },
+            {
+              "severity": "medium",
+              "title": "21 script elements",
+              "action": "Each script is parsed, compiled and executed. In Drupal, check whether libraries are attached globally that only some pages need."
+            },
+            {
+              "severity": "low",
+              "title": "10 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            },
+            {
+              "severity": "low",
+              "title": "2 of 3 images lack width/height",
+              "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 562750,
+          "requests": 32,
+          "thirdPartyRequests": 21,
+          "co2Grams": 0.0833994759,
+          "co2Model": "swd",
+          "durationMs": 2916,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/exchange-improper-payment-measurement-eipm/improper-payment-findings",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/exchange-improper-payment-measurement-eipm/improper-payment-findings",
+          "anatomy": {
+            "domNodes": 1782,
+            "domDepth": 33,
+            "cssSelectors": 6959,
+            "scripts": 18,
+            "images": 3,
+            "animatedElements": 1,
+            "heaviestSubtree": "html.js",
+            "lcpElement": "h1"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (1,782 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "medium",
+              "title": "Deeply nested DOM (33 levels)",
+              "action": "Deep trees make style inheritance and layout more expensive. Flatten wrapper chains; in Drupal this usually means trimming nested theme wrappers."
+            },
+            {
+              "severity": "medium",
+              "title": "Large stylesheet surface (6,959 selectors)",
+              "action": "The style system may match many of these against every element. Split CSS per route so pages load only what they use, and drop rules for components not present."
+            },
+            {
+              "severity": "low",
+              "title": "10 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            },
+            {
+              "severity": "low",
+              "title": "2 of 3 images lack width/height",
+              "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 564946,
+          "requests": 33,
+          "thirdPartyRequests": 22,
+          "co2Grams": 0.08372492309999999,
+          "co2Model": "swd",
+          "durationMs": 2848,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/medicare-part-c-ipm/error-rate-findings-results",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/medicare-part-c-ipm/error-rate-findings-results",
+          "anatomy": {
+            "domNodes": 1731,
+            "domDepth": 27,
+            "cssSelectors": 7009,
+            "scripts": 21,
+            "images": 3,
+            "animatedElements": 1,
+            "heaviestSubtree": "html.js",
+            "lcpElement": "h1"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (1,731 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "medium",
+              "title": "Large stylesheet surface (7,009 selectors)",
+              "action": "The style system may match many of these against every element. Split CSS per route so pages load only what they use, and drop rules for components not present."
+            },
+            {
+              "severity": "medium",
+              "title": "21 script elements",
+              "action": "Each script is parsed, compiled and executed. In Drupal, check whether libraries are attached globally that only some pages need."
+            },
+            {
+              "severity": "low",
+              "title": "10 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            },
+            {
+              "severity": "low",
+              "title": "2 of 3 images lack width/height",
+              "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 524443,
+          "requests": 30,
+          "thirdPartyRequests": 21,
+          "co2Grams": 0.0777224526,
+          "co2Model": "swd",
+          "durationMs": 2737,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/medicare-part-d-ipm/error-rate-findings-results",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/medicare-part-d-ipm/error-rate-findings-results",
+          "anatomy": {
+            "domNodes": 1704,
+            "domDepth": 27,
+            "cssSelectors": 7009,
+            "scripts": 20,
+            "images": 3,
+            "animatedElements": 1,
+            "heaviestSubtree": "html.js",
+            "lcpElement": "h1"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (1,704 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "medium",
+              "title": "Large stylesheet surface (7,009 selectors)",
+              "action": "The style system may match many of these against every element. Split CSS per route so pages load only what they use, and drop rules for components not present."
+            },
+            {
+              "severity": "medium",
+              "title": "20 script elements",
+              "action": "Each script is parsed, compiled and executed. In Drupal, check whether libraries are attached globally that only some pages need."
+            },
+            {
+              "severity": "low",
+              "title": "10 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            },
+            {
+              "severity": "low",
+              "title": "2 of 3 images lack width/height",
+              "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 575756,
+          "requests": 33,
+          "thirdPartyRequests": 26,
+          "co2Grams": 0.08532696509999999,
+          "co2Model": "swd",
+          "durationMs": 2855,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/payment-error-rate-measurement-perm/perm-error-rate-findings-and-reports",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/payment-error-rate-measurement-perm/perm-error-rate-findings-and-reports",
+          "anatomy": {
+            "domNodes": 1937,
+            "domDepth": 31,
+            "cssSelectors": 7009,
+            "scripts": 20,
+            "images": 3,
+            "animatedElements": 1,
+            "heaviestSubtree": "html.js",
+            "lcpElement": "h1"
+          },
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Large DOM (1,937 nodes)",
+              "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling."
+            },
+            {
+              "severity": "medium",
+              "title": "Large stylesheet surface (7,009 selectors)",
+              "action": "The style system may match many of these against every element. Split CSS per route so pages load only what they use, and drop rules for components not present."
+            },
+            {
+              "severity": "medium",
+              "title": "20 script elements",
+              "action": "Each script is parsed, compiled and executed. In Drupal, check whether libraries are attached globally that only some pages need."
+            },
+            {
+              "severity": "low",
+              "title": "10 selectors with high match cost",
+              "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element."
+            },
+            {
+              "severity": "low",
+              "title": "2 of 3 images lack width/height",
+              "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image."
+            }
+          ],
+          "runs": 8,
+          "transferBytes": 484433,
+          "requests": 28,
+          "thirdPartyRequests": 21,
+          "co2Grams": 0.0717929706,
+          "co2Model": "swd",
+          "durationMs": 2746,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/priorities/innovation/data-and-reports/2020/cpc-evaluation-findings-annual-report-2",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/payment-error-rate-measurement-perm/perm-error-rate-findings-and-reports",
+          "runs": 8,
+          "transferBytes": 703,
+          "requests": 1,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.00010418459999999999,
+          "co2Model": "swd",
+          "durationMs": 77,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/priorities/innovation/data-and-reports/2020/ocm-annual-report-2-findings-glance",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/payment-error-rate-measurement-perm/perm-error-rate-findings-and-reports",
+          "runs": 8,
+          "transferBytes": 569542,
+          "requests": 2,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0844061244,
+          "co2Model": "swd",
+          "durationMs": 68,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/priorities/innovation/data-and-reports/2021/bpci-yr2-annual-report-findings-aag",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/payment-error-rate-measurement-perm/perm-error-rate-findings-and-reports",
+          "runs": 8,
+          "transferBytes": 592622,
+          "requests": 2,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.08782658039999999,
+          "co2Model": "swd",
+          "durationMs": 70,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/priorities/innovation/data-and-reports/2021/cjr-py4-ar-findings-aag",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/payment-error-rate-measurement-perm/perm-error-rate-findings-and-reports",
+          "runs": 8,
+          "transferBytes": 283637,
+          "requests": 2,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0420350034,
+          "co2Model": "swd",
+          "durationMs": 72,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/priorities/innovation/data-and-reports/2021/cpc-plus-third-annual-report-findings",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/payment-error-rate-measurement-perm/perm-error-rate-findings-and-reports",
+          "runs": 8,
+          "transferBytes": 334859,
+          "requests": 2,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0496261038,
+          "co2Model": "swd",
+          "durationMs": 72,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        },
+        {
+          "step": "https://cms.gov/priorities/innovation/data-and-reports/2022/bpci-adv-ar3-findings-aag",
+          "url": "https://www.cms.gov/data-research/monitoring-programs/improper-payment-measurement-programs/payment-error-rate-measurement-perm/perm-error-rate-findings-and-reports",
+          "runs": 8,
+          "transferBytes": 317912,
+          "requests": 2,
+          "thirdPartyRequests": 0,
+          "co2Grams": 0.0471145584,
+          "co2Model": "swd",
+          "durationMs": 76,
+          "resolved": false,
+          "resolutionNote": "No energy measurements."
+        }
+      ],
+      "warnings": [
+        "No power counters were found in the Gecko profile. Energy values are unavailable on this platform; timing and network metrics are still valid."
+      ]
+    },
     {
       "id": "a0fe7aff-d242-4c0d-837a-5eb9b426d45e",
       "file": "measure-2026-08-17T19-32-23-219Z.json",
