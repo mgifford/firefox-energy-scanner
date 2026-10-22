@@ -73,14 +73,31 @@ function round(v: number | undefined, digits = 3): number | undefined {
   return Math.round(v * f) / f;
 }
 
-/** Group measured (non-warmup) runs by step name. */
+/**
+ * Group measured runs by step name.
+ *
+ * Warmups and failed runs are excluded: a run whose navigation failed has no
+ * page behind it, and its bytes and timings would drag the median toward a
+ * workload that never happened. The raw rows stay in the JSON and CSV.
+ */
 export function groupByStep(steps: StepResult[]): Map<string, StepResult[]> {
   const map = new Map<string, StepResult[]>();
   for (const s of steps) {
-    if (s.warmup) continue;
+    if (s.warmup || !s.valid) continue;
     const list = map.get(s.step) ?? [];
     list.push(s);
     map.set(s.step, list);
   }
   return map;
+}
+
+/** Steps where no measured run succeeded, with the reason from the first run. */
+export function failedSteps(steps: StepResult[]): { step: string; reason: string }[] {
+  const ok = new Set(steps.filter((s) => !s.warmup && s.valid).map((s) => s.step));
+  const out = new Map<string, string>();
+  for (const s of steps) {
+    if (s.warmup || s.valid || ok.has(s.step) || out.has(s.step)) continue;
+    out.set(s.step, s.warnings[0] ?? 'Step failed.');
+  }
+  return [...out].map(([step, reason]) => ({ step, reason }));
 }

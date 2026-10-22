@@ -11,6 +11,15 @@ Elsewhere — including x86-64 Linux, which is what most CI runners are — the 
 runs but emits no power category. The tool detects this and reports timing, bytes, and
 CO2.js only. It never fabricates an energy value.
 
+### URLs that are files, not pages
+
+A URL that serves a file (typically a PDF) makes Firefox start a download instead of
+rendering anything. There is no page to lay out or paint, so the step is reported as
+**not a web page** and left out of every summary. Earlier versions published these rows
+with the previous page's URL; the index now re-reads stored results with the corrected
+handling. Each request is also counted only in the step that issued it, so a download
+that finishes late cannot add its bytes to whatever step is running.
+
 ### Attribution is temporal, not causal
 
 Energy is integrated over a step's wall-clock window. Background browser work inside

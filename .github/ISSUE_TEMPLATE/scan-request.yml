@@ -125,6 +125,26 @@ body:
     validations:
       required: false
 
+  - type: dropdown
+    id: lighthouse
+    attributes:
+      label: Lighthouse
+      description: >
+        Also run Google Lighthouse in Chromium, after the Firefox measurements have
+        finished. Reports the Performance score, Core Web Vitals lab metrics and the
+        failing performance recommendations with their estimated savings. Measure mode
+        runs it 3 times per URL and reports the median; crawl mode audits the 10
+        heaviest pages once each. Adds roughly 1–1.5 minutes per URL. Lighthouse is a
+        different browser engine under simulated throttling, so its numbers sit beside
+        the Firefox results and are never combined with them.
+      options:
+        - No
+        - Performance — score, metrics and recommendations
+        - All — performance, accessibility, best practices and SEO
+      default: 0
+    validations:
+      required: false
+
   - type: checkboxes
     id: confirm
     attributes:

@@ -30,7 +30,8 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm ci
+      # Only builds the index; Lighthouse (optional) is not needed here.
+      - run: npm ci --omit=optional
       - run: npm run build
 
       - name: Rebuild results index

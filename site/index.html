@@ -210,6 +210,21 @@
         </select>
       </div>
 
+      <div class="field">
+        <label for="lighthouse">Lighthouse</label>
+        <p class="hint" id="lighthouse-hint">
+          Also run Google Lighthouse, in Chromium, after the Firefox measurements finish.
+          You get the Performance score, lab Core Web Vitals and the failing performance
+          recommendations with estimated savings. Measure mode reports the median of 3
+          runs per URL; crawl mode audits the 10 heaviest pages once each.
+        </p>
+        <select id="lighthouse" name="lighthouse" aria-describedby="lighthouse-hint">
+          <option value="none">No</option>
+          <option value="performance">Performance</option>
+          <option value="all">All categories (performance, accessibility, best practices, SEO)</option>
+        </select>
+      </div>
+
       <p class="estimate" id="estimate" role="status" aria-live="polite"></p>
 
       <button type="submit">Open pre-filled issue on GitHub</button>
@@ -261,6 +276,24 @@
       noisy-neighbour control. They are good for capability checks and for network and
       CO<sub>2</sub>e metrics. Serious A/B regression work belongs on a dedicated
       machine.
+    </p>
+
+    <h3>"Not measured" is not "not resolved"</h3>
+    <p>
+      <strong>Not measured</strong> means the host had no power-measurement hardware, so
+      no energy reading was taken — every hosted runner is in this position.
+      <strong>Not resolved</strong> means energy was measured but was smaller than its
+      own run-to-run spread. Neither is a zero.
+    </p>
+
+    <h3>Lighthouse is a third, separate indicator</h3>
+    <p>
+      Lighthouse scores come from <strong>Chromium</strong> under Lighthouse's simulated
+      device and network throttling, using its standard mobile or desktop profile (chosen
+      from the viewport) so they line up with PageSpeed Insights. They describe lab load
+      performance. They are not Firefox measurements and not energy, and are shown beside
+      those results rather than combined with them. Main-thread work is the Lighthouse
+      figure closest to client energy: it counts the CPU time the page costs.
     </p>
 
     <h3>Modelled and measured are not comparable</h3>

@@ -30,13 +30,22 @@ import { readFile } from 'node:fs/promises';
 import { parseScanRequest } from './issue-parser.js';
 import { buildIndex } from '../report/index-builder.js';
 import { interleavedOrderN } from '../core/stats.js';
-import { toCsv, groupByStep } from '../report/csv.js';
+import { toCsv, groupByStep, failedSteps } from '../report/csv.js';
+import { readableFailure } from '../core/failures.js';
 import { toHtml } from '../report/html.js';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import { SCHEMA_VERSION, type BenchmarkResult, type StepResult } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
 import { describeCapabilities, detectVirtualisation } from '../core/capability.js';
+import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run.js';
+import { pickLighthouseUrls } from '../lighthouse/select.js';
+import {
+  scoreRating,
+  sitewideRecommendations,
+  type FormFactor,
+  type LighthouseSummary,
+} from '../lighthouse/summary.js';
 
 const USAGE = `web-energy — client-side browser energy and modelled CO2e benchmarking
 
@@ -52,6 +61,7 @@ Usage:
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
   web-energy diagnose <url> [--runs <n>]
+  web-energy lighthouse <url...>       [--lighthouse-* options]
 
 Options:
   --config <file>        YAML configuration file
@@ -59,6 +69,7 @@ Options:
   --warmups <n>          Warmup runs, excluded from statistics (default 3)
   --out <dir>            Output directory (default "results")
   --headed / --headless  Browser mode (default headed)
+  --viewport <WxH>       Browser viewport, e.g. 1280x800 (default 1440x900)
   --label-a, --label-b   Labels for compare targets
   --max-pages <n>        Crawl page limit
   --max-depth <n>        Crawl depth limit
@@ -67,12 +78,28 @@ Options:
   --authenticated        Use Drupal auth from environment variables
   --seed <string>        Seed for interleaved A/B ordering
   --no-energy            Disable energy measurement
+
+Lighthouse (optional; runs in Chromium after the Firefox session has closed):
+  --lighthouse                  Also run Lighthouse on measure/crawl targets
+  --lighthouse-runs <n>         Runs per URL; the median is reported (default 3)
+  --lighthouse-categories <c>   performance (default), a comma list, or "all"
+  --lighthouse-form-factor <f>  mobile | desktop (default: from the viewport)
+  --lighthouse-top <n>          Crawl mode: audit the n heaviest pages (default 10)
+  --lighthouse-reports <dir>    Also write each URL's full HTML report here
 `;
 
 interface Args {
   _: string[];
   flags: Map<string, string[]>;
 }
+
+/**
+ * Flags that never take a value. Without this, `measure --lighthouse <url>`
+ * would read the URL as the flag's value and drop it from the targets.
+ */
+const BOOLEAN_FLAGS = new Set([
+  'authenticated', 'headed', 'headless', 'help', 'lighthouse', 'no-energy', 'triage-only',
+]);
 
 function parseArgs(argv: string[]): Args {
   const _: string[] = [];
@@ -82,7 +109,7 @@ function parseArgs(argv: string[]): Args {
     if (a.startsWith('--')) {
       const key = a.slice(2);
       const next = argv[i + 1];
-      if (next && !next.startsWith('--')) {
+      if (next && !next.startsWith('--') && !BOOLEAN_FLAGS.has(key)) {
         const list = flags.get(key) ?? [];
         list.push(next);
         flags.set(key, list);
@@ -99,6 +126,13 @@ function parseArgs(argv: string[]): Args {
 
 const one = (args: Args, key: string): string | undefined => args.flags.get(key)?.[0];
 const has = (args: Args, key: string): boolean => args.flags.has(key);
+
+/** `--viewport 1280x800`. Rejects anything else rather than guessing. */
+function parseViewportFlag(raw: string): { width: number; height: number } {
+  const m = /^(\d{2,5})x(\d{2,5})$/i.exec(raw.trim());
+  if (!m) throw new Error(`--viewport must look like 1280x800 (got "${raw}")`);
+  return { width: Number(m[1]), height: Number(m[2]) };
+}
 
 async function buildConfig(args: Args): Promise<Config> {
   let config = one(args, 'config') ? await loadConfigFile(one(args, 'config')!) : defaultConfig();
@@ -118,6 +152,7 @@ async function buildConfig(args: Args): Promise<Config> {
       ...config.browser,
       ...(has(args, 'headless') ? { headed: false } : {}),
       ...(has(args, 'headed') ? { headed: true } : {}),
+      ...(one(args, 'viewport') ? { viewport: parseViewportFlag(one(args, 'viewport')!) } : {}),
     },
     energy: {
       ...config.energy,
@@ -314,6 +349,11 @@ async function writeOutputs(result: BenchmarkResult, config: Config): Promise<st
 
 function printSummary(steps: StepResult[]): void {
   const byStep = groupByStep(steps);
+  const failed = failedSteps(steps);
+  if (failed.length > 0) {
+    console.log(`\n${failed.length} URL(s) could not be measured:`);
+    for (const f of failed) console.log(`  ${f.step}\n    ${readableFailure(f.reason)}`);
+  }
   if (byStep.size === 0) {
     console.log('\nNo measured runs recorded.');
     return;
@@ -391,9 +431,11 @@ async function cmdMeasure(args: Args): Promise<number> {
     warnings: outcome.warnings,
   };
 
+  await attachLighthouse(args, config, result, urls, 'measure');
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps);
-  for (const w of outcome.warnings) console.log(`\nwarning: ${w}`);
+  if (result.lighthouse) printLighthouse(result.lighthouse);
+  for (const w of result.warnings) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
 }
@@ -481,10 +523,145 @@ async function cmdCrawl(args: Args): Promise<number> {
     ],
   };
 
+  await attachLighthouse(args, config, result, [start], 'crawl');
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps);
+  if (result.lighthouse) printLighthouse(result.lighthouse);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
+}
+
+interface LighthouseArgs {
+  runs: number;
+  categories: ReturnType<typeof parseCategories>;
+  formFactor: FormFactor;
+  top: number;
+  reportsDir?: string;
+}
+
+function lighthouseArgs(args: Args, config: Config): LighthouseArgs {
+  const runs = Number.parseInt(one(args, 'lighthouse-runs') ?? '3', 10);
+  const top = Number.parseInt(one(args, 'lighthouse-top') ?? '10', 10);
+  const ff = one(args, 'lighthouse-form-factor');
+  if (ff && ff !== 'mobile' && ff !== 'desktop') {
+    throw new Error(`--lighthouse-form-factor must be mobile or desktop (got "${ff}")`);
+  }
+  const reportsDir = one(args, 'lighthouse-reports');
+  return {
+    runs: Number.isFinite(runs) && runs >= 1 ? Math.min(runs, 9) : 3,
+    categories: parseCategories(one(args, 'lighthouse-categories')),
+    formFactor: (ff as FormFactor | undefined) ?? formFactorFor(config.browser.viewport),
+    top: Number.isFinite(top) && top >= 0 ? top : 10,
+    ...(reportsDir ? { reportsDir: resolve(reportsDir) } : {}),
+  };
+}
+
+/**
+ * Run Lighthouse after the Firefox session and attach its summary.
+ *
+ * A Lighthouse failure never discards the Firefox results it follows: it is
+ * recorded as a warning and the scan still writes everything else.
+ */
+async function attachLighthouse(
+  args: Args,
+  config: Config,
+  result: BenchmarkResult,
+  requested: string[],
+  mode: 'measure' | 'crawl',
+): Promise<void> {
+  if (!has(args, 'lighthouse')) return;
+  const opts = lighthouseArgs(args, config);
+  const { urls, skipped } = pickLighthouseUrls(result.scenarios, requested, mode, opts.top);
+  if (skipped.length) {
+    result.warnings.push(
+      `Lighthouse skipped ${skipped.length} URL(s) that are file downloads rather than pages.`,
+    );
+  }
+  if (urls.length === 0) return;
+  try {
+    result.lighthouse = await runLighthouse({
+      urls,
+      runs: opts.runs,
+      categories: opts.categories,
+      formFactor: opts.formFactor,
+      ...(opts.reportsDir ? { reportsDir: opts.reportsDir } : {}),
+      onProgress: (m) => process.stderr.write(`\r${m.padEnd(60)}`),
+    });
+    process.stderr.write('\n');
+  } catch (err) {
+    process.stderr.write('\n');
+    result.warnings.push(`Lighthouse did not run: ${(err as Error).message}`);
+  }
+}
+
+function printLighthouse(lh: LighthouseSummary): void {
+  console.log(
+    `\nLighthouse ${lh.version} — ${lh.browser ?? 'Chromium'}, ${lh.formFactor}, ${lh.throttling}; ` +
+      `median of ${lh.runsPerUrl} run(s)`,
+  );
+  console.log('Scenario                        Perf     LCP     TBT    CLS  Main thread');
+  console.log('------------------------------------------------------------------------');
+  const sec = (ms: number | undefined) => (ms === undefined ? '—' : `${(ms / 1000).toFixed(1)} s`);
+  for (const r of lh.results) {
+    const name = (r.requestedUrl.length > 30 ? `...${r.requestedUrl.slice(-27)}` : r.requestedUrl).padEnd(30);
+    if (r.runs === 0) {
+      console.log(`${name}  failed: ${r.error ?? 'no report'}`);
+      continue;
+    }
+    const perf = r.scores.performance;
+    console.log(
+      name +
+        String(perf ?? '—').padStart(6) +
+        sec(r.metrics.lcpMs).padStart(8) +
+        `${r.metrics.tbtMs ?? '—'} ms`.padStart(8) +
+        String(r.metrics.cls ?? '—').padStart(7) +
+        sec(r.work.mainThreadMs).padStart(13) +
+        (perf !== undefined ? `  (${scoreRating(perf)})` : ''),
+    );
+  }
+
+  const common = sitewideRecommendations(lh.results.filter((r) => r.runs > 0)).slice(0, 8);
+  if (common.length) {
+    console.log(`\nTop recommendations (pages affected of ${lh.results.length}):`);
+    for (const c of common) {
+      const savings = [
+        c.medianSavingsMs ? `~${(c.medianSavingsMs / 1000).toFixed(1)} s` : '',
+        c.medianSavingsBytes ? `~${Math.round(c.medianSavingsBytes / 1024)} KB` : '',
+      ].filter(Boolean).join(', ');
+      console.log(`  ${String(c.pages).padStart(3)}  ${c.title}${savings ? `  (${savings} per page)` : ''}`);
+    }
+  }
+  console.log(
+    '\nLighthouse runs Chromium under simulated throttling. Its scores describe lab load\n' +
+      'performance, not Firefox and not energy; they are reported beside, never combined.',
+  );
+}
+
+/** Lighthouse on its own, without a Firefox run. */
+async function cmdLighthouse(args: Args): Promise<number> {
+  const urls = args._.slice(1);
+  if (urls.length === 0) {
+    console.error('lighthouse requires at least one URL');
+    return 1;
+  }
+  const config = await buildConfig(args);
+  const opts = lighthouseArgs(args, config);
+  const summary = await runLighthouse({
+    urls,
+    runs: opts.runs,
+    categories: opts.categories,
+    formFactor: opts.formFactor,
+    ...(opts.reportsDir ? { reportsDir: opts.reportsDir } : {}),
+    onProgress: (m) => process.stderr.write(`\r${m.padEnd(60)}`),
+  });
+  process.stderr.write('\n');
+  const dir = resolve(config.output.directory);
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, `lighthouse-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  await writeFile(file, JSON.stringify(summary, null, 2));
+  printLighthouse(summary);
+  console.log(`\nWrote ${file}`);
+  return summary.results.some((r) => r.runs > 0) ? 0 : 1;
 }
 
 async function cmdBaseline(args: Args): Promise<number> {
@@ -1108,6 +1285,7 @@ async function main(): Promise<number> {
       case 'diagnose': return await cmdDiagnose(args);
       case 'parse-issue': return await cmdParseIssue(args);
       case 'build-index': return await cmdBuildIndex(args);
+      case 'lighthouse': return await cmdLighthouse(args);
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);

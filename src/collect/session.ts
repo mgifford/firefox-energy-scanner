@@ -25,6 +25,14 @@ export class BrowserSession {
   private collecting = false;
   private entries: ResourceEntry[] = [];
   private pageUrl = '';
+  /**
+   * Incremented per measured step. A request is only counted in the step that
+   * issued it: a response that finishes after its step ended (a file download,
+   * a slow beacon) must not be billed to whichever step happens to be running.
+   */
+  private generation = 0;
+  private issuedIn = new WeakMap<Request, number>();
+  private pending = new Set<Promise<void>>();
 
   constructor(private readonly options: SessionOptions) {}
 
@@ -89,12 +97,20 @@ export class BrowserSession {
   }
 
   private attachNetworkListeners(context: BrowserContext): void {
+    context.on('request', (req) => {
+      if (this.collecting) this.issuedIn.set(req, this.generation);
+    });
     context.on('requestfinished', (req) => {
-      if (!this.collecting) return;
-      void this.recordRequest(req).catch(() => {});
+      if (!this.belongsToCurrentStep(req)) return;
+      // Bind to this step's list now: the sizes lookup is async, and the next
+      // step may have started by the time it resolves.
+      const target = this.entries;
+      const p = this.recordRequest(req, target).catch(() => {});
+      this.pending.add(p);
+      void p.finally(() => this.pending.delete(p));
     });
     context.on('requestfailed', (req) => {
-      if (!this.collecting) return;
+      if (!this.belongsToCurrentStep(req)) return;
       this.entries.push({
         url: req.url(),
         domain: hostOf(req.url()),
@@ -105,7 +121,11 @@ export class BrowserSession {
     });
   }
 
-  private async recordRequest(req: Request): Promise<void> {
+  private belongsToCurrentStep(req: Request): boolean {
+    return this.collecting && this.issuedIn.get(req) === this.generation;
+  }
+
+  private async recordRequest(req: Request, target: ResourceEntry[]): Promise<void> {
     const url = req.url();
     let transferBytes = 0;
     let status: number | undefined;
@@ -132,7 +152,7 @@ export class BrowserSession {
       /* response unavailable */
     }
 
-    this.entries.push({
+    target.push({
       url,
       domain: hostOf(url),
       thirdParty: isThirdParty(url, this.pageUrl),
@@ -156,13 +176,22 @@ export class BrowserSession {
 
   /** Begin collecting network activity for a measured step. */
   beginCollection(pageUrl: string): void {
+    this.generation++;
     this.entries = [];
     this.pageUrl = pageUrl || this.page?.url() || '';
     this.collecting = true;
   }
 
-  endCollection(includeResources: boolean): NetworkSummary {
+  async endCollection(includeResources: boolean): Promise<NetworkSummary> {
     this.collecting = false;
+    // Requests that finished inside the window may still be resolving sizes.
+    // Bounded, so one stuck lookup cannot stall the whole benchmark.
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([
+      Promise.all([...this.pending]),
+      new Promise((r) => (timer = setTimeout(r, 5000))),
+    ]);
+    clearTimeout(timer);
     const byType: Record<string, { requests: number; bytes: number }> = {};
     let transferBytes = 0;
     let thirdPartyRequests = 0;

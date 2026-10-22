@@ -11,6 +11,9 @@ export type ScanMode = 'measure' | 'crawl';
 
 export type RunnerChoice = 'linux' | 'macos' | 'self-hosted';
 
+/** 'all' adds accessibility, best practices and SEO to performance. */
+export type LighthouseChoice = 'none' | 'performance' | 'all';
+
 export interface ScanRequest {
   mode: ScanMode;
   urls: string[];
@@ -20,6 +23,9 @@ export interface ScanRequest {
   maxPages: number;
   include?: string;
   viewport: { width: number; height: number };
+  lighthouse: LighthouseChoice;
+  /** Lighthouse runs per URL: a median of three in measure mode, one in crawl. */
+  lighthouseRuns: number;
   errors: string[];
   notes: string[];
 }
@@ -38,6 +44,22 @@ export const DEFAULT_RUNS = 8;
  */
 export const MAX_CRAWL_PAGES = 200;
 export const DEFAULT_CRAWL_PAGES = 50;
+
+/**
+ * Lighthouse cost. One run is ~15 s on a fast machine and slower on a shared
+ * runner against a heavy page, so the estimate is deliberately generous.
+ * A crawl audits only its heaviest pages, once each.
+ */
+export const LIGHTHOUSE_SECONDS_PER_RUN = 25;
+export const LIGHTHOUSE_MEASURE_RUNS = 3;
+export const LIGHTHOUSE_CRAWL_PAGES = 10;
+
+export function parseLighthouseChoice(raw: string | undefined): LighthouseChoice {
+  const value = (raw ?? '').toLowerCase().trim();
+  if (!value || value.startsWith('no')) return 'none';
+  if (value.includes('accessibility') || value.startsWith('all')) return 'all';
+  return 'performance';
+}
 
 /**
  * Wall-clock budget for one scan job.
@@ -150,12 +172,26 @@ export function estimateMinutes(request: {
   urls: string[];
   runs: number;
   maxPages: number;
+  lighthouse?: LighthouseChoice;
 }): number {
   const perRunSeconds = 2.4 + 2.0;
   const baselineSeconds = 15;
   const pages = request.mode === 'crawl' ? request.maxPages : request.urls.length;
   const runsPerPage = request.mode === 'crawl' ? 1 : request.runs + 2; // + warmups
-  return (baselineSeconds + pages * runsPerPage * perRunSeconds) / 60;
+  return (baselineSeconds + pages * runsPerPage * perRunSeconds + lighthouseSeconds(request)) / 60;
+}
+
+function lighthouseSeconds(request: {
+  mode: ScanMode;
+  urls: string[];
+  maxPages: number;
+  lighthouse?: LighthouseChoice;
+}): number {
+  if (!request.lighthouse || request.lighthouse === 'none') return 0;
+  const pages =
+    request.mode === 'crawl' ? Math.min(request.maxPages, LIGHTHOUSE_CRAWL_PAGES) : request.urls.length;
+  const runs = request.mode === 'crawl' ? 1 : LIGHTHOUSE_MEASURE_RUNS;
+  return pages * runs * LIGHTHOUSE_SECONDS_PER_RUN;
 }
 
 export function parseScanRequest(body: string): ScanRequest {
@@ -254,14 +290,24 @@ export function parseScanRequest(body: string): ScanRequest {
 
   const viewport = parseViewport(extractSection(body, 'Viewport'));
 
+  const lighthouse = parseLighthouseChoice(extractSection(body, 'Lighthouse'));
+  const lighthouseRuns = mode === 'crawl' ? 1 : LIGHTHOUSE_MEASURE_RUNS;
+  if (lighthouse !== 'none') {
+    notes.push(
+      mode === 'crawl'
+        ? `Lighthouse audits the ${LIGHTHOUSE_CRAWL_PAGES} heaviest crawled pages, once each, in Chromium after the Firefox crawl.`
+        : `Lighthouse runs ${LIGHTHOUSE_MEASURE_RUNS} times per URL in Chromium after the Firefox measurements; the median run is reported.`,
+    );
+  }
+
   // Reject work that cannot finish inside the job budget, with a concrete fix.
-  const request = { mode, urls, runs, maxPages };
+  const request = { mode, urls, runs, maxPages, lighthouse };
   const minutes = estimateMinutes(request);
   if (minutes > JOB_BUDGET_MINUTES) {
     if (mode === 'measure') {
       errors.push(
         `This request would take roughly ${Math.round(minutes)} minutes, over the ${JOB_BUDGET_MINUTES}-minute budget. ` +
-          `Reduce the run count or the number of URLs, or use crawl mode (one run per page).`,
+          `Reduce the run count or the number of URLs, turn off Lighthouse, or use crawl mode (one run per page).`,
       );
     } else {
       errors.push(
@@ -280,5 +326,17 @@ export function parseScanRequest(body: string): ScanRequest {
     );
   }
 
-  return { mode, urls, runner, runs, maxPages, ...(include ? { include } : {}), viewport, errors, notes };
+  return {
+    mode,
+    urls,
+    runner,
+    runs,
+    maxPages,
+    ...(include ? { include } : {}),
+    viewport,
+    lighthouse,
+    lighthouseRuns,
+    errors,
+    notes,
+  };
 }

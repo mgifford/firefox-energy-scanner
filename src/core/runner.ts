@@ -13,6 +13,7 @@ import type { JourneyDefinition } from './journey.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
 import { buildFindings } from '../report/findings.js';
+import { describeStepFailure } from './failures.js';
 
 export interface StepRecord {
   label: string;
@@ -64,13 +65,13 @@ export class StepRunner {
       await waitForStablePage(page, this.config.stability);
     } catch (err) {
       valid = false;
-      warnings.push(`Step failed: ${(err as Error).message}`);
+      warnings.push(describeStepFailure((err as Error).message));
     }
 
     const endedAt = Date.now();
     if (handle) await this.session.energy?.stop(handle);
 
-    const network = this.session.endCollection(true);
+    const network = await this.session.endCollection(true);
     const timing = valid
       ? await readTimings(page, endedAt - startedAt)
       : { durationMs: endedAt - startedAt };
@@ -109,7 +110,9 @@ export class StepRunner {
 
     this.records.push({
       label,
-      url: page.url(),
+      // After a failed navigation the page is still on the previous URL, so
+      // recording it would attribute this step to the wrong page.
+      ...(valid ? { url: page.url() } : {}),
       startedAt,
       endedAt,
       timing,

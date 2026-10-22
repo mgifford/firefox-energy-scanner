@@ -44,6 +44,8 @@ jobs:
       include: ${{ steps.parse.outputs.include }}
       viewport_width: ${{ steps.parse.outputs.viewport_width }}
       viewport_height: ${{ steps.parse.outputs.viewport_height }}
+      lighthouse: ${{ steps.parse.outputs.lighthouse }}
+      lighthouse_runs: ${{ steps.parse.outputs.lighthouse_runs }}
       issue: ${{ steps.parse.outputs.issue }}
       runner_available: ${{ steps.runner-check.outputs.available }}
       valid: ${{ steps.parse.outputs.valid }}
@@ -56,7 +58,9 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm ci
+      # This job only parses the issue, so skip optional dependencies
+      # (Lighthouse and its Chrome tooling): less to download on every request.
+      - run: npm ci --omit=optional
       - run: npm run build
 
       - name: Read issue body
@@ -105,6 +109,8 @@ jobs:
           set('include', r.include ?? '');
           set('viewport_width', String(r.viewport.width));
           set('viewport_height', String(r.viewport.height));
+          set('lighthouse', r.lighthouse);
+          set('lighthouse_runs', String(r.lighthouseRuns));
           set('valid', r.errors.length === 0 && r.urls.length > 0 ? 'true' : 'false');
           setMultiline('urls', r.urls.join('\n'));
           setMultiline('errors', r.errors.join('\n'));
@@ -159,9 +165,26 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm ci
+      # Lighthouse is an optional dependency; install it only when requested.
+      - name: Install dependencies
+        env:
+          LIGHTHOUSE: ${{ needs.prepare.outputs.lighthouse }}
+        run: |
+          if [ "$LIGHTHOUSE" = "none" ] || [ -z "$LIGHTHOUSE" ]; then
+            npm ci --omit=optional
+          else
+            npm ci
+          fi
       - run: npx playwright install firefox
       - run: npm run build
+
+      # Hosted runners ship Google Chrome. A self-hosted Mac may not, so fall
+      # back to Playwright's Chromium rather than failing the Lighthouse step.
+      - name: Ensure a Chrome for Lighthouse
+        if: needs.prepare.outputs.lighthouse != 'none'
+        run: |
+          node --input-type=module -e "const m = await import('chrome-launcher'); m.getChromePath();" \
+            || npx playwright install chromium
 
       - name: Environment preflight
         run: node dist/cli/index.js doctor || true
@@ -173,6 +196,9 @@ jobs:
           SCAN_RUNS: ${{ needs.prepare.outputs.runs }}
           SCAN_MAX_PAGES: ${{ needs.prepare.outputs.max_pages }}
           SCAN_INCLUDE: ${{ needs.prepare.outputs.include }}
+          SCAN_VIEWPORT: ${{ needs.prepare.outputs.viewport_width }}x${{ needs.prepare.outputs.viewport_height }}
+          SCAN_LIGHTHOUSE: ${{ needs.prepare.outputs.lighthouse }}
+          SCAN_LIGHTHOUSE_RUNS: ${{ needs.prepare.outputs.lighthouse_runs }}
         run: |
           mkdir -p site/results
           # URLs come from an env var and are passed as argv, never interpolated
@@ -183,14 +209,29 @@ jobs:
           if (urls.length === 0) { console.error('no urls'); process.exit(1); }
 
           const mode = process.env.SCAN_MODE === 'crawl' ? 'crawl' : 'measure';
+          // The parser emits WIDTHxHEIGHT from bounded integers; anything else
+          // is dropped rather than passed through.
+          const viewport = /^\d{2,5}x\d{2,5}$/.test(process.env.SCAN_VIEWPORT || '')
+            ? ['--viewport', process.env.SCAN_VIEWPORT] : [];
+          const lh = process.env.SCAN_LIGHTHOUSE;
+          // Full HTML reports go to a short-lived workflow artifact, not the
+          // repository: each is ~0.5 MB and the summary is what gets published.
+          const lighthouse = lh === 'performance' || lh === 'all'
+            ? ['--lighthouse',
+               '--lighthouse-categories', lh === 'all' ? 'all' : 'performance',
+               '--lighthouse-runs', process.env.SCAN_LIGHTHOUSE_RUNS || '3',
+               '--lighthouse-reports', 'lighthouse-reports']
+            : [];
           const args = mode === 'crawl'
             ? ['dist/cli/index.js', 'crawl', urls[0],
                '--max-pages', process.env.SCAN_MAX_PAGES || '50',
                ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
+               ...viewport, ...lighthouse,
                '--headless', '--out', 'site/results']
             : ['dist/cli/index.js', 'measure', ...urls,
                '--runs', process.env.SCAN_RUNS || '8',
                '--warmups', '2',
+               ...viewport, ...lighthouse,
                '--headless', '--out', 'site/results'];
 
           console.log('mode:', mode, '| targets:', urls.length);
@@ -198,6 +239,16 @@ jobs:
           const r = spawnSync('node', args, { stdio: 'inherit', timeout: 95 * 60 * 1000 });
           process.exit(r.status ?? 1);
           NODE
+
+      - name: Upload full Lighthouse reports
+        id: lh-artifact
+        if: needs.prepare.outputs.lighthouse != 'none'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports-issue-${{ needs.prepare.outputs.issue }}
+          path: lighthouse-reports/
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Rebuild results index
         run: node dist/cli/index.js build-index --dir site/results --out site/results/index.json
@@ -234,6 +285,7 @@ jobs:
             let table = '';
             // Declared outside the try so the findings block below can use it.
             let entry = null;
+            const shortName = (step) => (step.length > 50 ? '…' + step.slice(-48) : step);
             try {
               const index = JSON.parse(fs.readFileSync('site/results/index.json', 'utf8'));
               entry = index.entries[0];
@@ -243,18 +295,94 @@ jobs:
                   '| Scenario | Transfer | Requests | CO2.js | Observed energy |',
                   '| --- | ---: | ---: | ---: | ---: |',
                   ...entry.scenarios.map(s => {
+                    const name = shortName(s.step);
+                    // A failed URL has no page behind it: show no numbers at
+                    // all rather than ones that belong to another page.
+                    if (s.failed) {
+                      const why = s.notAPage ? '_not a web page (file download)_' : '_failed_';
+                      return `| ${name} | — | — | — | ${why} |`;
+                    }
                     const kb = (s.transferBytes / 1024).toFixed(0) + ' KB';
                     const co2 = s.co2Grams != null ? (s.co2Grams * 1000).toFixed(3) + ' mg' : '—';
-                    const energy = (s.resolved && s.energyMwh != null)
-                      ? s.energyMwh.toFixed(3) + ' mWh'
-                      : '_not resolved_';
-                    const name = s.step.length > 50 ? '…' + s.step.slice(-48) : s.step;
+                    // "Not measured" (no power hardware) and "not resolved"
+                    // (measured, but below the noise floor) are different
+                    // statements; conflating them misreports the host.
+                    const energy = !entry.energyAvailable
+                      ? '_not measured_'
+                      : (s.resolved && s.energyMwh != null)
+                        ? s.energyMwh.toFixed(3) + ' mWh'
+                        : '_not resolved_';
                     return `| ${name} | ${kb} | ${s.requests} | ${co2} | ${energy} |`;
                   }),
                 ].join('\n');
               }
             } catch (e) {
               table = '\n_Could not summarise results._';
+            }
+            const failedRows = ((entry && entry.scenarios) || []).filter((s) => s.failed);
+            const energyMeasured = !!(entry && entry.energyAvailable);
+
+            // Lighthouse is a separate engine and boundary, so it gets its own
+            // table rather than extra columns on the Firefox one.
+            let lighthouseBlock = '';
+            const lh = entry && entry.lighthouse;
+            if (lh) {
+              const sec = (ms) => (ms == null ? '—' : (ms / 1000).toFixed(1) + ' s');
+              // The rating is written out so the score never relies on colour.
+              const rating = (n) => (n == null ? '' : n >= 90 ? ' good' : n >= 50 ? ' needs improvement' : ' poor');
+              const audited = entry.scenarios
+                .filter((s) => s.lighthouse)
+                .map((s) => ({ url: s.step, r: s.lighthouse }))
+                .concat((lh.unmatched || []).map((r) => ({ url: r.url, r })));
+              const extraCats = lh.categories.filter((c) => c !== 'performance');
+              const rows = audited.map(({ url, r }) => {
+                if (r.error && !r.runs) return `| ${shortName(url)} | _failed_ | — | — | — | — |` + extraCats.map(() => ' — |').join('');
+                const perf = r.scores.performance;
+                const range = r.performanceRange && r.performanceRange[0] !== r.performanceRange[1]
+                  ? ` (${r.performanceRange[0]}–${r.performanceRange[1]})` : '';
+                const top = r.recommendations[0] ? r.recommendations[0].title : '—';
+                return `| ${shortName(url)} | **${perf ?? '—'}**${rating(perf)}${range} | ${sec(r.metrics.lcpMs)} | ` +
+                  `${r.metrics.tbtMs ?? '—'} ms | ${r.metrics.cls ?? '—'} | ${top} |` +
+                  extraCats.map((c) => ` ${r.scores[c] ?? '—'} |`).join('');
+              });
+              const catHead = extraCats.map((c) => ` ${c} |`).join('');
+              const catSep = extraCats.map(() => ' ---: |').join('');
+              const fmtSave = (x) => [
+                x.medianSavingsMs ? '~' + (x.medianSavingsMs / 1000).toFixed(1) + ' s' : '',
+                x.medianSavingsBytes ? '~' + Math.round(x.medianSavingsBytes / 1024) + ' KB' : '',
+              ].filter(Boolean).join(', ');
+              const common = (lh.sitewide || []).slice(0, 8).map((x) => {
+                const save = fmtSave(x);
+                const title = x.learnMore ? `[${x.title}](${x.learnMore})` : x.title;
+                return `- ${title} — ${x.pages} of ${audited.length} page${audited.length === 1 ? '' : 's'}` +
+                  (save ? ` · est. ${save} per page` : '');
+              });
+              const artifact = '${{ steps.lh-artifact.outputs.artifact-url }}';
+              lighthouseBlock = [
+                '',
+                '### Lighthouse',
+                '',
+                `Lighthouse ${lh.version} in ${lh.browser || 'Chromium'}, ${lh.formFactor} profile, ` +
+                  `${lh.throttling}. Median of ${lh.runsPerUrl} run${lh.runsPerUrl === 1 ? '' : 's'} per URL; ` +
+                  'range in brackets.',
+                '',
+                `| Page | Performance | LCP | TBT | CLS | Top recommendation |${catHead}`,
+                `| --- | ---: | ---: | ---: | ---: | --- |${catSep}`,
+                ...rows,
+                '',
+                common.length ? '**Most common performance recommendations**' : null,
+                common.length ? '' : null,
+                ...common,
+                common.length ? '' : null,
+                'Failures shared by most pages usually come from the theme or a shared asset, so one fix lands everywhere.',
+                '',
+                artifact
+                  ? `Full Lighthouse HTML reports (median run per URL) are in the [workflow artifact](${artifact}) for 14 days.`
+                  : null,
+                artifact ? '' : null,
+                '_Lighthouse measures lab load performance in Chromium under simulated throttling. It is not ' +
+                  'Firefox and not energy, and is reported beside those results, never combined with them._',
+              ].filter((line) => line !== null).join('\n') + '\n';
             }
 
             const isCrawl = '${{ needs.prepare.outputs.mode }}' === 'crawl';
@@ -294,16 +422,26 @@ jobs:
                   ? '_A self-hosted runner was requested but none was online, so this ran on a hosted runner. Structural metrics are complete; **no energy was measured**._'
                   : '_Ran on a GitHub-hosted runner, which has no power-measurement hardware. Network, CO2e, timing and page-structure metrics are all valid; **no energy was measured**._',
               '',
-              '`not resolved` means the measured energy was smaller than its own run-to-run spread,',
-              'or at/below idle. Small static pages usually land here — there is nothing above the',
-              'noise floor to measure.',
+              energyMeasured
+                ? '`not resolved` means the measured energy was smaller than its own run-to-run spread, ' +
+                  'or at/below idle. Small static pages usually land here — there is nothing above the ' +
+                  'noise floor to measure.'
+                : '`not measured` means this host has no power-measurement hardware, so no energy reading ' +
+                  'was taken. It is an absence, not a zero. Request the self-hosted Apple Silicon runner for energy.',
+              failedRows.length
+                ? `\n${failedRows.length} URL${failedRows.length === 1 ? '' : 's'} could not be measured. ` +
+                  (failedRows.some((s) => s.notAPage)
+                    ? 'Rows marked _not a web page_ start a file download (usually a PDF) instead of rendering, so ' +
+                      'there is nothing for a browser to lay out or paint. Link to the HTML page that hosts the file instead.'
+                    : 'See the full results for the error.')
+                : null,
               parserNotes ? '\n**Notes on this request:**\n' + parserNotes.split('\n').map(n => '- ' + n).join('\n') : null,
               '',
               'Full results: https://mgifford.github.io/firefox-energy-scanner/',
             // Conditionals yield null when omitted; '' entries are deliberate
             // blank lines. filter(Boolean) dropped both, which collapsed every
             // paragraph break in the comment.
-            ].filter((line) => line !== null).join('\n') + findingsBlock +
+            ].filter((line) => line !== null).join('\n') + findingsBlock + lighthouseBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
               'scan again** — edit the request body first if you want different settings._';
 

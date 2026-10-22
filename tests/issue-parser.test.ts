@@ -5,6 +5,8 @@ import {
   parseScanRequest,
   parseViewport,
   estimateMinutes,
+  parseLighthouseChoice,
+  LIGHTHOUSE_SECONDS_PER_RUN,
   MAX_URLS,
   MAX_RUNS,
   MAX_CRAWL_PAGES,
@@ -340,5 +342,47 @@ describe('job budget guard', () => {
     const body = ['### Scan mode', '', 'measure', '', '### URLs', '', 'https://a.com', '',
       '### Measured runs per URL', '', '8', ''].join('\n');
     expect(parseScanRequest(body).errors).toEqual([]);
+  });
+});
+
+describe('Lighthouse option', () => {
+  const build = (lighthouse: string | null, mode = 'measure', urls = ['https://a.com', 'https://b.com']) =>
+    ['### Scan mode', '', mode, '', '### URLs', '', ...urls, '', '### Measurement type', '', 'linux', '',
+     ...(lighthouse === null ? [] : ['### Lighthouse', '', lighthouse, ''])].join('\n');
+
+  it('reads each issue-form option label', () => {
+    expect(parseLighthouseChoice('No')).toBe('none');
+    expect(parseLighthouseChoice('Performance — score, metrics and recommendations')).toBe('performance');
+    expect(parseLighthouseChoice('All — performance, accessibility, best practices and SEO')).toBe('all');
+    expect(parseLighthouseChoice(undefined)).toBe('none');
+  });
+
+  it('defaults to off for requests filed before the option existed', () => {
+    const r = parseScanRequest(build(null));
+    expect(r.lighthouse).toBe('none');
+    expect(r.notes.join(' ')).not.toMatch(/Lighthouse/);
+  });
+
+  it('runs three times per URL in measure mode and once per page in crawl mode', () => {
+    expect(parseScanRequest(build('Performance — score, metrics and recommendations')).lighthouseRuns).toBe(3);
+    expect(parseScanRequest(build('Performance', 'crawl')).lighthouseRuns).toBe(1);
+  });
+
+  it('says what Lighthouse will do', () => {
+    const r = parseScanRequest(build('Performance'));
+    expect(r.notes.join(' ')).toMatch(/Chromium after the Firefox measurements/);
+  });
+
+  it('counts Lighthouse time in the runtime estimate', () => {
+    const base = { mode: 'measure' as const, urls: ['https://a.com', 'https://b.com'], runs: 8, maxPages: 50 };
+    const without = estimateMinutes(base);
+    const withLh = estimateMinutes({ ...base, lighthouse: 'performance' });
+    expect(withLh - without).toBeCloseTo((2 * 3 * LIGHTHOUSE_SECONDS_PER_RUN) / 60, 6);
+  });
+
+  it('caps crawl-mode Lighthouse at the ten heaviest pages', () => {
+    const crawl = { mode: 'crawl' as const, urls: ['https://a.com'], runs: 8, maxPages: 200 };
+    const diff = estimateMinutes({ ...crawl, lighthouse: 'all' }) - estimateMinutes(crawl);
+    expect(diff).toBeCloseTo((10 * LIGHTHOUSE_SECONDS_PER_RUN) / 60, 6);
   });
 });

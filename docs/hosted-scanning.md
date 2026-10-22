@@ -8,6 +8,10 @@ results published back to the static site. The pattern follows
 
 ## Requesting a scan
 
+Hosted runners have no power-measurement hardware, so their energy column reads
+**not measured**. Turn on **Lighthouse** in the form to add Chromium lab scores and
+performance recommendations; see [lighthouse.md](lighthouse.md).
+
 Either use the web form (which pre-fills a GitHub issue — you still review and submit
 it yourself), or open an issue titled `SCAN: <description>` using the
 *Energy scan request* template.

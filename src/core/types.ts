@@ -231,5 +231,11 @@ export interface BenchmarkResult {
     samples: number;
     adapterId: string;
   };
+  /**
+   * Lighthouse lab results, when requested. A third indicator class with its
+   * own boundary — Chromium under simulated throttling — kept beside the
+   * Firefox measurements and never combined with them.
+   */
+  lighthouse?: import('../lighthouse/summary.js').LighthouseSummary;
   warnings: string[];
 }
