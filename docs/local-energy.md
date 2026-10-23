@@ -90,21 +90,25 @@ closed, at least 10 runs. `doctor` warns about battery and Low Power Mode.
 
 ## 4. Publish local results
 
-Local results can be published to the same site as hosted ones. Write them into
-`site/results/` and open a pull request:
+Local results go through the same review as hosted ones: the `scan-results` branch and
+its one pull request (see [hosted-scanning.md](hosted-scanning.md#what-gets-published)).
+Add yours to it:
 
 ```bash
 node dist/cli/index.js measure https://example.org/ --runs 10 --headless --out site/results
-git switch -c local-results
+git fetch origin
+# Join the open results branch if there is one, otherwise start it from main.
+git switch scan-results 2>/dev/null || git switch -c scan-results origin/main
+git pull --rebase origin scan-results 2>/dev/null || true
 git add site/results
 git commit -m "Add local energy results for example.org"
-git push -u origin local-results
-gh pr create --fill
+git push -u origin scan-results
 ```
 
-When the pull request is merged, the Pages deploy rebuilds the index and the results
-appear with their energy figures. Reuse the one `local-results` branch for later batches,
-so there is only ever one branch for this.
+If no results pull request is open, open one from `scan-results` (`gh pr create --fill`).
+When it is merged, the Pages deploy rebuilds the index and the results appear with their
+energy figures. Hosted scans and local runs share the one branch, so there is never more
+than one.
 
 ## 5. Or let issues use your machine
 
