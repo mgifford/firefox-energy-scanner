@@ -1,0 +1,849 @@
+{
+  "schemaVersion": 1,
+  "session": {
+    "id": "409f712e-5c90-4dea-9f01-f6a9d0ec3818",
+    "startedAt": "2026-10-23T21:58:25.912Z",
+    "mode": "crawl"
+  },
+  "capabilities": {
+    "tier": "structural",
+    "summary": "Structural tier: no energy measurement on this host. Network, CO2.js, timing and page-structure metrics are fully valid — none of them depend on power hardware.",
+    "unavailable": [
+      {
+        "metric": "observed client energy (joules / mWh)",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      },
+      {
+        "metric": "idle baseline subtraction",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      },
+      {
+        "metric": "resolution check (is the effect above the noise floor)",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      },
+      {
+        "metric": "energy apportioned to work categories",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      },
+      {
+        "metric": "A/B energy regression comparison",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      }
+    ],
+    "energyCheck": {
+      "verdict": "unavailable",
+      "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples.",
+      "nextSteps": [
+        "A physical Apple Silicon Mac: per-process Firefox energy, no setup or admin rights. The most precise option.",
+        "A Linux PC on bare metal with an Intel or AMD CPU: run `sudo sysctl kernel.perf_event_paranoid=0` once per boot. Measures the whole CPU package, so close other applications.",
+        "A Windows 11 PC on a supported Intel, AMD or ARM CPU: CPU package energy, no setup.",
+        "Run the CLI on one of these, or register it as a self-hosted runner so issue scans use it (docs/self-hosted-runner.md)."
+      ],
+      "hypervisor": "Microsoft Corporation Virtual Machine"
+    }
+  },
+  "environment": {
+    "timestamp": "2026-10-23T21:58:25.913Z",
+    "os": "linux",
+    "osVersion": "6.17.0-1022-azure",
+    "architecture": "x64",
+    "cpuCount": 4,
+    "totalMemoryBytes": 16766406656,
+    "firefoxVersion": "153.0",
+    "playwrightVersion": "1.62.1",
+    "co2jsVersion": "0.19.0",
+    "energyAdapter": "auto",
+    "headed": false,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "target": {
+    "url": "https://france.fr/"
+  },
+  "configuration": {
+    "browser": {
+      "name": "firefox",
+      "headed": false,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "benchmark": {
+      "warmups": 3,
+      "runs": 10,
+      "settle_ms": 1500,
+      "cache_mode": "warm"
+    },
+    "stability": {
+      "network_idle_ms": 500,
+      "post_idle_ms": 1500,
+      "max_wait_ms": 10000
+    },
+    "crawl": {
+      "enabled": false,
+      "max_pages": 50,
+      "max_depth": 5,
+      "same_origin": true,
+      "include": [],
+      "exclude": [],
+      "query_strategy": "strip",
+      "respect_robots": true,
+      "delay_ms": 250
+    },
+    "energy": {
+      "adapter": "auto",
+      "baseline": true,
+      "baseline_duration_ms": 10000,
+      "baseline_settle_ms": 5000,
+      "profiler_interval_ms": 10,
+      "retain_profile": false
+    },
+    "co2": {
+      "enabled": true,
+      "model": "swd",
+      "check_green_hosting": false
+    },
+    "sitespeed": {
+      "enabled": false
+    },
+    "output": {
+      "directory": "site/results",
+      "json": true,
+      "csv": true,
+      "html": true,
+      "collect_hostname": false
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "crawl",
+      "step": "https://france.fr/",
+      "run": 0,
+      "warmup": false,
+      "url": "https://www.france.fr/en/",
+      "startedAt": 1792792698041,
+      "endedAt": 1792792702159,
+      "timing": {
+        "durationMs": 4118,
+        "ttfbMs": 606,
+        "responseMs": 609,
+        "domContentLoadedMs": 956,
+        "loadMs": 1481
+      },
+      "network": {
+        "requests": 62,
+        "transferBytes": 3630633,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 4,
+            "bytes": 120810
+          },
+          "script": {
+            "requests": 23,
+            "bytes": 1186325
+          },
+          "font": {
+            "requests": 9,
+            "bytes": 661558
+          },
+          "stylesheet": {
+            "requests": 8,
+            "bytes": 27729
+          },
+          "fetch": {
+            "requests": 4,
+            "bytes": 16542
+          },
+          "image": {
+            "requests": 10,
+            "bytes": 1613947
+          },
+          "xhr": {
+            "requests": 3,
+            "bytes": 3004
+          },
+          "beacon": {
+            "requests": 1,
+            "bytes": 718
+          }
+        },
+        "resources": [
+          {
+            "url": "https://france.fr/",
+            "domain": "france.fr",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 212,
+            "status": 301,
+            "durationMs": 491.01806640625
+          },
+          {
+            "url": "https://www.france.fr/",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 237,
+            "status": 302,
+            "durationMs": 61.533935546875
+          },
+          {
+            "url": "https://www.france.fr/en/",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 119652,
+            "status": 200,
+            "durationMs": 62.89111328125
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/Dt-9h-xS.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2356,
+            "status": 200,
+            "durationMs": 52.698974609375
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/DfEhdXoC.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 30010,
+            "status": 200,
+            "durationMs": 56.64404296875
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/eRoy-xjC.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 80291,
+            "status": 200,
+            "durationMs": 60.989990234375
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/Xni16o0u.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 1634,
+            "status": 200,
+            "durationMs": 60.31103515625
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/C0BhV24Z.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 22274,
+            "status": 200,
+            "durationMs": 62.487060546875
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/BkQsWiG5.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 83473,
+            "status": 200,
+            "durationMs": 64.3818359375
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/DdJH2X_O.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 118337,
+            "status": 200,
+            "durationMs": 64.333984375
+          },
+          {
+            "url": "https://www.france.fr/_fonts/4iCv6KVjbNBYlgoC1CzjvWyNPYZvg7UI-azP6JuHLO8.woff2",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 9230,
+            "status": 200,
+            "durationMs": 65.781005859375
+          },
+          {
+            "url": "https://www.france.fr/newrelic.production.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 27269,
+            "status": 200,
+            "durationMs": 64.228759765625
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/AfFilterInline.C69fgAZC.css",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 903,
+            "status": 200,
+            "durationMs": 67.29296875
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/builds/meta/7d85b23c-198e-495a-975d-39b7735852e4.json",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 641,
+            "status": 200,
+            "durationMs": 65.86181640625
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/index.9nL9rmF3.css",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 717,
+            "status": 200,
+            "durationMs": 68.12109375
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/useBlocksToComponents.kkShAnoH.css",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 5707,
+            "status": 200,
+            "durationMs": 68.944091796875
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/AfCarousel.C8VOqKGs.css",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 1805,
+            "status": 200,
+            "durationMs": 75.719970703125
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/BEi-LDqn.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 3607,
+            "status": 200,
+            "durationMs": 76.899169921875
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/entry.16e9QgQ3.css",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 14504,
+            "status": 200,
+            "durationMs": 80.5029296875
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/hrmPTRjq.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 2311,
+            "status": 200,
+            "durationMs": 84.005859375
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/AfFilteredList.CBl0-0b-.css",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 746,
+            "status": 200,
+            "durationMs": 84.68017578125
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/AfHero.CzA1QU1n.css",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 1612,
+            "status": 200,
+            "durationMs": 84.68017578125
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/by6siWdk.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 30705,
+            "status": 200,
+            "durationMs": 89.013916015625
+          },
+          {
+            "url": "https://www.france.fr/images/marianne.png",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 33629,
+            "status": 200,
+            "durationMs": 89.528076171875
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/BiMU60rV.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 6632,
+            "status": 200,
+            "durationMs": 90.7919921875
+          },
+          {
+            "url": "https://www.france.fr/images/marianne-background.jpeg",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 593450,
+            "status": 200,
+            "durationMs": 25.489990234375
+          },
+          {
+            "url": "https://www.googletagmanager.com/gtm.js?id=GTM-W5MHZK32",
+            "domain": "www.googletagmanager.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 150471,
+            "status": 200,
+            "durationMs": 96.02685546875
+          },
+          {
+            "url": "https://www.france.fr/_fonts/4iCv6KVjbNBYlgoC1CzTtA-yMYt9BpeTq.woff",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 157031,
+            "status": 200,
+            "durationMs": 20.260986328125
+          },
+          {
+            "url": "https://www.france.fr/_fonts/4iCs6KVjbNBYlgo6ew-DhXWZXj5l2.woff",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 134615,
+            "status": 200,
+            "durationMs": 22.6328125
+          },
+          {
+            "url": "https://www.france.fr/_fonts/4iCv6KVjbNBYlgoCjC3TtA-mD0NNKZhXH.woff",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 123855,
+            "status": 200,
+            "durationMs": 25.6259765625
+          },
+          {
+            "url": "https://asset-prod.france.fr/Saint_Cirq_Lapopie_6736142d70.webp",
+            "domain": "asset-prod.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 118403,
+            "status": 200,
+            "durationMs": 221.74609375
+          },
+          {
+            "url": "https://www.france.fr/_fonts/4iCv6KVjbNBYlgoCxCvTtA-BWgtl2JzDZ.woff",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 117723,
+            "status": 200,
+            "durationMs": 45.76513671875
+          },
+          {
+            "url": "https://plugins.flockler.com/embed/17209631fa1079c626d16e8ad390bede/1802d247f320a3e44228789c01826f9f",
+            "domain": "plugins.flockler.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 3682,
+            "status": 200,
+            "durationMs": 258.18896484375
+          },
+          {
+            "url": "https://www.france.fr/_nuxt/builds/meta/7d85b23c-198e-495a-975d-39b7735852e4.json",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 641,
+            "status": 200
+          },
+          {
+            "url": "https://asset-prod.france.fr/large_porquerolles_plage_notre_dame_fb4368678c.jpg",
+            "domain": "asset-prod.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 83163,
+            "status": 200,
+            "durationMs": 24.911865234375
+          },
+          {
+            "url": "https://asset-prod.france.fr/xlarge_LYON_PLACE_DES_JACOBINS_PRINTEMPS_ISTOCK_ESPLEGLE_a6fa9f877c.jpg",
+            "domain": "asset-prod.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 253828,
+            "status": 200,
+            "durationMs": 31.5419921875
+          },
+          {
+            "url": "https://asset-prod.france.fr/large_Peyragudes_entre2poles_06_25534bdbbe.jpg",
+            "domain": "asset-prod.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 58045,
+            "status": 200,
+            "durationMs": 28.532958984375
+          },
+          {
+            "url": "https://plugins.flockler.com/embed/v3/embed-wall_v2.js",
+            "domain": "plugins.flockler.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 63567,
+            "status": 200,
+            "durationMs": 17.876220703125
+          },
+          {
+            "url": "https://asset-prod.france.fr/large_senderistas_francia_56e2501593.webp",
+            "domain": "asset-prod.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 128183,
+            "status": 200,
+            "durationMs": 60.408935546875
+          },
+          {
+            "url": "https://asset-prod.france.fr/Design_sans_titre_2026_03_11_T162058_419_8f536fb994.png",
+            "domain": "asset-prod.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 220375,
+            "status": 200,
+            "durationMs": 22.40576171875
+          },
+          {
+            "url": "https://asset-prod.france.fr/xlarge_header_handicap_4636b586bd.jpg",
+            "domain": "asset-prod.france.fr",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 124036,
+            "status": 200,
+            "durationMs": 32.100830078125
+          },
+          {
+            "url": "https://www.france.fr/cdn-cgi/challenge-platform/scripts/jsd/main.js",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 796,
+            "status": 302,
+            "durationMs": 15.396240234375
+          },
+          {
+            "url": "https://www.france.fr/cdn-cgi/challenge-platform/h/b/scripts/jsd/d2d3316b729e/main.js?",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 12473,
+            "status": 200,
+            "durationMs": 305.413818359375
+          },
+          {
+            "url": "https://www.googletagmanager.com/ns.html?id=GTM-W5MHZK32",
+            "domain": "www.googletagmanager.com",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 709,
+            "status": 200,
+            "durationMs": 21.83203125
+          },
+          {
+            "url": "https://www.googletagmanager.com/gtag/js?id=G-HC6EQ7QDH2&cx=c&gtm=4e6al1",
+            "domain": "www.googletagmanager.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 176095,
+            "status": 200,
+            "durationMs": 53.56103515625
+          },
+          {
+            "url": "https://static.axept.io/sdk.js",
+            "domain": "static.axept.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 221067,
+            "status": 200,
+            "durationMs": 73.849853515625
+          },
+          {
+            "url": "https://www.france.fr/cdn-cgi/challenge-platform/h/b/jsd/oneshot/d2d3316b729e/0.9078045911414621:1792789814:bxiipYOs1wl2d25uLitlRSSX8kmdTyFhAt6btrbrHcM/a4f4009e4bdf11ab",
+            "domain": "www.france.fr",
+            "thirdParty": false,
+            "resourceType": "xhr",
+            "transferBytes": 1525,
+            "status": 200,
+            "durationMs": 9.347900390625
+          },
+          {
+            "url": "https://plugins.flockler.com/embed/18bec1320ac05b92f01bb17806a1be22/18bf29387ed016553e96350c03329c5c",
+            "domain": "plugins.flockler.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 0
+          },
+          {
+            "url": "https://www.googletagmanager.com/td?id=G-HC6EQ7QDH2&v=3&t=t&pid=1972075054&gtm=45je6al1v872526459za20gzb9182338925zd9182338925xf1&seq=1&exp=115616986~115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121246026~121246034&dl=www.france.fr%2Fen%2F&tdp=G-HC6EQ7QDH2;72526459;1;6;0&frm=0&rtg=182338925&slo=2&hlo=1&lst=1&pcid=182338925&bt=0&ct=3&jsp=1~4~5&z=0",
+            "domain": "www.googletagmanager.com",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 835,
+            "status": 204,
+            "durationMs": 24.48291015625
+          },
+          {
+            "url": "https://js-agent.newrelic.com/nr-spa-1.253.0.min.js",
+            "domain": "js-agent.newrelic.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 30244,
+            "status": 200,
+            "durationMs": 20.400146484375
+          },
+          {
+            "url": "https://bam.nr-data.net/1/3a739da918?a=718372839&sa=1&v=1.253.0&t=Unnamed%20Transaction&rst=1526&ck=0&s=0&ref=https://www.france.fr/en/&hr=0&af=err,xhr,stn,ins,spa&be=606&fe=875&dc=350&perf=%7B%22timing%22:%7B%22of%22:1792792698051,%22n%22:0,%22f%22:547,%22dn%22:547,%22dne%22:547,%22c%22:547,%22s%22:547,%22ce%22:547,%22rq%22:549,%22rp%22:606,%22rpe%22:609,%22di%22:855,%22ds%22:951,%22de%22:956,%22dc%22:1478,%22l%22:1478,%22le%22:1481%7D,%22navigation%22:%7B%7D%7D&fcp=957",
+            "domain": "bam.nr-data.net",
+            "thirdParty": false,
+            "resourceType": "xhr",
+            "transferBytes": 938,
+            "status": 200,
+            "durationMs": 52.68017578125
+          },
+          {
+            "url": "https://bam.nr-data.net/events/1/3a739da918?a=718372839&sa=1&v=1.253.0&t=Unnamed%20Transaction&rst=1591&ck=0&s=0&ref=https://www.france.fr/en/&hr=0",
+            "domain": "bam.nr-data.net",
+            "thirdParty": false,
+            "resourceType": "xhr",
+            "transferBytes": 541,
+            "status": 200,
+            "durationMs": 39.553955078125
+          },
+          {
+            "url": "https://client.axept.io/projectconfigurations/brands/65f86d9c9138502662a8d4f0.json?r=0",
+            "domain": "client.axept.io",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 14330,
+            "status": 200,
+            "durationMs": 195.919921875
+          },
+          {
+            "url": "https://static.axept.io/datacenter-ranges.js",
+            "domain": "static.axept.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 109922,
+            "status": 200,
+            "durationMs": 5.89599609375
+          },
+          {
+            "url": "https://static.axept.io/behavior-detection.min.js",
+            "domain": "static.axept.io",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 9109,
+            "status": 200,
+            "durationMs": 7.193115234375
+          },
+          {
+            "url": "https://fonts.axept.io/fonts.googleapis.com/css?family=Source%20Sans%203:regular,500,600,700&display=swap&ax-prefix=Axeptio%20",
+            "domain": "fonts.axept.io",
+            "thirdParty": false,
+            "resourceType": "stylesheet",
+            "transferBytes": 1735,
+            "status": 200,
+            "durationMs": 232.801025390625
+          },
+          {
+            "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-HC6EQ7QDH2&gtm=45je6al1v872526459za20ozb9182338925zd9182338925xf1&_p=1792792698806&gcs=G100&gcd=13p3p3p3p5l1&npa=1&dma_cps=-&dma=0&gdid=dNGFkYj&ecid=113626137&cid=2074269206.1792792700&frm=0&ngs=1&pscdl=denied&rcb=7&sr=1366x768&ul=en-us&_s=1&tag_exp=115616986~115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121246026~121246034&sid=1792792699&sct=1&seg=0&dl=https%3A%2F%2Fwww.france.fr%2Fen%2F&dt=France.fr%20%3A%20Explore%20France%20and%20its%20wonders%20-%20Explore%20France&_tu=CA&en=page_view&_fv=1&_nsi=1&_ss=1&tfd=1940",
+            "domain": "www.google-analytics.com",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 930,
+            "status": 204,
+            "durationMs": 49.39013671875
+          },
+          {
+            "url": "https://fonts.axept.io/fonts.gstatic.com/s/sourcesans3/v20/nwpStKy2OAdR1K-IwhWudF-R3w8aZQ.woff2",
+            "domain": "fonts.axept.io",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 29776,
+            "status": 200,
+            "durationMs": 128.673095703125
+          },
+          {
+            "url": "https://fonts.axept.io/fonts.gstatic.com/s/sourcesans3/v20/nwpStKy2OAdR1K-IwhWudF-R3w8aZQ.woff2",
+            "domain": "fonts.axept.io",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 29776,
+            "status": 200
+          },
+          {
+            "url": "https://fonts.axept.io/fonts.gstatic.com/s/sourcesans3/v20/nwpStKy2OAdR1K-IwhWudF-R3w8aZQ.woff2",
+            "domain": "fonts.axept.io",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 29776,
+            "status": 200
+          },
+          {
+            "url": "https://fonts.axept.io/fonts.gstatic.com/s/sourcesans3/v20/nwpStKy2OAdR1K-IwhWudF-R3w8aZQ.woff2",
+            "domain": "fonts.axept.io",
+            "thirdParty": false,
+            "resourceType": "font",
+            "transferBytes": 29776,
+            "status": 200
+          },
+          {
+            "url": "https://api.axept.io/v1/analytics/evts",
+            "domain": "api.axept.io",
+            "thirdParty": false,
+            "resourceType": "beacon",
+            "transferBytes": 718,
+            "status": 204,
+            "durationMs": 418.508056640625
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "anatomy": {
+        "domNodes": 2666,
+        "domDepth": 21,
+        "cssRules": 3508,
+        "cssSelectors": 2457,
+        "scripts": 16,
+        "images": 108,
+        "iframes": 2,
+        "animatedElements": 347,
+        "heaviestSubtrees": [
+          {
+            "selector": "html",
+            "nodes": 2665
+          },
+          {
+            "selector": "body",
+            "nodes": 2558
+          },
+          {
+            "selector": "div#__nuxt",
+            "nodes": 2287
+          },
+          {
+            "selector": "main#main-content",
+            "nodes": 1310
+          },
+          {
+            "selector": "div.AfContent",
+            "nodes": 892
+          }
+        ]
+      },
+      "findings": [
+        {
+          "id": "dom-size",
+          "severity": "high",
+          "title": "Large DOM (2,666 nodes)",
+          "evidence": "2,666 elements, maximum depth 21. Heaviest subtree: html (2,665 nodes).",
+          "action": "Every node is re-examined on style recalculation and layout. Paginate long lists, virtualise tables, and remove wrapper elements that exist only for styling.",
+          "category": "Layout"
+        },
+        {
+          "id": "animations",
+          "severity": "medium",
+          "title": "347 elements with animations or transitions",
+          "evidence": "347 elements have a non-zero animation or transition.",
+          "action": "Running animations keep the refresh driver and compositor awake, drawing power even when nothing is interacting. Prefer transform/opacity, and honour prefers-reduced-motion.",
+          "category": "Graphics"
+        },
+        {
+          "id": "css-expensive-selectors",
+          "severity": "low",
+          "title": "10 selectors with high match cost",
+          "evidence": ".AfFormSelect__input[data-v-b68278f0]:not([disabled]):focus (costly pseudo-class); .AfFormSelect__input[data-v-b68278f0]:not([disabled]):hover (costly pseudo-class); .AfFormSelect__input[data-v-b68278f0]:not([disabled]):focus-visible (costly pseudo-class)",
+          "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element.",
+          "category": "Layout"
+        },
+        {
+          "id": "images-without-dimensions",
+          "severity": "low",
+          "title": "107 of 108 images lack width/height",
+          "evidence": "Images without intrinsic dimensions force a reflow when each one arrives.",
+          "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image.",
+          "category": "Layout"
+        }
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": false,
+        "greenHostingChecked": false,
+        "inputBytes": 3630633,
+        "estimatedGrams": 0.5380598106,
+        "consumerDeviceGrams": 0.288758765022,
+        "networkGrams": 0.129134354544,
+        "dataCenterGrams": 0.120166691034
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 4118,
+          "measurementScope": "system",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler"
+        }
+      }
+    }
+  ],
+  "warnings": [
+    "No power counters were found in the Gecko profile. Energy values are unavailable on this platform; timing and network metrics are still valid.",
+    "Crawl mode is for discovery and broad assessment. It is not a controlled regression workload; use journey mode for A/B comparisons."
+  ],
+  "lighthouse": {
+    "tool": "lighthouse",
+    "version": "13.5.0",
+    "browser": "HeadlessChrome/155.0.0.0",
+    "formFactor": "desktop",
+    "throttling": "simulate, 40 ms RTT, 10.0 Mbps, 1× CPU slowdown",
+    "categories": [
+      "performance"
+    ],
+    "runsPerUrl": 1,
+    "results": [
+      {
+        "requestedUrl": "https://france.fr/",
+        "runs": 0,
+        "error": "items.reduce is not a function",
+        "scores": {},
+        "metrics": {},
+        "recommendations": [],
+        "failingAudits": {},
+        "work": {},
+        "warnings": []
+      }
+    ]
+  }
+}
