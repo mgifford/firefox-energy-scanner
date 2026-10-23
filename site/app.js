@@ -20,12 +20,8 @@
   function validateUrls(raw, mode) {
     const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
     if (lines.length === 0) return { error: 'Enter at least one URL.' };
-    if (mode !== 'crawl' && lines.length > MAX_URLS) {
-      return {
-        error: 'Maximum ' + MAX_URLS + ' URLs in measure mode (got ' + lines.length +
-          '). Use crawl mode to cover more pages.',
-      };
-    }
+    // More than MAX_URLS is allowed: the first MAX_URLS are scanned and the
+    // rest are listed as "not scanned" in the results, so nothing is lost.
     const bad = [];
     for (const line of lines) {
       let u;
@@ -88,7 +84,7 @@
     if (urlsHint) {
       urlsHint.textContent = mode === 'crawl'
         ? 'One public http:// or https:// URL — the page the crawl starts from.'
-        : 'One public http:// or https:// URL per line. Maximum 20 per request.';
+        : 'One public http:// or https:// URL per line. The first 20 are scanned; any more are listed in the results as not scanned.';
     }
     updateEstimate();
   }
@@ -97,8 +93,9 @@
     const el = document.getElementById('estimate');
     if (!el) return;
     const mode = currentMode();
-    const urlCount = (document.getElementById('urls').value || '')
+    const listed = (document.getElementById('urls').value || '')
       .split('\n').map(function (s) { return s.trim(); }).filter(Boolean).length;
+    const urlCount = Math.min(listed, MAX_URLS);
     const runs = parseInt(document.getElementById('runs').value, 10) || 8;
     const pages = parseInt(document.getElementById('max-pages').value, 10) || 50;
     const lhEl = document.getElementById('lighthouse');
@@ -109,6 +106,10 @@
     const rounded = minutes < 1 ? '<1' : String(Math.round(minutes));
     el.textContent = 'Estimated runtime: about ' + rounded + ' minute' +
       (rounded === '1' ? '' : 's') + '.' +
+      (mode === 'measure' && listed > MAX_URLS
+        ? ' ' + listed + ' URLs listed: the first ' + MAX_URLS + ' will be scanned and the other ' +
+          (listed - MAX_URLS) + ' listed as not scanned.'
+        : '') +
       (minutes > 90 ? ' That exceeds the 90-minute budget and will be rejected.' : '');
     el.className = minutes > 90 ? 'estimate over' : 'estimate';
   }

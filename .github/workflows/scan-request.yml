@@ -9,11 +9,18 @@ name: Run energy scan
 #   self-hosted macOS  -> real hardware, real energy
 # See docs/decision-record.md TDR-007 and TDR-008.
 
+# Security: the issue body is untrusted. It is only ever read as data — from a
+# file, an environment variable or argv — and never pasted into a script with
+# `${{ }}`. tests/workflow-scripts.test.ts enforces that.
+
 on:
   issues:
-    # `reopened` makes the issue itself the re-run control: close when done,
-    # reopen to scan again with the same (or an edited) request body.
-    types: [opened, reopened, labeled]
+    # The issue is the run control. A finished scan closes it; any of these
+    # runs it again:
+    #   reopened — reopen a closed request
+    #   edited   — save a change to an OPEN request (e.g. fix a rejected one)
+    #   labeled  — add the `rescan` label to any request, open or closed
+    types: [opened, reopened, edited, labeled]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -23,8 +30,11 @@ on:
 permissions:
   contents: read
 
+# One queue per issue. A single shared group let only one run wait, so a
+# third request queued behind a running scan silently cancelled the second.
+# Self-hosted energy scans still run one at a time: there is one machine.
 concurrency:
-  group: energy-scan
+  group: energy-scan-${{ github.event.issue.number || github.event.inputs.issue_number }}
   cancel-in-progress: false
 
 jobs:
@@ -33,8 +43,15 @@ jobs:
     # treated as untrusted input and validated before anything runs.
     if: >
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.issue.title, 'SCAN:')
+      (startsWith(github.event.issue.title, 'SCAN:') &&
+       (github.event.action != 'edited' ||
+        (github.event.issue.state == 'open' && (github.event.changes.body || github.event.changes.title))) &&
+       (github.event.action != 'labeled' || github.event.label.name == 'rescan'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # To acknowledge the request and clear the `rescan` label.
+      issues: write
     outputs:
       mode: ${{ steps.parse.outputs.mode }}
       urls: ${{ steps.parse.outputs.urls }}
@@ -51,6 +68,7 @@ jobs:
       valid: ${{ steps.parse.outputs.valid }}
       errors: ${{ steps.parse.outputs.errors }}
       notes: ${{ steps.parse.outputs.notes }}
+      not_scanned: ${{ steps.parse.outputs.not_scanned }}
     steps:
       - uses: actions/checkout@v4
 
@@ -82,6 +100,13 @@ jobs:
             fs.writeFileSync('issue-body.txt', data.body || '', 'utf8');
             core.setOutput('number', String(number));
 
+            // Clear the label so it can be added again for the next rescan.
+            if (context.payload.action === 'labeled' && context.payload.label?.name === 'rescan') {
+              await github.rest.issues
+                .removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: number, name: 'rescan' })
+                .catch(() => {});
+            }
+
       - name: Parse and validate request
         id: parse
         env:
@@ -94,11 +119,16 @@ jobs:
           # Emitting outputs from Node avoids quoting user-controlled text in shell.
           node --input-type=module <<'NODE'
           import { readFileSync, appendFileSync } from 'node:fs';
+          import { randomUUID } from 'node:crypto';
           const r = JSON.parse(readFileSync('request.json', 'utf8'));
           const out = [];
-          const set = (k, v) => out.push(`${k}=${v}`);
+          // A newline in a single-line value would start a new output, letting
+          // the issue body set any output it liked. Strip them.
+          const set = (k, v) => out.push(`${k}=${String(v ?? '').replace(/[\r\n]+/g, ' ')}`);
+          // A fixed heredoc delimiter could be typed into the issue to end the
+          // value early; a random one cannot be guessed.
           const setMultiline = (k, v) => {
-            const d = `EOF_${k.toUpperCase()}`;
+            const d = `EOF_${randomUUID()}`;
             out.push(`${k}<<${d}`, v ?? '', d);
           };
           set('issue', process.env.ISSUE_NUMBER);
@@ -112,11 +142,43 @@ jobs:
           set('lighthouse', r.lighthouse);
           set('lighthouse_runs', String(r.lighthouseRuns));
           set('valid', r.errors.length === 0 && r.urls.length > 0 ? 'true' : 'false');
+          set('url_count', String(r.urls.length));
+          set('not_scanned_count', String((r.notScanned ?? []).length));
           setMultiline('urls', r.urls.join('\n'));
           setMultiline('errors', r.errors.join('\n'));
           setMultiline('notes', r.notes.join('\n'));
+          setMultiline('not_scanned', JSON.stringify(r.notScanned ?? []));
+          set('estimate', String(Math.max(1, Math.round(r.estimatedMinutes ?? 0))));
           appendFileSync(process.env.GITHUB_OUTPUT, out.join('\n') + '\n', 'utf8');
           NODE
+
+      # Say the request was picked up, so a re-run is visible straight away
+      # rather than only when results arrive.
+      - name: Acknowledge the request
+        if: steps.parse.outputs.valid == 'true'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.parse.outputs.issue }}
+          ESTIMATE: ${{ steps.parse.outputs.estimate }}
+          URL_COUNT: ${{ steps.parse.outputs.url_count }}
+          NOT_SCANNED_COUNT: ${{ steps.parse.outputs.not_scanned_count }}
+        with:
+          script: |
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const skipped = Number(process.env.NOT_SCANNED_COUNT || 0);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: [
+                `**Scan started** for ${process.env.URL_COUNT} URL${process.env.URL_COUNT === '1' ? '' : 's'}` +
+                  ` — about ${process.env.ESTIMATE} min of scanning. [Follow the run](${run}).`,
+                skipped
+                  ? `${skipped} listed URL${skipped === 1 ? ' is' : 's are'} not included; the results will list ${skipped === 1 ? 'it' : 'them'}.`
+                  : null,
+                'Results will be posted here, and the issue closed, when it finishes.',
+              ].filter(Boolean).join('\n\n'),
+            });
 
       # A self-hosted job queues indefinitely when no runner is registered, so
       # check first and fall back rather than leaving the request hanging.
@@ -132,9 +194,9 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
               });
-              available = (data.runners || []).some(
-                (r) => r.status === 'online' && !r.busy,
-              );
+              // Busy is fine: the job waits for the machine. Only an offline
+              // runner means falling back, rather than queuing forever.
+              available = (data.runners || []).some((r) => r.status === 'online');
               core.info(`self-hosted runners: ${data.total_count}, usable: ${available}`);
             } catch (err) {
               // Token may lack admin scope; assume unavailable rather than hang.
@@ -158,6 +220,9 @@ jobs:
     permissions:
       contents: write
       issues: write
+      # To start the Pages deploy: pushes made with this job's token do not
+      # trigger other workflows, so the site never updated after a scan.
+      actions: write
     steps:
       - uses: actions/checkout@v4
 
@@ -190,6 +255,7 @@ jobs:
         run: node dist/cli/index.js doctor || true
 
       - name: Run scan
+        id: scan
         env:
           SCAN_MODE: ${{ needs.prepare.outputs.mode }}
           SCAN_URLS: ${{ needs.prepare.outputs.urls }}
@@ -205,6 +271,7 @@ jobs:
           # into the shell, so a hostile issue body cannot inject a command.
           node --input-type=module <<'NODE'
           import { spawnSync } from 'node:child_process';
+          import { readdirSync, appendFileSync } from 'node:fs';
           const urls = (process.env.SCAN_URLS || '').split('\n').map(s => s.trim()).filter(Boolean);
           if (urls.length === 0) { console.error('no urls'); process.exit(1); }
 
@@ -235,8 +302,13 @@ jobs:
                '--headless', '--out', 'site/results'];
 
           console.log('mode:', mode, '| targets:', urls.length);
+          const before = new Set(readdirSync('site/results'));
           // Below the 90-minute request budget, leaving room for setup/commit.
           const r = spawnSync('node', args, { stdio: 'inherit', timeout: 95 * 60 * 1000 });
+          // Name this run's own result file, so the comment never summarises
+          // another scan that lands in the repository at the same time.
+          const mine = readdirSync('site/results').filter((f) => f.endsWith('.json') && !before.has(f));
+          if (mine.length) appendFileSync(process.env.GITHUB_OUTPUT, `result=${mine.sort().pop()}\n`);
           process.exit(r.status ?? 1);
           NODE
 
@@ -250,37 +322,71 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+      # Built for the comment below. Not committed: the Pages deploy builds its
+      # own, and a shared index file made concurrent scans conflict on push.
       - name: Rebuild results index
         run: node dist/cli/index.js build-index --dir site/results --out site/results/index.json
 
       - name: Commit results
+        id: commit
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add site/results
           if git diff --cached --quiet; then
             echo "No new results to commit."
-          else
-            git commit -m "Add scan results for issue #${{ needs.prepare.outputs.issue }}"
-            git pull --rebase origin main
-            git push origin HEAD:main
+            exit 0
           fi
+          git commit -m "Add scan results for issue #${ISSUE_NUMBER}"
+          # Another scan may push first; each adds only its own new files, so
+          # a rebase and retry always succeeds.
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "pushed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          echo "Could not push results after 5 attempts." >&2
+          exit 1
+
+      - name: Publish the site
+        if: steps.commit.outputs.pushed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
 
       # Only report success when the scan actually produced results. A failure
       # is handled by the step below, so the issue never sits open in silence.
       - name: Comment on the issue
         if: success()
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
+          REQUESTED_RUNNER: ${{ needs.prepare.outputs.runner }}
+          RUNNER_AVAILABLE: ${{ needs.prepare.outputs.runner_available }}
+          SCAN_MODE: ${{ needs.prepare.outputs.mode }}
+          PARSER_NOTES: ${{ needs.prepare.outputs.notes }}
+          NOT_SCANNED: ${{ needs.prepare.outputs.not_scanned }}
+          RESULT_FILE: ${{ steps.scan.outputs.result }}
+          LH_ARTIFACT_URL: ${{ steps.lh-artifact.outputs.artifact-url }}
         with:
           script: |
             const fs = require('fs');
-            const files = fs.readdirSync('site/results').filter(f => f.endsWith('.json') && f !== 'index.json');
-            const latest = files.sort().pop();
-            const requestedRunner = '${{ needs.prepare.outputs.runner }}';
+            const requestedRunner = process.env.REQUESTED_RUNNER;
             const selfHostedUsed =
-              requestedRunner === 'self-hosted' &&
-              '${{ needs.prepare.outputs.runner_available }}' === 'true';
+              requestedRunner === 'self-hosted' && process.env.RUNNER_AVAILABLE === 'true';
             const fellBack = requestedRunner === 'self-hosted' && !selfHostedUsed;
+
+            // Listed URLs this scan left out (over the limit, not public, extra
+            // crawl starts). Shown in code spans: the text comes from the issue,
+            // and inside a code span it cannot ping anyone or inject markdown.
+            let notScanned = [];
+            try { notScanned = JSON.parse(process.env.NOT_SCANNED || '[]'); } catch (e) { notScanned = []; }
+            const code = (t) => '`' + String(t).replace(/`/g, "'") + '`';
 
             let table = '';
             // Declared outside the try so the findings block below can use it.
@@ -288,7 +394,9 @@ jobs:
             const shortName = (step) => (step.length > 50 ? '…' + step.slice(-48) : step);
             try {
               const index = JSON.parse(fs.readFileSync('site/results/index.json', 'utf8'));
-              entry = index.entries[0];
+              entry = process.env.RESULT_FILE
+                ? index.entries.find((e) => e.file === process.env.RESULT_FILE) || null
+                : index.entries[0];
               if (entry) {
                 table = [
                   '',
@@ -357,7 +465,7 @@ jobs:
                 return `- ${title} — ${x.pages} of ${audited.length} page${audited.length === 1 ? '' : 's'}` +
                   (save ? ` · est. ${save} per page` : '');
               });
-              const artifact = '${{ steps.lh-artifact.outputs.artifact-url }}';
+              const artifact = process.env.LH_ARTIFACT_URL || '';
               lighthouseBlock = [
                 '',
                 '### Lighthouse',
@@ -385,7 +493,7 @@ jobs:
               ].filter((line) => line !== null).join('\n') + '\n';
             }
 
-            const isCrawl = '${{ needs.prepare.outputs.mode }}' === 'crawl';
+            const isCrawl = process.env.SCAN_MODE === 'crawl';
 
             // Structural findings need no power hardware, so they are the main
             // actionable output on a hosted runner.
@@ -404,7 +512,27 @@ jobs:
                 '\n\nThese come from page structure and need no power hardware, so they are ' +
                 'valid on any runner.\n'
               : '';
-            const parserNotes = `${{ needs.prepare.outputs.notes }}`.trim();
+            // Notes can quote the issue body; break @mentions so they ping nobody.
+            const parserNotes = (process.env.PARSER_NOTES || '').trim().replace(/@/g, '@\u200b');
+
+            const scannedCount = ((entry && entry.scenarios) || []).length;
+            const shown = notScanned.slice(0, 50);
+            const notScannedBlock = notScanned.length
+              ? [
+                  '',
+                  `### Not scanned (${notScanned.length})`,
+                  '',
+                  ...shown.map((n) => `- ${code(n.url)} — ${n.reason}`),
+                  notScanned.length > shown.length ? `- …and ${notScanned.length - shown.length} more` : null,
+                  '',
+                  notScanned.some((n) => /limit/.test(n.reason))
+                    ? 'To scan the rest, open another request with them, or use crawl mode from the site’s home page.'
+                    : null,
+                ].filter((line) => line !== null).join('\n') + '\n'
+              : '';
+            const coverage = notScanned.length && !isCrawl
+              ? `\nScanned **${scannedCount}** of ${scannedCount + notScanned.length} listed URLs; the rest are listed under _Not scanned_ below.\n`
+              : '';
 
             const notes = [
               '',
@@ -443,14 +571,15 @@ jobs:
             // paragraph break in the comment.
             ].filter((line) => line !== null).join('\n') + findingsBlock + lighthouseBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
-              'scan again** — edit the request body first if you want different settings._';
+              'scan again** — edit the request body first if you want different settings. ' +
+              'The published site updates a few minutes after this comment._';
 
-            const issue_number = Number('${{ needs.prepare.outputs.issue }}');
+            const issue_number = Number(process.env.ISSUE_NUMBER);
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number,
-              body: '## Scan complete\n' + table + '\n' + notes,
+              body: '## Scan complete\n' + coverage + table + '\n' + notScannedBlock + notes,
             });
 
             // The issue is the run control: closed means finished, and
@@ -469,6 +598,8 @@ jobs:
       - name: Report a failed scan
         if: failure()
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
         with:
           script: |
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
@@ -476,7 +607,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: Number('${{ needs.prepare.outputs.issue }}'),
+              issue_number: Number(process.env.ISSUE_NUMBER),
               body: [
                 '## Scan failed',
                 '',
@@ -484,7 +615,8 @@ jobs:
                 '',
                 'This issue stays open because the request has not been serviced.',
                 'Common causes: the target was unreachable, or it did not respond within',
-                'the time budget. Close and reopen this issue to retry.',
+                'the time budget. To retry, edit the request (saving re-runs it), or close',
+                'and reopen this issue.',
               ].join('\n'),
             });
 
@@ -497,13 +629,18 @@ jobs:
     steps:
       - name: Explain why the request was rejected
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
+          PARSER_ERRORS: ${{ needs.prepare.outputs.errors }}
         with:
           script: |
-            const errors = `${{ needs.prepare.outputs.errors }}`.trim();
+            // Shown as a quote of plain lines; it echoes text from the issue.
+            const errors = (process.env.PARSER_ERRORS || '').trim()
+              .split('\n').filter(Boolean).map((e) => '> ' + e.replace(/@/g, '@\u200b')).join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: Number('${{ needs.prepare.outputs.issue }}'),
+              issue_number: Number(process.env.ISSUE_NUMBER),
               body: [
                 '## Scan request could not be processed',
                 '',
@@ -512,6 +649,6 @@ jobs:
                 'Only public web URLs can be scanned. Localhost and private addresses are rejected',
                 'because a hosted runner cannot reach them.',
                 '',
-                'Fix the request body, then close and reopen this issue to try again.',
+                '**Edit this issue to fix the request.** Saving the edit runs it again automatically.',
               ].join('\n'),
             });

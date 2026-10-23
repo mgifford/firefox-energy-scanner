@@ -82,7 +82,8 @@
         <span class="step-num" aria-hidden="true">3</span>
         <strong>Results publish here.</strong> A summary is posted to your issue and the
         full result appears in the table below. The issue is then closed —
-        <strong>reopen it to run the scan again</strong>.
+        <strong>reopen it to run the scan again</strong>. A rejected or failed request
+        stays open: edit it and saving re-runs it.
       </li>
     </ol>
   </section>
@@ -121,7 +122,7 @@
         <label for="urls" id="urls-label">URLs to scan</label>
         <p class="hint" id="urls-hint">
           One public <code>http://</code> or <code>https://</code> URL per line.
-          Maximum 20 per request.
+          The first 20 are scanned; any more are listed in the results as not scanned.
         </p>
         <textarea id="urls" name="urls" rows="6" aria-describedby="urls-hint"
           placeholder="https://example.com/&#10;https://example.com/about" required></textarea>

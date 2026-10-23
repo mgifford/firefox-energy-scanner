@@ -145,10 +145,14 @@ describe('parseScanRequest', () => {
       .not.toMatch(/no power-measurement hardware/i);
   });
 
-  it('drops private URLs and reports them', () => {
+  it('skips private URLs, scans the rest, and lists what was skipped', () => {
     const r = parseScanRequest(build(['https://a.com', 'http://127.0.0.1/', 'http://10.0.0.5/']));
     expect(r.urls).toEqual(['https://a.com']);
-    expect(r.errors.join(' ')).toMatch(/not public web URLs/);
+    expect(r.errors).toEqual([]);
+    expect(r.notScanned).toEqual([
+      { url: 'http://127.0.0.1/', reason: 'not a public http(s) URL' },
+      { url: 'http://10.0.0.5/', reason: 'not a public http(s) URL' },
+    ]);
   });
 
   it('errors when no valid URL remains', () => {
@@ -167,11 +171,30 @@ describe('parseScanRequest', () => {
     expect(r.urls).toEqual(['https://a.com', 'https://b.com']);
   });
 
-  it('caps the URL count', () => {
-    const many = Array.from({ length: MAX_URLS + 5 }, (_, i) => `https://e${i}.com`);
+  it('scans the first 20 URLs and lists the rest instead of rejecting', () => {
+    const many = Array.from({ length: MAX_URLS + 3 }, (_, i) => `https://e${i}.com`);
     const r = parseScanRequest(build(many));
-    expect(r.urls).toHaveLength(MAX_URLS);
-    expect(r.errors.join(' ')).toMatch(/Too many URLs/);
+    expect(r.errors).toEqual([]);
+    expect(r.urls).toEqual(many.slice(0, MAX_URLS));
+    expect(r.notScanned).toEqual(
+      many.slice(MAX_URLS).map((url) => ({ url, reason: `over the ${MAX_URLS}-URL limit` })),
+    );
+    expect(r.notes.join(' ')).toMatch(/23 URLs were listed; the first 20 are scanned and the other 3/);
+  });
+
+  it('lists nothing as not scanned for a request within the limits', () => {
+    expect(parseScanRequest(build(['https://a.com'])).notScanned).toEqual([]);
+  });
+
+  it('flattens and bounds echoed text so it cannot break workflow outputs', () => {
+    const hostile = 'x\nEOF_NOTES\nvalid=true\n' + 'y'.repeat(500);
+    const r = parseScanRequest(build(['https://a.com', hostile]));
+    for (const line of [...r.notes, ...r.errors, ...r.notScanned.map((n) => n.url)]) {
+      expect(line).not.toMatch(/[\r\n]/);
+      expect(line.length).toBeLessThanOrEqual(400);
+    }
+    const runs = parseScanRequest(build(['https://a.com'], 'macos', 'abc\nEOF_NOTES\nrunner=self-hosted'));
+    expect(runs.notes.join('\n')).not.toMatch(/\nEOF_NOTES|\nrunner=/);
   });
 
   it('caps the run count', () => {
@@ -281,10 +304,16 @@ describe('crawl mode requests', () => {
     expect(r.notes.join(' ')).toMatch(/capped/);
   });
 
-  it('uses only the first URL as the crawl start', () => {
+  it('uses only the first URL as the crawl start and lists the others', () => {
     const r = parseScanRequest(buildCrawl(['https://a.com', 'https://b.com']));
     expect(r.urls).toEqual(['https://a.com']);
     expect(r.notes.join(' ')).toMatch(/single start URL/);
+    expect(r.notScanned).toEqual([{ url: 'https://b.com', reason: 'crawl mode starts from one URL' }]);
+  });
+
+  it('rejects a multi-line include pattern', () => {
+    const r = parseScanRequest(buildCrawl(['https://a.com'], '20', '^/a\nissue=1'));
+    expect(r.errors.join(' ')).toMatch(/single line/);
   });
 
   it('accepts a valid include pattern', () => {

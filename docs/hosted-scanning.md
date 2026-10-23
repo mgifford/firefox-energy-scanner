@@ -25,9 +25,19 @@ Issue state tracks the request, so there is no separate queue to inspect:
 | **open** | queued, running, or failed — not yet serviced |
 | **closed** | scan completed and results were posted |
 
-When a scan finishes, the workflow posts its results and **closes the issue**.
-**Reopening it runs the scan again**, so re-running is one click. Edit the request body
-before reopening to change URLs, run counts, or the runner.
+When a request is picked up, the workflow comments **Scan started** with a link to the
+run. When the scan finishes, it posts the results and **closes the issue**.
+
+Any request can be run again:
+
+| To re-run | Do this |
+|---|---|
+| a finished (closed) request | **reopen it** — edit the body first to change settings |
+| a rejected or failed (open) request | **edit it** — saving the edit runs it again |
+| any request, open or closed | add the **`rescan`** label (the workflow removes it again) |
+
+Editing a *closed* request does nothing until it is reopened, so tidying an old issue
+never starts a scan by accident.
 
 The two failure paths deliberately leave the issue **open**, because an open issue
 means "not yet serviced":
@@ -36,7 +46,15 @@ means "not yet serviced":
   are posted as a comment and the scan never starts.
 - **failed scan** (target unreachable, timed out) — a comment links the run log.
 
-Both say to close and reopen to retry.
+Each issue has its own queue, so re-running several requests at once queues them all;
+none is dropped.
+
+### More than 20 URLs
+
+Measure mode scans the first 20 URLs. Any beyond that — and any line that is not a
+public `http(s)` URL — are listed under **Not scanned** in the results comment, with
+the reason, rather than rejecting the whole request. A request is only rejected when
+nothing in it can be scanned.
 
 ## GitHub-hosted runners cannot measure energy
 
@@ -93,16 +111,25 @@ Issue bodies are untrusted public input, so:
 - **Only public `http(s)` URLs are accepted.** Localhost, RFC1918 ranges, link-local,
   multicast, `0.0.0.0`, `.local`/`.internal`, and dotless hostnames are all rejected.
   The scanner cannot be used to probe internal networks. 24 tests cover this guard.
-- **Least privilege.** The parsing job holds only `contents: read`. Write access to
-  contents and issues is granted per job, only where needed.
-- **No shell interpolation of user input.** URLs travel via an environment variable and
-  are passed to the CLI as `argv`, so a hostile issue body cannot inject a command.
-- **Limits.** 20 URLs and 30 runs per request, with a 45-minute scan timeout.
+- **Least privilege.** The parsing job can read contents and comment on issues; write
+  access to contents is granted only to the scan job, which needs it to commit results.
+- **Issue text is data, never code.** Nothing from the issue is pasted into a script
+  with `${{ }}`: values reach scripts through environment variables and `argv`, and a
+  test fails the build if a workflow script contains an inline expression. Echoed text
+  is flattened to one line and length-limited, workflow outputs use random heredoc
+  delimiters, and quoted text in comments cannot @-mention anyone.
+- **Limits.** 20 URLs (the rest are listed, not scanned) and 30 runs per request, with
+  a 90-minute scanning budget.
 - **Invalid requests get an explanation**, not a silent failure.
 
 ## What gets published
 
-Result JSON is committed to `site/results/` and indexed into `results/index.json`.
+Result JSON is committed to `site/results/`. After each scan the workflow starts the
+Pages deploy, which builds `results/index.json` from those files and publishes the site.
+(Commits made by the workflow's own token cannot trigger other workflows, so before this
+the site only updated when someone pushed by hand.) The index is not tracked in git:
+concurrent scans each rewrote it and conflicted on push. Build it locally with
+`node dist/cli/index.js build-index --dir site/results --out site/results/index.json`.
 
 Published results contain no credentials, cookies, session tokens, or hostnames.
 Authentication is configured by environment *variable name* only — a result file records
