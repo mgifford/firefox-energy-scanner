@@ -31,6 +31,7 @@ interface Workflow {
 const WORKFLOWS = [
   '.github/workflows/scan-request.yml',
   '.github/workflows/deploy-pages.yml',
+  '.github/workflows/test.yml',
 ];
 
 function githubScriptSteps(): { workflow: string; step: string; script: string }[] {
