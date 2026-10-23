@@ -20,12 +20,8 @@
   function validateUrls(raw, mode) {
     const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
     if (lines.length === 0) return { error: 'Enter at least one URL.' };
-    if (mode !== 'crawl' && lines.length > MAX_URLS) {
-      return {
-        error: 'Maximum ' + MAX_URLS + ' URLs in measure mode (got ' + lines.length +
-          '). Use crawl mode to cover more pages.',
-      };
-    }
+    // More than MAX_URLS is allowed: the first MAX_URLS are scanned and the
+    // rest are listed as "not scanned" in the results, so nothing is lost.
     const bad = [];
     for (const line of lines) {
       let u;
@@ -65,12 +61,16 @@
    * Mirror the server-side runtime estimate so the cost of a request is visible
    * before it is filed. Keep in sync with estimateMinutes() in issue-parser.ts.
    */
-  function estimateMinutes(mode, urlCount, runs, pages) {
+  function estimateMinutes(mode, urlCount, runs, pages, lighthouse) {
     const perRunSeconds = 2.4 + 2.0;
     const baselineSeconds = 15;
     const p = mode === 'crawl' ? pages : urlCount;
     const runsPerPage = mode === 'crawl' ? 1 : runs + 2;
-    return (baselineSeconds + p * runsPerPage * perRunSeconds) / 60;
+    // Lighthouse: 3 runs per URL in measure mode; the 10 heaviest pages once
+    // each in crawl mode; ~25 s per run.
+    const lhSeconds = !lighthouse || lighthouse === 'none' ? 0
+      : mode === 'crawl' ? Math.min(pages, 10) * 25 : urlCount * 3 * 25;
+    return (baselineSeconds + p * runsPerPage * perRunSeconds + lhSeconds) / 60;
   }
 
   function updateFormMode() {
@@ -84,7 +84,7 @@
     if (urlsHint) {
       urlsHint.textContent = mode === 'crawl'
         ? 'One public http:// or https:// URL — the page the crawl starts from.'
-        : 'One public http:// or https:// URL per line. Maximum 20 per request.';
+        : 'One public http:// or https:// URL per line. The first 20 are scanned; any more are listed in the results as not scanned.';
     }
     updateEstimate();
   }
@@ -93,16 +93,23 @@
     const el = document.getElementById('estimate');
     if (!el) return;
     const mode = currentMode();
-    const urlCount = (document.getElementById('urls').value || '')
+    const listed = (document.getElementById('urls').value || '')
       .split('\n').map(function (s) { return s.trim(); }).filter(Boolean).length;
+    const urlCount = Math.min(listed, MAX_URLS);
     const runs = parseInt(document.getElementById('runs').value, 10) || 8;
     const pages = parseInt(document.getElementById('max-pages').value, 10) || 50;
+    const lhEl = document.getElementById('lighthouse');
+    const lighthouse = lhEl ? lhEl.value : 'none';
 
     if (mode === 'measure' && urlCount === 0) { el.textContent = ''; return; }
-    const minutes = estimateMinutes(mode, urlCount, runs, pages);
+    const minutes = estimateMinutes(mode, urlCount, runs, pages, lighthouse);
     const rounded = minutes < 1 ? '<1' : String(Math.round(minutes));
     el.textContent = 'Estimated runtime: about ' + rounded + ' minute' +
       (rounded === '1' ? '' : 's') + '.' +
+      (mode === 'measure' && listed > MAX_URLS
+        ? ' ' + listed + ' URLs listed: the first ' + MAX_URLS + ' will be scanned and the other ' +
+          (listed - MAX_URLS) + ' listed as not scanned.'
+        : '') +
       (minutes > 90 ? ' That exceeds the 90-minute budget and will be rejected.' : '');
     el.className = minutes > 90 ? 'estimate over' : 'estimate';
   }
@@ -112,9 +119,9 @@
       const el = document.getElementById(id);
       if (el) el.addEventListener('change', updateFormMode);
     });
-    ['urls', 'runs', 'max-pages'].forEach(function (id) {
+    ['urls', 'runs', 'max-pages', 'lighthouse'].forEach(function (id) {
       const el = document.getElementById(id);
-      if (el) el.addEventListener('input', updateEstimate);
+      if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', updateEstimate);
     });
     updateFormMode();
 
@@ -142,6 +149,7 @@
       const maxPages = document.getElementById('max-pages').value || '50';
       const include = document.getElementById('include').value.trim();
       const viewport = document.getElementById('viewport').value;
+      const lighthouse = (document.getElementById('lighthouse') || {}).value || 'none';
 
       // Field ids here must match the issue template's field ids so GitHub
       // pre-fills the form correctly.
@@ -162,6 +170,13 @@
       params.set('max-pages', String(maxPages));
       if (include) params.set('include', include);
       params.set('viewport', viewport);
+      // Must match the issue template's option labels exactly.
+      params.set('lighthouse',
+        lighthouse === 'all'
+          ? 'All — performance, accessibility, best practices and SEO'
+          : lighthouse === 'performance'
+            ? 'Performance — score, metrics and recommendations'
+            : 'No');
 
       const url = 'https://github.com/' + REPO + '/issues/new?' + params.toString();
 
@@ -279,6 +294,19 @@
       text(th, s.step.length > 46 ? '…' + s.step.slice(-44) : s.step);
       tr.appendChild(th);
 
+      // A failed URL has no page behind it; show no numbers rather than ones
+      // that describe some other page.
+      if (s.failed) {
+        const td = make('td', 'unresolved failed-note');
+        td.colSpan = 7;
+        text(td, s.notAPage
+          ? 'Not a web page — the URL starts a file download (usually a PDF), so there was nothing to measure.'
+          : (s.failureNote || 'Every measured run failed.'));
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
       [
         String(s.runs),
         fmtBytes(s.transferBytes),
@@ -294,7 +322,12 @@
 
       const energyCell = make('td');
       const mwh = fmtMwh(s.energyMwh);
-      if (mwh && s.resolved) {
+      if (!entry.energyAvailable) {
+        // No power hardware on this host: nothing was measured. That is not
+        // the same claim as "measured but below the noise floor".
+        energyCell.className = 'unresolved';
+        text(energyCell, 'not measured');
+      } else if (mwh && s.resolved) {
         text(energyCell, mwh);
       } else {
         energyCell.className = 'unresolved';
@@ -314,20 +347,39 @@
     entry.scenarios.forEach(function (s) {
       const anatomy = anatomyNode(s);
       const findings = findingsNode(s);
-      if (!anatomy && !findings) return;
+      const lighthouse = lighthouseNode(s.lighthouse, entry.lighthouse);
+      if (!anatomy && !findings && !lighthouse) return;
       const section = make('div', 'scenario-detail');
       const label = make('p', 'scenario-detail-label');
       text(label, s.step.length > 60 ? '…' + s.step.slice(-58) : s.step);
       section.appendChild(label);
       if (anatomy) section.appendChild(anatomy);
       if (findings) section.appendChild(findings);
+      if (lighthouse) section.appendChild(lighthouse);
       wrap.appendChild(section);
     });
+
+    if (entry.lighthouse) wrap.appendChild(lighthouseSitewideNode(entry));
 
     if (entry.runnerNote) {
       const p = make('p', 'run-warning');
       text(p, entry.runnerNote);
       wrap.appendChild(p);
+    }
+    const check = entry.energyCheck;
+    if (!entry.energyAvailable && check && check.nextSteps && check.nextSteps.length) {
+      const details = make('details', 'findings');
+      const summary = make('summary');
+      text(summary, 'Where energy can be measured');
+      details.appendChild(summary);
+      const ul = make('ul');
+      check.nextSteps.forEach(function (step) {
+        const li = make('li');
+        appendWithCode(li, step);
+        ul.appendChild(li);
+      });
+      details.appendChild(ul);
+      wrap.appendChild(details);
     }
     (entry.warnings || []).slice(0, 3).forEach(function (w) {
       const p = make('p', 'run-warning');
@@ -406,6 +458,141 @@
     return details;
   }
 
+  /** Render `backticked` spans as <code>, everything else as text. */
+  function appendWithCode(el, value) {
+    String(value).split('`').forEach(function (part, i) {
+      if (!part) return;
+      if (i % 2 === 1) {
+        const c = make('code');
+        text(c, part);
+        el.appendChild(c);
+      } else {
+        el.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
+  function rating(score) {
+    if (typeof score !== 'number') return 'no score';
+    return score >= 90 ? 'good' : score >= 50 ? 'needs improvement' : 'poor';
+  }
+  function fmtSec(ms) {
+    return typeof ms === 'number' ? (ms / 1000).toFixed(1) + ' s' : '—';
+  }
+
+  /**
+   * Lighthouse result for one URL. The rating is always written out, so the
+   * score is never conveyed by colour alone. Built from DOM nodes: values come
+   * from scanned pages and are untrusted.
+   */
+  function lighthouseNode(r, meta) {
+    if (!r) return null;
+    const details = make('details', 'lighthouse');
+    const summary = make('summary');
+    if (r.error && !r.runs) {
+      text(summary, 'Lighthouse: failed');
+      details.appendChild(summary);
+      const p = make('p', 'muted');
+      text(p, r.error);
+      details.appendChild(p);
+      return details;
+    }
+    const perf = r.scores && r.scores.performance;
+    const range = r.performanceRange && r.performanceRange[0] !== r.performanceRange[1]
+      ? ' (range ' + r.performanceRange[0] + '–' + r.performanceRange[1] + ')' : '';
+    text(summary, 'Lighthouse performance ' + (typeof perf === 'number' ? perf : '—') +
+      '/100, ' + rating(perf) + range +
+      (r.recommendations.length ? ' · ' + r.recommendations.length + ' recommendation' +
+        (r.recommendations.length === 1 ? '' : 's') : ''));
+    details.appendChild(summary);
+
+    const dl = make('dl', 'lh-metrics');
+    const add = function (k, v) {
+      const dt = make('dt'); text(dt, k); dl.appendChild(dt);
+      const dd = make('dd'); text(dd, v); dl.appendChild(dd);
+    };
+    add('Largest Contentful Paint', fmtSec(r.metrics.lcpMs));
+    add('Total Blocking Time', typeof r.metrics.tbtMs === 'number' ? r.metrics.tbtMs + ' ms' : '—');
+    add('Cumulative Layout Shift', r.metrics.cls != null ? String(r.metrics.cls) : '—');
+    add('First Contentful Paint', fmtSec(r.metrics.fcpMs));
+    add('Speed Index', fmtSec(r.metrics.speedIndexMs));
+    if (typeof r.mainThreadMs === 'number') add('Main-thread work', fmtSec(r.mainThreadMs));
+    if (typeof r.totalBytes === 'number') add('Total byte weight', fmtBytes(r.totalBytes));
+    [['accessibility', 'Accessibility'], ['best-practices', 'Best practices'], ['seo', 'SEO']].forEach(function (pair) {
+      const c = pair[0];
+      if (r.scores && typeof r.scores[c] === 'number') {
+        const failing = r.failing && r.failing[c];
+        add(pair[1] + ' score', r.scores[c] + '/100' +
+          (failing ? ' (' + failing + ' failing audit' + (failing === 1 ? '' : 's') + ')' : ''));
+      }
+    });
+    details.appendChild(dl);
+
+    if (r.recommendations.length) {
+      const h = make('p', 'lh-subhead');
+      text(h, 'Recommendations, most impactful first');
+      details.appendChild(h);
+      const ol = make('ol');
+      r.recommendations.forEach(function (rec) {
+        const li = make('li');
+        if (rec.learnMore && /^https:\/\//.test(rec.learnMore)) {
+          const a = make('a');
+          a.href = rec.learnMore;
+          text(a, rec.title);
+          li.appendChild(a);
+        } else {
+          li.appendChild(document.createTextNode(rec.title));
+        }
+        if (rec.displayValue) {
+          const span = make('span', 'muted');
+          text(span, ' — ' + rec.displayValue);
+          li.appendChild(span);
+        }
+        ol.appendChild(li);
+      });
+      details.appendChild(ol);
+    }
+
+    if (meta) {
+      const note = make('p', 'muted lh-note');
+      text(note, 'Lighthouse ' + meta.version + ', ' + (meta.browser || 'Chromium') + ', ' +
+        meta.formFactor + ' profile, ' + meta.throttling + '. Median of ' + meta.runsPerUrl +
+        ' run' + (meta.runsPerUrl === 1 ? '' : 's') + '.');
+      details.appendChild(note);
+    }
+    return details;
+  }
+
+  /** Recommendations shared across pages: usually one template-level fix. */
+  function lighthouseSitewideNode(entry) {
+    const lh = entry.lighthouse;
+    const section = make('div', 'scenario-detail');
+    const label = make('p', 'scenario-detail-label');
+    text(label, 'Lighthouse across all audited pages');
+    section.appendChild(label);
+    const note = make('p', 'muted lh-note');
+    text(note, 'Lighthouse runs Chromium under simulated throttling. It measures lab load ' +
+      'performance — not Firefox and not energy — and is shown beside those results, never combined with them.');
+    section.appendChild(note);
+    if (!lh.sitewide || lh.sitewide.length === 0) return section;
+    const audited = entry.scenarios.filter(function (s) { return s.lighthouse && s.lighthouse.runs; }).length +
+      (lh.unmatched || []).filter(function (r) { return r.runs; }).length;
+    const ul = make('ul', 'lh-sitewide');
+    lh.sitewide.forEach(function (x) {
+      const li = make('li');
+      const strong = make('strong');
+      text(strong, x.title);
+      li.appendChild(strong);
+      const bits = [x.pages + ' of ' + audited + ' page' + (audited === 1 ? '' : 's')];
+      if (x.medianSavingsMs) bits.push('est. ' + fmtSec(x.medianSavingsMs) + ' per page');
+      if (x.medianSavingsBytes) bits.push('est. ' + fmtBytes(x.medianSavingsBytes) + ' per page');
+      li.appendChild(document.createTextNode(' — ' + bits.join(' · ')));
+      ul.appendChild(li);
+    });
+    section.appendChild(ul);
+    return section;
+  }
+
   function anatomyNode(scenario) {
     const a = scenario.anatomy;
     if (!a) return null;
@@ -431,17 +618,23 @@
     if (entries.length === 0) return;
 
     let scenarios = 0;
+    let measured = 0;
     let resolved = 0;
     entries.forEach(function (e) {
       e.scenarios.forEach(function (s) {
+        if (s.failed) return;
         scenarios++;
+        // Only scans that could measure energy count toward resolvability;
+        // a host with no power hardware did not fail to resolve anything.
+        if (!e.energyAvailable) return;
+        measured++;
         if (s.resolved) resolved++;
       });
     });
 
     set('stat-scans', String(entries.length));
     set('stat-pages', String(scenarios));
-    set('stat-resolved', scenarios ? Math.round((resolved / scenarios) * 100) + '%' : '—');
+    set('stat-resolved', measured ? Math.round((resolved / measured) * 100) + '%' : 'no energy scans yet');
     const recent = entries[0] && entries[0].timestamp;
     set('stat-recent', recent ? new Date(recent).toISOString().slice(0, 10) : '—');
   }

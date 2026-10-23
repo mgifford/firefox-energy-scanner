@@ -275,3 +275,22 @@ footer {
 .findings summary { cursor: pointer; font-size: .9rem; }
 .findings ul { margin: .5rem 0 0; padding-left: 1.2rem; }
 .findings li { margin-bottom: .6rem; font-size: .9rem; }
+
+/* Lighthouse: one disclosure per URL, metrics as a definition list. */
+.lighthouse { margin-top: .5rem; }
+.lighthouse summary { cursor: pointer; font-size: .9rem; }
+.lighthouse ol { margin: .35rem 0 0; padding-left: 1.4rem; }
+.lighthouse li { margin-bottom: .4rem; font-size: .9rem; }
+.lh-metrics { display: grid; grid-template-columns: max-content 1fr; gap: .15rem 1rem;
+  margin: .5rem 0; font-size: .88rem; }
+.lh-metrics dt { color: var(--muted); }
+.lh-metrics dd { margin: 0; }
+.lh-subhead { margin: .6rem 0 0; font-size: .9rem; font-weight: 600; }
+@media (max-width: 30rem) {
+  .lh-metrics { grid-template-columns: 1fr; }
+  .lh-metrics dd { margin-bottom: .3rem; }
+}
+td.failed-note { text-align: left; min-width: 16rem; }
+.lh-note { font-size: .85rem; }
+.lh-sitewide { margin: .35rem 0 0; padding-left: 1.2rem; }
+.lh-sitewide li { margin-bottom: .4rem; font-size: .9rem; }

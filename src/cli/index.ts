@@ -30,13 +30,23 @@ import { readFile } from 'node:fs/promises';
 import { parseScanRequest } from './issue-parser.js';
 import { buildIndex } from '../report/index-builder.js';
 import { interleavedOrderN } from '../core/stats.js';
-import { toCsv, groupByStep } from '../report/csv.js';
+import { toCsv, groupByStep, failedSteps } from '../report/csv.js';
+import { readableFailure } from '../core/failures.js';
 import { toHtml } from '../report/html.js';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import { SCHEMA_VERSION, type BenchmarkResult, type StepResult } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
-import { describeCapabilities, detectVirtualisation } from '../core/capability.js';
+import { describeCapabilities } from '../core/capability.js';
+import { collectHostFacts, judgeEnergy, type EnergyProbe, type FirefoxProbe } from '../energy/probe.js';
+import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run.js';
+import { pickLighthouseUrls } from '../lighthouse/select.js';
+import {
+  scoreRating,
+  sitewideRecommendations,
+  type FormFactor,
+  type LighthouseSummary,
+} from '../lighthouse/summary.js';
 
 const USAGE = `web-energy — client-side browser energy and modelled CO2e benchmarking
 
@@ -52,6 +62,7 @@ Usage:
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
   web-energy diagnose <url> [--runs <n>]
+  web-energy lighthouse <url...>       [--lighthouse-* options]
 
 Options:
   --config <file>        YAML configuration file
@@ -59,6 +70,7 @@ Options:
   --warmups <n>          Warmup runs, excluded from statistics (default 3)
   --out <dir>            Output directory (default "results")
   --headed / --headless  Browser mode (default headed)
+  --viewport <WxH>       Browser viewport, e.g. 1280x800 (default 1440x900)
   --label-a, --label-b   Labels for compare targets
   --max-pages <n>        Crawl page limit
   --max-depth <n>        Crawl depth limit
@@ -67,12 +79,28 @@ Options:
   --authenticated        Use Drupal auth from environment variables
   --seed <string>        Seed for interleaved A/B ordering
   --no-energy            Disable energy measurement
+
+Lighthouse (optional; runs in Chromium after the Firefox session has closed):
+  --lighthouse                  Also run Lighthouse on measure/crawl targets
+  --lighthouse-runs <n>         Runs per URL; the median is reported (default 3)
+  --lighthouse-categories <c>   performance (default), a comma list, or "all"
+  --lighthouse-form-factor <f>  mobile | desktop (default: from the viewport)
+  --lighthouse-top <n>          Crawl mode: audit the n heaviest pages (default 10)
+  --lighthouse-reports <dir>    Also write each URL's full HTML report here
 `;
 
 interface Args {
   _: string[];
   flags: Map<string, string[]>;
 }
+
+/**
+ * Flags that never take a value. Without this, `measure --lighthouse <url>`
+ * would read the URL as the flag's value and drop it from the targets.
+ */
+const BOOLEAN_FLAGS = new Set([
+  'authenticated', 'headed', 'headless', 'help', 'lighthouse', 'no-energy', 'triage-only',
+]);
 
 function parseArgs(argv: string[]): Args {
   const _: string[] = [];
@@ -82,7 +110,7 @@ function parseArgs(argv: string[]): Args {
     if (a.startsWith('--')) {
       const key = a.slice(2);
       const next = argv[i + 1];
-      if (next && !next.startsWith('--')) {
+      if (next && !next.startsWith('--') && !BOOLEAN_FLAGS.has(key)) {
         const list = flags.get(key) ?? [];
         list.push(next);
         flags.set(key, list);
@@ -99,6 +127,13 @@ function parseArgs(argv: string[]): Args {
 
 const one = (args: Args, key: string): string | undefined => args.flags.get(key)?.[0];
 const has = (args: Args, key: string): boolean => args.flags.has(key);
+
+/** `--viewport 1280x800`. Rejects anything else rather than guessing. */
+function parseViewportFlag(raw: string): { width: number; height: number } {
+  const m = /^(\d{2,5})x(\d{2,5})$/i.exec(raw.trim());
+  if (!m) throw new Error(`--viewport must look like 1280x800 (got "${raw}")`);
+  return { width: Number(m[1]), height: Number(m[2]) };
+}
 
 async function buildConfig(args: Args): Promise<Config> {
   let config = one(args, 'config') ? await loadConfigFile(one(args, 'config')!) : defaultConfig();
@@ -118,6 +153,7 @@ async function buildConfig(args: Args): Promise<Config> {
       ...config.browser,
       ...(has(args, 'headless') ? { headed: false } : {}),
       ...(has(args, 'headed') ? { headed: true } : {}),
+      ...(one(args, 'viewport') ? { viewport: parseViewportFlag(one(args, 'viewport')!) } : {}),
     },
     energy: {
       ...config.energy,
@@ -151,11 +187,7 @@ async function buildConfig(args: Args): Promise<Config> {
  * This is the only reliable way to know whether a host can measure energy:
  * platform and architecture are necessary but not sufficient.
  */
-async function probePowerCounters(): Promise<{
-  samples: number;
-  durationMs: number;
-  error?: string;
-}> {
+async function probePowerCounters(): Promise<FirefoxProbe & { durationMs: number }> {
   const started = Date.now();
   try {
     const outputPath = await createProfileOutputPath();
@@ -177,13 +209,34 @@ async function probePowerCounters(): Promise<{
 
     const results = await adapter.finalize();
     const probe = results.get('probe');
-    return { samples: probe?.sampleCount ?? 0, durationMs: Date.now() - started };
+    const selection = adapter.powerSelection();
+    return {
+      samples: probe?.sampleCount ?? 0,
+      counters: adapter.counterNames(),
+      ...(selection && (probe?.sampleCount ?? 0) > 0 ? { scope: selection.scope } : {}),
+      durationMs: Date.now() - started,
+    };
   } catch (err) {
-    return { samples: 0, durationMs: Date.now() - started, error: (err as Error).message };
+    return { samples: 0, counters: [], durationMs: Date.now() - started, error: firstLine((err as Error).message) };
   }
 }
 
-async function cmdDoctor(): Promise<number> {
+const firstLine = (m: string) => m.split('\n')[0]!.slice(0, 300);
+
+/** Host facts plus a real Firefox probe, judged into one verdict. */
+async function runEnergyProbe(): Promise<EnergyProbe> {
+  const facts = await collectHostFacts();
+  const firefoxProbe = await probePowerCounters();
+  const { durationMs: _ms, ...firefoxFacts } = firefoxProbe;
+  return { ...facts, firefox: firefoxFacts, ...judgeEnergy(facts, firefoxFacts) };
+}
+
+async function cmdDoctor(args: Args): Promise<number> {
+  // Machine-readable energy verdict, for CI and for scripting a local setup.
+  if (has(args, 'json')) {
+    console.log(JSON.stringify(await runEnergyProbe(), null, 2));
+    return 0;
+  }
   const lines: string[] = [];
   let failures = 0;
   const ok = (m: string) => lines.push(`  ok       ${m}`);
@@ -211,30 +264,38 @@ async function cmdDoctor(): Promise<number> {
   }
 
   lines.push('');
-  lines.push('Energy adapters');
-  const ffx = new FirefoxProfilerAdapter('/dev/null');
-  const ffxAvail = await ffx.available();
-  if (!ffxAvail.available) {
-    warn(`firefox-profiler: ${ffxAvail.reason}`);
-  } else {
-    // Platform support is not proof: virtualised macOS hosts expose a power
-    // counter that never emits a sample. Run a short real profile to find out.
-    const probe = await probePowerCounters();
-    if (probe.samples > 0) {
-      ok(
-        `firefox-profiler: power counters produced ${probe.samples} samples in a ${probe.durationMs} ms probe ` +
-          '(no elevated privileges needed)',
-      );
-    } else if (probe.error) {
-      warn(`firefox-profiler: probe could not run (${probe.error})`);
-    } else {
-      fail(
-        'firefox-profiler: the platform reports support but the power counters emitted NO samples. ' +
-          'This host cannot measure energy — common on virtualised macOS (e.g. GitHub-hosted runners). ' +
-          'Network, CO2.js and timing metrics still work.',
-      );
+  lines.push('Energy measurement');
+  // Platform support is not proof: virtual machines expose counters that never
+  // emit a sample, and Linux needs a kernel setting. So always run a real
+  // short profile and judge the result.
+  const probe = await runEnergyProbe();
+  if (probe.virtualised !== undefined) {
+    (probe.virtualised ? warn : ok)(
+      probe.virtualised ? `Virtual machine: ${probe.hypervisor ?? 'yes'}` : 'Physical machine (no hypervisor detected)',
+    );
+  }
+  if (probe.linux) {
+    const l = probe.linux;
+    (l.pmu ? ok : warn)(
+      l.pmu ? `RAPL power events: ${l.events.join(', ') || 'present'}` : 'RAPL power events: not exposed',
+    );
+    if (l.pmu) {
+      ((l.paranoid ?? 99) <= 0 ? ok : warn)(`kernel.perf_event_paranoid = ${l.paranoid ?? 'unreadable'} (Firefox needs <= 0)`);
     }
   }
+  if (probe.firefox?.error) {
+    warn(`Firefox probe could not run: ${probe.firefox.error}`);
+  } else if (probe.firefox) {
+    (probe.firefox.samples > 0 ? ok : warn)(
+      `Firefox power samples: ${probe.firefox.samples}` +
+        (probe.firefox.counters.length ? ` (counters: ${probe.firefox.counters.join(', ')})` : ' (no power counters)'),
+    );
+  }
+  const verdictLabel = { energy: 'CAN measure energy', fixable: 'can measure energy after one fix', unavailable: 'CANNOT measure energy', untested: 'not tested' }[probe.verdict];
+  lines.push(`  => This host ${verdictLabel}. ${probe.reason}`);
+  for (const step of probe.nextSteps) lines.push(`       - ${step}`);
+  lines.push('');
+  lines.push('Other adapters');
 
   const pm = new PowermetricsAdapter();
   const pmAvail = await pm.available();
@@ -289,15 +350,51 @@ async function cmdDoctor(): Promise<number> {
  */
 async function capabilitiesFor(
   energyAvailable: boolean,
+  scope?: FirefoxProbe['scope'],
 ): Promise<BenchmarkResult['capabilities']> {
-  const virtualised = await detectVirtualisation();
+  // The run itself is the probe: energyAvailable means its own profile had
+  // samples. Host facts explain why not, and what would fix it.
+  const facts = await collectHostFacts();
+  const check = judgeEnergy(facts, {
+    samples: energyAvailable ? 1 : 0,
+    counters: [],
+    ...(scope ? { scope } : {}),
+  });
   const c = describeCapabilities({
     powerSamplesObserved: energyAvailable,
     platform: process.platform,
     architecture: process.arch,
-    ...(virtualised !== undefined ? { virtualised } : {}),
+    ...(facts.virtualised !== undefined ? { virtualised: facts.virtualised } : {}),
+    reason: check.reason,
   });
-  return { tier: c.tier, summary: c.summary, unavailable: c.unavailable };
+  return {
+    tier: c.tier,
+    summary: c.summary,
+    unavailable: c.unavailable,
+    energyCheck: {
+      verdict: check.verdict,
+      reason: energyAvailable ? `Energy was measured: ${scopeText(scope)}.` : check.reason,
+      nextSteps: check.nextSteps,
+      ...(facts.hypervisor ? { hypervisor: facts.hypervisor } : {}),
+      ...(scope ? { scope } : {}),
+    },
+  };
+}
+
+/** What the measured energy covered, read from the first run that has energy. */
+function energyScopeOf(steps: StepResult[]): FirefoxProbe['scope'] {
+  const scope = steps.find((s) => s.energy?.raw.totalJoules !== undefined)?.energy?.raw.measurementScope;
+  return scope === 'process' || scope === 'cpu-package' || scope === 'system' ? scope : undefined;
+}
+
+function scopeText(scope: FirefoxProbe['scope']): string {
+  return scope === 'process'
+    ? 'per-process Firefox energy'
+    : scope === 'cpu-package'
+      ? 'the whole CPU package, for every process on the machine'
+      : scope === 'system'
+        ? 'the whole platform, for every process on the machine'
+        : 'Firefox power counters';
 }
 
 async function writeOutputs(result: BenchmarkResult, config: Config): Promise<string> {
@@ -314,6 +411,11 @@ async function writeOutputs(result: BenchmarkResult, config: Config): Promise<st
 
 function printSummary(steps: StepResult[]): void {
   const byStep = groupByStep(steps);
+  const failed = failedSteps(steps);
+  if (failed.length > 0) {
+    console.log(`\n${failed.length} URL(s) could not be measured:`);
+    for (const f of failed) console.log(`  ${f.step}\n    ${readableFailure(f.reason)}`);
+  }
   if (byStep.size === 0) {
     console.log('\nNo measured runs recorded.');
     return;
@@ -376,7 +478,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'measure' },
-    capabilities: await capabilitiesFor(outcome.energyAvailable),
+    capabilities: await capabilitiesFor(outcome.energyAvailable, energyScopeOf(outcome.steps)),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,
@@ -391,9 +493,11 @@ async function cmdMeasure(args: Args): Promise<number> {
     warnings: outcome.warnings,
   };
 
+  await attachLighthouse(args, config, result, urls, 'measure');
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps);
-  for (const w of outcome.warnings) console.log(`\nwarning: ${w}`);
+  if (result.lighthouse) printLighthouse(result.lighthouse);
+  for (const w of result.warnings) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
 }
@@ -424,7 +528,7 @@ async function cmdJourney(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'journey' },
-    capabilities: await capabilitiesFor(outcome.energyAvailable),
+    capabilities: await capabilitiesFor(outcome.energyAvailable, energyScopeOf(outcome.steps)),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,
@@ -463,7 +567,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'crawl' },
-    capabilities: await capabilitiesFor(outcome.energyAvailable),
+    capabilities: await capabilitiesFor(outcome.energyAvailable, energyScopeOf(outcome.steps)),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,
@@ -481,10 +585,145 @@ async function cmdCrawl(args: Args): Promise<number> {
     ],
   };
 
+  await attachLighthouse(args, config, result, [start], 'crawl');
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps);
+  if (result.lighthouse) printLighthouse(result.lighthouse);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
+}
+
+interface LighthouseArgs {
+  runs: number;
+  categories: ReturnType<typeof parseCategories>;
+  formFactor: FormFactor;
+  top: number;
+  reportsDir?: string;
+}
+
+function lighthouseArgs(args: Args, config: Config): LighthouseArgs {
+  const runs = Number.parseInt(one(args, 'lighthouse-runs') ?? '3', 10);
+  const top = Number.parseInt(one(args, 'lighthouse-top') ?? '10', 10);
+  const ff = one(args, 'lighthouse-form-factor');
+  if (ff && ff !== 'mobile' && ff !== 'desktop') {
+    throw new Error(`--lighthouse-form-factor must be mobile or desktop (got "${ff}")`);
+  }
+  const reportsDir = one(args, 'lighthouse-reports');
+  return {
+    runs: Number.isFinite(runs) && runs >= 1 ? Math.min(runs, 9) : 3,
+    categories: parseCategories(one(args, 'lighthouse-categories')),
+    formFactor: (ff as FormFactor | undefined) ?? formFactorFor(config.browser.viewport),
+    top: Number.isFinite(top) && top >= 0 ? top : 10,
+    ...(reportsDir ? { reportsDir: resolve(reportsDir) } : {}),
+  };
+}
+
+/**
+ * Run Lighthouse after the Firefox session and attach its summary.
+ *
+ * A Lighthouse failure never discards the Firefox results it follows: it is
+ * recorded as a warning and the scan still writes everything else.
+ */
+async function attachLighthouse(
+  args: Args,
+  config: Config,
+  result: BenchmarkResult,
+  requested: string[],
+  mode: 'measure' | 'crawl',
+): Promise<void> {
+  if (!has(args, 'lighthouse')) return;
+  const opts = lighthouseArgs(args, config);
+  const { urls, skipped } = pickLighthouseUrls(result.scenarios, requested, mode, opts.top);
+  if (skipped.length) {
+    result.warnings.push(
+      `Lighthouse skipped ${skipped.length} URL(s) that are file downloads rather than pages.`,
+    );
+  }
+  if (urls.length === 0) return;
+  try {
+    result.lighthouse = await runLighthouse({
+      urls,
+      runs: opts.runs,
+      categories: opts.categories,
+      formFactor: opts.formFactor,
+      ...(opts.reportsDir ? { reportsDir: opts.reportsDir } : {}),
+      onProgress: (m) => process.stderr.write(`\r${m.padEnd(60)}`),
+    });
+    process.stderr.write('\n');
+  } catch (err) {
+    process.stderr.write('\n');
+    result.warnings.push(`Lighthouse did not run: ${(err as Error).message}`);
+  }
+}
+
+function printLighthouse(lh: LighthouseSummary): void {
+  console.log(
+    `\nLighthouse ${lh.version} — ${lh.browser ?? 'Chromium'}, ${lh.formFactor}, ${lh.throttling}; ` +
+      `median of ${lh.runsPerUrl} run(s)`,
+  );
+  console.log('Scenario                        Perf     LCP     TBT    CLS  Main thread');
+  console.log('------------------------------------------------------------------------');
+  const sec = (ms: number | undefined) => (ms === undefined ? '—' : `${(ms / 1000).toFixed(1)} s`);
+  for (const r of lh.results) {
+    const name = (r.requestedUrl.length > 30 ? `...${r.requestedUrl.slice(-27)}` : r.requestedUrl).padEnd(30);
+    if (r.runs === 0) {
+      console.log(`${name}  failed: ${r.error ?? 'no report'}`);
+      continue;
+    }
+    const perf = r.scores.performance;
+    console.log(
+      name +
+        String(perf ?? '—').padStart(6) +
+        sec(r.metrics.lcpMs).padStart(8) +
+        `${r.metrics.tbtMs ?? '—'} ms`.padStart(8) +
+        String(r.metrics.cls ?? '—').padStart(7) +
+        sec(r.work.mainThreadMs).padStart(13) +
+        (perf !== undefined ? `  (${scoreRating(perf)})` : ''),
+    );
+  }
+
+  const common = sitewideRecommendations(lh.results.filter((r) => r.runs > 0)).slice(0, 8);
+  if (common.length) {
+    console.log(`\nTop recommendations (pages affected of ${lh.results.length}):`);
+    for (const c of common) {
+      const savings = [
+        c.medianSavingsMs ? `~${(c.medianSavingsMs / 1000).toFixed(1)} s` : '',
+        c.medianSavingsBytes ? `~${Math.round(c.medianSavingsBytes / 1024)} KB` : '',
+      ].filter(Boolean).join(', ');
+      console.log(`  ${String(c.pages).padStart(3)}  ${c.title}${savings ? `  (${savings} per page)` : ''}`);
+    }
+  }
+  console.log(
+    '\nLighthouse runs Chromium under simulated throttling. Its scores describe lab load\n' +
+      'performance, not Firefox and not energy; they are reported beside, never combined.',
+  );
+}
+
+/** Lighthouse on its own, without a Firefox run. */
+async function cmdLighthouse(args: Args): Promise<number> {
+  const urls = args._.slice(1);
+  if (urls.length === 0) {
+    console.error('lighthouse requires at least one URL');
+    return 1;
+  }
+  const config = await buildConfig(args);
+  const opts = lighthouseArgs(args, config);
+  const summary = await runLighthouse({
+    urls,
+    runs: opts.runs,
+    categories: opts.categories,
+    formFactor: opts.formFactor,
+    ...(opts.reportsDir ? { reportsDir: opts.reportsDir } : {}),
+    onProgress: (m) => process.stderr.write(`\r${m.padEnd(60)}`),
+  });
+  process.stderr.write('\n');
+  const dir = resolve(config.output.directory);
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, `lighthouse-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  await writeFile(file, JSON.stringify(summary, null, 2));
+  printLighthouse(summary);
+  console.log(`\nWrote ${file}`);
+  return summary.results.some((r) => r.runs > 0) ? 0 : 1;
 }
 
 async function cmdBaseline(args: Args): Promise<number> {
@@ -1095,7 +1334,7 @@ async function main(): Promise<number> {
 
   try {
     switch (command) {
-      case 'doctor': return await cmdDoctor();
+      case 'doctor': return await cmdDoctor(args);
       case 'measure': return await cmdMeasure(args);
       case 'crawl': return await cmdCrawl(args);
       case 'journey': return await cmdJourney(args);
@@ -1108,6 +1347,7 @@ async function main(): Promise<number> {
       case 'diagnose': return await cmdDiagnose(args);
       case 'parse-issue': return await cmdParseIssue(args);
       case 'build-index': return await cmdBuildIndex(args);
+      case 'lighthouse': return await cmdLighthouse(args);
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);

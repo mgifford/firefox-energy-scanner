@@ -52,6 +52,11 @@ figure is never read as a measured zero.
 | **resolution check** | no | **yes** |
 | **energy by work category** | no | **yes** |
 | **A/B energy regression** | no | **yes** |
+| Lighthouse score, lab metrics, recommendations (optional, Chromium) | yes | yes |
+
+On a hosted runner the energy column reads **not measured**: no reading was taken.
+That is different from **not resolved**, which means energy was measured but was
+smaller than its own run-to-run spread. Neither is a zero.
 
 The practical consequence: **most of the actionable output does not need energy
 hardware.** A hosted scan still tells you the DOM is 4,000 nodes, that a stylesheet
@@ -93,8 +98,11 @@ rejected, so the scanner cannot be pointed at internal networks.
 ## Requirements
 
 - Node.js 20+
-- macOS on Apple Silicon, or Windows 11, for energy measurement
-  (elsewhere the tool still runs and reports timing, bytes, and CO2.js — but no energy)
+- For energy measurement, a **physical** machine: an Apple Silicon Mac (per-process,
+  no setup), bare-metal Linux with an Intel or AMD CPU (one `sysctl`), or Windows 11.
+  Virtual machines, including GitHub-hosted runners, cannot measure energy; the tool
+  still reports timing, bytes, CO2.js and page structure there. Run `doctor` to find out
+  what your machine can do. See [docs/local-energy.md](docs/local-energy.md).
 
 Energy measurement needs **no elevated privileges**.
 
@@ -105,6 +113,9 @@ npm install
 npx playwright install firefox
 npm run build
 ```
+
+Lighthouse is an optional dependency (Node.js 22.19+). Use `npm install --omit=optional`
+to skip it if you only need the Firefox measurements.
 
 ## Check your environment first
 
@@ -127,6 +138,21 @@ web-energy baseline
 web-energy compare --a <url> --b <url> --journey <file>
 web-energy report results/<file>.json
 web-energy profile --journey <file>
+web-energy lighthouse <url...>
+```
+
+### Lighthouse (optional)
+
+Add `--lighthouse` to `measure` or `crawl` to run Google Lighthouse afterwards, in
+Chromium. It reports the Performance score (median of 3 runs, with the range), lab
+Core Web Vitals, main-thread work, and the failing performance recommendations with
+estimated savings, plus the recommendations shared across pages. It is a third
+indicator with its own boundary and is never combined with the Firefox results. See
+[docs/lighthouse.md](docs/lighthouse.md).
+
+```bash
+node dist/cli/index.js measure https://example.com/ --lighthouse
+node dist/cli/index.js lighthouse https://example.com/ --lighthouse-categories all
 ```
 
 ### measure
@@ -204,9 +230,11 @@ canvas charts) are generated alongside.
 - [docs/methodology.md](docs/methodology.md) — boundaries and what the numbers mean
 - [docs/energy-measurement.md](docs/energy-measurement.md) — how energy is captured
 - [docs/limitations.md](docs/limitations.md) — confounders and known limits
+- [docs/local-energy.md](docs/local-energy.md) — which machines can measure energy, and how
 - [docs/self-hosted-runner.md](docs/self-hosted-runner.md) — energy measurement in CI
 - [docs/what-costs-energy.md](docs/what-costs-energy.md) — which parts of a page cost most
 - [docs/comparisons.md](docs/comparisons.md) — comparing patches without confounding
+- [docs/lighthouse.md](docs/lighthouse.md) — optional Lighthouse scores and recommendations
 
 ## Licence
 

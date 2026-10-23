@@ -48,9 +48,10 @@ body:
     attributes:
       label: URLs
       description: >
-        One public `https://` or `http://` URL per line. Measure mode accepts up to 20;
-        crawl mode uses the first URL as its starting point. Localhost and private
-        addresses are rejected — a hosted runner cannot reach them.
+        One public `https://` or `http://` URL per line. Measure mode scans the first
+        20; any more are listed in the results as not scanned. Crawl mode uses the
+        first URL as its starting point. Localhost and private addresses are skipped
+        and listed — a hosted runner cannot reach them.
       placeholder: |
         https://example.com/
         https://example.com/about
@@ -125,6 +126,26 @@ body:
     validations:
       required: false
 
+  - type: dropdown
+    id: lighthouse
+    attributes:
+      label: Lighthouse
+      description: >
+        Also run Google Lighthouse in Chromium, after the Firefox measurements have
+        finished. Reports the Performance score, Core Web Vitals lab metrics and the
+        failing performance recommendations with their estimated savings. Measure mode
+        runs it 3 times per URL and reports the median; crawl mode audits the 10
+        heaviest pages once each. Adds roughly 1–1.5 minutes per URL. Lighthouse is a
+        different browser engine under simulated throttling, so its numbers sit beside
+        the Firefox results and are never combined with them.
+      options:
+        - No
+        - Performance — score, metrics and recommendations
+        - All — performance, accessibility, best practices and SEO
+      default: 0
+    validations:
+      required: false
+
   - type: checkboxes
     id: confirm
     attributes:
@@ -143,7 +164,8 @@ body:
 
         **The issue is closed when the scan finishes. Reopen it to run the scan again** —
         edit the request above first if you want different settings. A request that fails
-        or is rejected stays open, with an explanation.
+        or is rejected stays open, with an explanation: **edit it, and saving the edit runs
+        it again.** You can also add the `rescan` label to any request, open or closed.
 
         Scans run on shared GitHub runners, which have no thermal or noisy-neighbour
         control. Treat the numbers as indicative; regression-grade comparison needs a

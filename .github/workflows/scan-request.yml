@@ -9,11 +9,18 @@ name: Run energy scan
 #   self-hosted macOS  -> real hardware, real energy
 # See docs/decision-record.md TDR-007 and TDR-008.
 
+# Security: the issue body is untrusted. It is only ever read as data — from a
+# file, an environment variable or argv — and never pasted into a script with
+# `${{ }}`. tests/workflow-scripts.test.ts enforces that.
+
 on:
   issues:
-    # `reopened` makes the issue itself the re-run control: close when done,
-    # reopen to scan again with the same (or an edited) request body.
-    types: [opened, reopened, labeled]
+    # The issue is the run control. A finished scan closes it; any of these
+    # runs it again:
+    #   reopened — reopen a closed request
+    #   edited   — save a change to an OPEN request (e.g. fix a rejected one)
+    #   labeled  — add the `rescan` label to any request, open or closed
+    types: [opened, reopened, edited, labeled]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -23,8 +30,11 @@ on:
 permissions:
   contents: read
 
+# One queue per issue. A single shared group let only one run wait, so a
+# third request queued behind a running scan silently cancelled the second.
+# Self-hosted energy scans still run one at a time: there is one machine.
 concurrency:
-  group: energy-scan
+  group: energy-scan-${{ github.event.issue.number || github.event.inputs.issue_number }}
   cancel-in-progress: false
 
 jobs:
@@ -33,8 +43,15 @@ jobs:
     # treated as untrusted input and validated before anything runs.
     if: >
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.issue.title, 'SCAN:')
+      (startsWith(github.event.issue.title, 'SCAN:') &&
+       (github.event.action != 'edited' ||
+        (github.event.issue.state == 'open' && (github.event.changes.body || github.event.changes.title))) &&
+       (github.event.action != 'labeled' || github.event.label.name == 'rescan'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # To acknowledge the request and clear the `rescan` label.
+      issues: write
     outputs:
       mode: ${{ steps.parse.outputs.mode }}
       urls: ${{ steps.parse.outputs.urls }}
@@ -44,11 +61,14 @@ jobs:
       include: ${{ steps.parse.outputs.include }}
       viewport_width: ${{ steps.parse.outputs.viewport_width }}
       viewport_height: ${{ steps.parse.outputs.viewport_height }}
+      lighthouse: ${{ steps.parse.outputs.lighthouse }}
+      lighthouse_runs: ${{ steps.parse.outputs.lighthouse_runs }}
       issue: ${{ steps.parse.outputs.issue }}
       runner_available: ${{ steps.runner-check.outputs.available }}
       valid: ${{ steps.parse.outputs.valid }}
       errors: ${{ steps.parse.outputs.errors }}
       notes: ${{ steps.parse.outputs.notes }}
+      not_scanned: ${{ steps.parse.outputs.not_scanned }}
     steps:
       - uses: actions/checkout@v4
 
@@ -56,7 +76,9 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm ci
+      # This job only parses the issue, so skip optional dependencies
+      # (Lighthouse and its Chrome tooling): less to download on every request.
+      - run: npm ci --omit=optional
       - run: npm run build
 
       - name: Read issue body
@@ -78,6 +100,13 @@ jobs:
             fs.writeFileSync('issue-body.txt', data.body || '', 'utf8');
             core.setOutput('number', String(number));
 
+            // Clear the label so it can be added again for the next rescan.
+            if (context.payload.action === 'labeled' && context.payload.label?.name === 'rescan') {
+              await github.rest.issues
+                .removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: number, name: 'rescan' })
+                .catch(() => {});
+            }
+
       - name: Parse and validate request
         id: parse
         env:
@@ -90,11 +119,16 @@ jobs:
           # Emitting outputs from Node avoids quoting user-controlled text in shell.
           node --input-type=module <<'NODE'
           import { readFileSync, appendFileSync } from 'node:fs';
+          import { randomUUID } from 'node:crypto';
           const r = JSON.parse(readFileSync('request.json', 'utf8'));
           const out = [];
-          const set = (k, v) => out.push(`${k}=${v}`);
+          // A newline in a single-line value would start a new output, letting
+          // the issue body set any output it liked. Strip them.
+          const set = (k, v) => out.push(`${k}=${String(v ?? '').replace(/[\r\n]+/g, ' ')}`);
+          // A fixed heredoc delimiter could be typed into the issue to end the
+          // value early; a random one cannot be guessed.
           const setMultiline = (k, v) => {
-            const d = `EOF_${k.toUpperCase()}`;
+            const d = `EOF_${randomUUID()}`;
             out.push(`${k}<<${d}`, v ?? '', d);
           };
           set('issue', process.env.ISSUE_NUMBER);
@@ -105,12 +139,46 @@ jobs:
           set('include', r.include ?? '');
           set('viewport_width', String(r.viewport.width));
           set('viewport_height', String(r.viewport.height));
+          set('lighthouse', r.lighthouse);
+          set('lighthouse_runs', String(r.lighthouseRuns));
           set('valid', r.errors.length === 0 && r.urls.length > 0 ? 'true' : 'false');
+          set('url_count', String(r.urls.length));
+          set('not_scanned_count', String((r.notScanned ?? []).length));
           setMultiline('urls', r.urls.join('\n'));
           setMultiline('errors', r.errors.join('\n'));
           setMultiline('notes', r.notes.join('\n'));
+          setMultiline('not_scanned', JSON.stringify(r.notScanned ?? []));
+          set('estimate', String(Math.max(1, Math.round(r.estimatedMinutes ?? 0))));
           appendFileSync(process.env.GITHUB_OUTPUT, out.join('\n') + '\n', 'utf8');
           NODE
+
+      # Say the request was picked up, so a re-run is visible straight away
+      # rather than only when results arrive.
+      - name: Acknowledge the request
+        if: steps.parse.outputs.valid == 'true'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.parse.outputs.issue }}
+          ESTIMATE: ${{ steps.parse.outputs.estimate }}
+          URL_COUNT: ${{ steps.parse.outputs.url_count }}
+          NOT_SCANNED_COUNT: ${{ steps.parse.outputs.not_scanned_count }}
+        with:
+          script: |
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const skipped = Number(process.env.NOT_SCANNED_COUNT || 0);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: [
+                `**Scan started** for ${process.env.URL_COUNT} URL${process.env.URL_COUNT === '1' ? '' : 's'}` +
+                  ` — about ${process.env.ESTIMATE} min of scanning. [Follow the run](${run}).`,
+                skipped
+                  ? `${skipped} listed URL${skipped === 1 ? ' is' : 's are'} not included; the results will list ${skipped === 1 ? 'it' : 'them'}.`
+                  : null,
+                'Results will be posted here, and the issue closed, when it finishes.',
+              ].filter(Boolean).join('\n\n'),
+            });
 
       # A self-hosted job queues indefinitely when no runner is registered, so
       # check first and fall back rather than leaving the request hanging.
@@ -126,9 +194,9 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
               });
-              available = (data.runners || []).some(
-                (r) => r.status === 'online' && !r.busy,
-              );
+              // Busy is fine: the job waits for the machine. Only an offline
+              // runner means falling back, rather than queuing forever.
+              available = (data.runners || []).some((r) => r.status === 'online');
               core.info(`self-hosted runners: ${data.total_count}, usable: ${available}`);
             } catch (err) {
               // Token may lack admin scope; assume unavailable rather than hang.
@@ -152,6 +220,9 @@ jobs:
     permissions:
       contents: write
       issues: write
+      # To start the Pages deploy: pushes made with this job's token do not
+      # trigger other workflows, so the site never updated after a scan.
+      actions: write
     steps:
       - uses: actions/checkout@v4
 
@@ -159,96 +230,207 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm ci
+      # Lighthouse is an optional dependency; install it only when requested.
+      - name: Install dependencies
+        env:
+          LIGHTHOUSE: ${{ needs.prepare.outputs.lighthouse }}
+        run: |
+          if [ "$LIGHTHOUSE" = "none" ] || [ -z "$LIGHTHOUSE" ]; then
+            npm ci --omit=optional
+          else
+            npm ci
+          fi
       - run: npx playwright install firefox
       - run: npm run build
 
-      - name: Environment preflight
+      # Hosted runners ship Google Chrome. A self-hosted Mac may not, so fall
+      # back to Playwright's Chromium rather than failing the Lighthouse step.
+      - name: Ensure a Chrome for Lighthouse
+        if: needs.prepare.outputs.lighthouse != 'none'
+        run: |
+          node --input-type=module -e "const m = await import('chrome-launcher'); m.getChromePath();" \
+            || npx playwright install chromium
+
+      # Firefox reads Linux RAPL power counters only when perf_event_paranoid
+      # is 0 or lower. Hosted runners are virtual machines and are not expected
+      # to expose RAPL, but setting this costs nothing and lets the run prove
+      # it either way. Only on disposable hosted runners: on a self-hosted
+      # machine this is the owner's decision (docs/local-energy.md).
+      - name: Allow Firefox to read RAPL power counters
+        if: runner.os == 'Linux' && runner.environment == 'github-hosted'
+        run: sudo sysctl -w kernel.perf_event_paranoid=0 || true
+
+      # Probes for a working energy path with a real Firefox session and says
+      # why not, if not. The scan repeats the check on its own profile.
+      - name: Energy check
         run: node dist/cli/index.js doctor || true
 
       - name: Run scan
+        id: scan
         env:
           SCAN_MODE: ${{ needs.prepare.outputs.mode }}
           SCAN_URLS: ${{ needs.prepare.outputs.urls }}
           SCAN_RUNS: ${{ needs.prepare.outputs.runs }}
           SCAN_MAX_PAGES: ${{ needs.prepare.outputs.max_pages }}
           SCAN_INCLUDE: ${{ needs.prepare.outputs.include }}
+          SCAN_VIEWPORT: ${{ needs.prepare.outputs.viewport_width }}x${{ needs.prepare.outputs.viewport_height }}
+          SCAN_LIGHTHOUSE: ${{ needs.prepare.outputs.lighthouse }}
+          SCAN_LIGHTHOUSE_RUNS: ${{ needs.prepare.outputs.lighthouse_runs }}
         run: |
           mkdir -p site/results
           # URLs come from an env var and are passed as argv, never interpolated
           # into the shell, so a hostile issue body cannot inject a command.
           node --input-type=module <<'NODE'
           import { spawnSync } from 'node:child_process';
+          import { readdirSync, appendFileSync } from 'node:fs';
           const urls = (process.env.SCAN_URLS || '').split('\n').map(s => s.trim()).filter(Boolean);
           if (urls.length === 0) { console.error('no urls'); process.exit(1); }
 
           const mode = process.env.SCAN_MODE === 'crawl' ? 'crawl' : 'measure';
+          // The parser emits WIDTHxHEIGHT from bounded integers; anything else
+          // is dropped rather than passed through.
+          const viewport = /^\d{2,5}x\d{2,5}$/.test(process.env.SCAN_VIEWPORT || '')
+            ? ['--viewport', process.env.SCAN_VIEWPORT] : [];
+          const lh = process.env.SCAN_LIGHTHOUSE;
+          // Full HTML reports go to a short-lived workflow artifact, not the
+          // repository: each is ~0.5 MB and the summary is what gets published.
+          const lighthouse = lh === 'performance' || lh === 'all'
+            ? ['--lighthouse',
+               '--lighthouse-categories', lh === 'all' ? 'all' : 'performance',
+               '--lighthouse-runs', process.env.SCAN_LIGHTHOUSE_RUNS || '3',
+               '--lighthouse-reports', 'lighthouse-reports']
+            : [];
           const args = mode === 'crawl'
             ? ['dist/cli/index.js', 'crawl', urls[0],
                '--max-pages', process.env.SCAN_MAX_PAGES || '50',
                ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
+               ...viewport, ...lighthouse,
                '--headless', '--out', 'site/results']
             : ['dist/cli/index.js', 'measure', ...urls,
                '--runs', process.env.SCAN_RUNS || '8',
                '--warmups', '2',
+               ...viewport, ...lighthouse,
                '--headless', '--out', 'site/results'];
 
           console.log('mode:', mode, '| targets:', urls.length);
+          const before = new Set(readdirSync('site/results'));
           // Below the 90-minute request budget, leaving room for setup/commit.
           const r = spawnSync('node', args, { stdio: 'inherit', timeout: 95 * 60 * 1000 });
+          // Name this run's own result file, so the comment never summarises
+          // another scan that lands in the repository at the same time.
+          const mine = readdirSync('site/results').filter((f) => f.endsWith('.json') && !before.has(f));
+          if (mine.length) appendFileSync(process.env.GITHUB_OUTPUT, `result=${mine.sort().pop()}\n`);
           process.exit(r.status ?? 1);
           NODE
 
+      - name: Upload full Lighthouse reports
+        id: lh-artifact
+        if: needs.prepare.outputs.lighthouse != 'none'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports-issue-${{ needs.prepare.outputs.issue }}
+          path: lighthouse-reports/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # Built for the comment below. Not committed: the Pages deploy builds its
+      # own, and a shared index file made concurrent scans conflict on push.
       - name: Rebuild results index
         run: node dist/cli/index.js build-index --dir site/results --out site/results/index.json
 
       - name: Commit results
+        id: commit
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add site/results
           if git diff --cached --quiet; then
             echo "No new results to commit."
-          else
-            git commit -m "Add scan results for issue #${{ needs.prepare.outputs.issue }}"
-            git pull --rebase origin main
-            git push origin HEAD:main
+            exit 0
           fi
+          git commit -m "Add scan results for issue #${ISSUE_NUMBER}"
+          # Another scan may push first; each adds only its own new files, so
+          # a rebase and retry always succeeds.
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "pushed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          echo "Could not push results after 5 attempts." >&2
+          exit 1
+
+      - name: Publish the site
+        if: steps.commit.outputs.pushed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
 
       # Only report success when the scan actually produced results. A failure
       # is handled by the step below, so the issue never sits open in silence.
       - name: Comment on the issue
         if: success()
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
+          REQUESTED_RUNNER: ${{ needs.prepare.outputs.runner }}
+          RUNNER_AVAILABLE: ${{ needs.prepare.outputs.runner_available }}
+          SCAN_MODE: ${{ needs.prepare.outputs.mode }}
+          PARSER_NOTES: ${{ needs.prepare.outputs.notes }}
+          NOT_SCANNED: ${{ needs.prepare.outputs.not_scanned }}
+          RESULT_FILE: ${{ steps.scan.outputs.result }}
+          LH_ARTIFACT_URL: ${{ steps.lh-artifact.outputs.artifact-url }}
         with:
           script: |
             const fs = require('fs');
-            const files = fs.readdirSync('site/results').filter(f => f.endsWith('.json') && f !== 'index.json');
-            const latest = files.sort().pop();
-            const requestedRunner = '${{ needs.prepare.outputs.runner }}';
+            const requestedRunner = process.env.REQUESTED_RUNNER;
             const selfHostedUsed =
-              requestedRunner === 'self-hosted' &&
-              '${{ needs.prepare.outputs.runner_available }}' === 'true';
+              requestedRunner === 'self-hosted' && process.env.RUNNER_AVAILABLE === 'true';
             const fellBack = requestedRunner === 'self-hosted' && !selfHostedUsed;
+
+            // Listed URLs this scan left out (over the limit, not public, extra
+            // crawl starts). Shown in code spans: the text comes from the issue,
+            // and inside a code span it cannot ping anyone or inject markdown.
+            let notScanned = [];
+            try { notScanned = JSON.parse(process.env.NOT_SCANNED || '[]'); } catch (e) { notScanned = []; }
+            const code = (t) => '`' + String(t).replace(/`/g, "'") + '`';
 
             let table = '';
             // Declared outside the try so the findings block below can use it.
             let entry = null;
+            const shortName = (step) => (step.length > 50 ? '…' + step.slice(-48) : step);
             try {
               const index = JSON.parse(fs.readFileSync('site/results/index.json', 'utf8'));
-              entry = index.entries[0];
+              entry = process.env.RESULT_FILE
+                ? index.entries.find((e) => e.file === process.env.RESULT_FILE) || null
+                : index.entries[0];
               if (entry) {
                 table = [
                   '',
                   '| Scenario | Transfer | Requests | CO2.js | Observed energy |',
                   '| --- | ---: | ---: | ---: | ---: |',
                   ...entry.scenarios.map(s => {
+                    const name = shortName(s.step);
+                    // A failed URL has no page behind it: show no numbers at
+                    // all rather than ones that belong to another page.
+                    if (s.failed) {
+                      const why = s.notAPage ? '_not a web page (file download)_' : '_failed_';
+                      return `| ${name} | — | — | — | ${why} |`;
+                    }
                     const kb = (s.transferBytes / 1024).toFixed(0) + ' KB';
                     const co2 = s.co2Grams != null ? (s.co2Grams * 1000).toFixed(3) + ' mg' : '—';
-                    const energy = (s.resolved && s.energyMwh != null)
-                      ? s.energyMwh.toFixed(3) + ' mWh'
-                      : '_not resolved_';
-                    const name = s.step.length > 50 ? '…' + s.step.slice(-48) : s.step;
+                    // "Not measured" (no power hardware) and "not resolved"
+                    // (measured, but below the noise floor) are different
+                    // statements; conflating them misreports the host.
+                    const energy = !entry.energyAvailable
+                      ? '_not measured_'
+                      : (s.resolved && s.energyMwh != null)
+                        ? s.energyMwh.toFixed(3) + ' mWh'
+                        : '_not resolved_';
                     return `| ${name} | ${kb} | ${s.requests} | ${co2} | ${energy} |`;
                   }),
                 ].join('\n');
@@ -256,8 +438,75 @@ jobs:
             } catch (e) {
               table = '\n_Could not summarise results._';
             }
+            const failedRows = ((entry && entry.scenarios) || []).filter((s) => s.failed);
+            const energyMeasured = !!(entry && entry.energyAvailable);
+            const check = (entry && entry.energyCheck) || null;
+            const wideScope = check && (check.scope === 'cpu-package' || check.scope === 'system');
 
-            const isCrawl = '${{ needs.prepare.outputs.mode }}' === 'crawl';
+            // Lighthouse is a separate engine and boundary, so it gets its own
+            // table rather than extra columns on the Firefox one.
+            let lighthouseBlock = '';
+            const lh = entry && entry.lighthouse;
+            if (lh) {
+              const sec = (ms) => (ms == null ? '—' : (ms / 1000).toFixed(1) + ' s');
+              // The rating is written out so the score never relies on colour.
+              const rating = (n) => (n == null ? '' : n >= 90 ? ' good' : n >= 50 ? ' needs improvement' : ' poor');
+              const audited = entry.scenarios
+                .filter((s) => s.lighthouse)
+                .map((s) => ({ url: s.step, r: s.lighthouse }))
+                .concat((lh.unmatched || []).map((r) => ({ url: r.url, r })));
+              const extraCats = lh.categories.filter((c) => c !== 'performance');
+              const rows = audited.map(({ url, r }) => {
+                if (r.error && !r.runs) return `| ${shortName(url)} | _failed_ | — | — | — | — |` + extraCats.map(() => ' — |').join('');
+                const perf = r.scores.performance;
+                const range = r.performanceRange && r.performanceRange[0] !== r.performanceRange[1]
+                  ? ` (${r.performanceRange[0]}–${r.performanceRange[1]})` : '';
+                const top = r.recommendations[0] ? r.recommendations[0].title : '—';
+                return `| ${shortName(url)} | **${perf ?? '—'}**${rating(perf)}${range} | ${sec(r.metrics.lcpMs)} | ` +
+                  `${r.metrics.tbtMs ?? '—'} ms | ${r.metrics.cls ?? '—'} | ${top} |` +
+                  extraCats.map((c) => ` ${r.scores[c] ?? '—'} |`).join('');
+              });
+              const catHead = extraCats.map((c) => ` ${c} |`).join('');
+              const catSep = extraCats.map(() => ' ---: |').join('');
+              const fmtSave = (x) => [
+                x.medianSavingsMs ? '~' + (x.medianSavingsMs / 1000).toFixed(1) + ' s' : '',
+                x.medianSavingsBytes ? '~' + Math.round(x.medianSavingsBytes / 1024) + ' KB' : '',
+              ].filter(Boolean).join(', ');
+              const common = (lh.sitewide || []).slice(0, 8).map((x) => {
+                const save = fmtSave(x);
+                const title = x.learnMore ? `[${x.title}](${x.learnMore})` : x.title;
+                return `- ${title} — ${x.pages} of ${audited.length} page${audited.length === 1 ? '' : 's'}` +
+                  (save ? ` · est. ${save} per page` : '');
+              });
+              const artifact = process.env.LH_ARTIFACT_URL || '';
+              lighthouseBlock = [
+                '',
+                '### Lighthouse',
+                '',
+                `Lighthouse ${lh.version} in ${lh.browser || 'Chromium'}, ${lh.formFactor} profile, ` +
+                  `${lh.throttling}. Median of ${lh.runsPerUrl} run${lh.runsPerUrl === 1 ? '' : 's'} per URL; ` +
+                  'range in brackets.',
+                '',
+                `| Page | Performance | LCP | TBT | CLS | Top recommendation |${catHead}`,
+                `| --- | ---: | ---: | ---: | ---: | --- |${catSep}`,
+                ...rows,
+                '',
+                common.length ? '**Most common performance recommendations**' : null,
+                common.length ? '' : null,
+                ...common,
+                common.length ? '' : null,
+                'Failures shared by most pages usually come from the theme or a shared asset, so one fix lands everywhere.',
+                '',
+                artifact
+                  ? `Full Lighthouse HTML reports (median run per URL) are in the [workflow artifact](${artifact}) for 14 days.`
+                  : null,
+                artifact ? '' : null,
+                '_Lighthouse measures lab load performance in Chromium under simulated throttling. It is not ' +
+                  'Firefox and not energy, and is reported beside those results, never combined with them._',
+              ].filter((line) => line !== null).join('\n') + '\n';
+            }
+
+            const isCrawl = process.env.SCAN_MODE === 'crawl';
 
             // Structural findings need no power hardware, so they are the main
             // actionable output on a hosted runner.
@@ -276,7 +525,27 @@ jobs:
                 '\n\nThese come from page structure and need no power hardware, so they are ' +
                 'valid on any runner.\n'
               : '';
-            const parserNotes = `${{ needs.prepare.outputs.notes }}`.trim();
+            // Notes can quote the issue body; break @mentions so they ping nobody.
+            const parserNotes = (process.env.PARSER_NOTES || '').trim().replace(/@/g, '@\u200b');
+
+            const scannedCount = ((entry && entry.scenarios) || []).length;
+            const shown = notScanned.slice(0, 50);
+            const notScannedBlock = notScanned.length
+              ? [
+                  '',
+                  `### Not scanned (${notScanned.length})`,
+                  '',
+                  ...shown.map((n) => `- ${code(n.url)} — ${n.reason}`),
+                  notScanned.length > shown.length ? `- …and ${notScanned.length - shown.length} more` : null,
+                  '',
+                  notScanned.some((n) => /limit/.test(n.reason))
+                    ? 'To scan the rest, open another request with them, or use crawl mode from the site’s home page.'
+                    : null,
+                ].filter((line) => line !== null).join('\n') + '\n'
+              : '';
+            const coverage = notScanned.length && !isCrawl
+              ? `\nScanned **${scannedCount}** of ${scannedCount + notScanned.length} listed URLs; the rest are listed under _Not scanned_ below.\n`
+              : '';
 
             const notes = [
               '',
@@ -288,31 +557,51 @@ jobs:
               isCrawl
                 ? '_Crawl mode measures each page **once**. That is enough to rank pages and find outliers, but a single run cannot separate a real difference from noise — use measure mode for comparisons._'
                 : null,
-              selfHostedUsed
-                ? '_Ran on a self-hosted physical Apple Silicon runner, so energy was measured. Check the power-source and Low Power Mode flags in the result before comparing against other runs._'
-                : fellBack
-                  ? '_A self-hosted runner was requested but none was online, so this ran on a hosted runner. Structural metrics are complete; **no energy was measured**._'
-                  : '_Ran on a GitHub-hosted runner, which has no power-measurement hardware. Network, CO2e, timing and page-structure metrics are all valid; **no energy was measured**._',
+              fellBack
+                ? '_A self-hosted runner was requested but none was online, so this ran on a hosted runner._'
+                : null,
+              // The run's own energy check: what this machine could measure,
+              // and if nothing, why not and where it would work.
+              energyMeasured
+                ? `**Energy check: measured.** ${check ? check.reason : 'Firefox power counters produced samples.'}` +
+                  (wideScope
+                    ? ' The idle baseline is subtracted, but other activity on the machine still counts, so compare only runs made under the same conditions.'
+                    : ' Check the power-source and Low Power Mode flags in the result before comparing against other runs.')
+                : `**Energy check: not measured.** ${check ? check.reason : 'This host has no power-measurement hardware.'} ` +
+                  'Network, CO2e, timing and page-structure metrics are all valid.',
+              !energyMeasured && check && check.nextSteps && check.nextSteps.length
+                ? '\n**Where energy can be measured:**\n' + check.nextSteps.map((x) => '- ' + x).join('\n')
+                : null,
               '',
-              '`not resolved` means the measured energy was smaller than its own run-to-run spread,',
-              'or at/below idle. Small static pages usually land here — there is nothing above the',
-              'noise floor to measure.',
+              energyMeasured
+                ? '`not resolved` means the measured energy was smaller than its own run-to-run spread, ' +
+                  'or at/below idle. Small static pages usually land here — there is nothing above the ' +
+                  'noise floor to measure.'
+                : '`not measured` means no energy reading was taken on this machine. It is an absence, not a zero.',
+              failedRows.length
+                ? `\n${failedRows.length} URL${failedRows.length === 1 ? '' : 's'} could not be measured. ` +
+                  (failedRows.some((s) => s.notAPage)
+                    ? 'Rows marked _not a web page_ start a file download (usually a PDF) instead of rendering, so ' +
+                      'there is nothing for a browser to lay out or paint. Link to the HTML page that hosts the file instead.'
+                    : 'See the full results for the error.')
+                : null,
               parserNotes ? '\n**Notes on this request:**\n' + parserNotes.split('\n').map(n => '- ' + n).join('\n') : null,
               '',
               'Full results: https://mgifford.github.io/firefox-energy-scanner/',
             // Conditionals yield null when omitted; '' entries are deliberate
             // blank lines. filter(Boolean) dropped both, which collapsed every
             // paragraph break in the comment.
-            ].filter((line) => line !== null).join('\n') + findingsBlock +
+            ].filter((line) => line !== null).join('\n') + findingsBlock + lighthouseBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
-              'scan again** — edit the request body first if you want different settings._';
+              'scan again** — edit the request body first if you want different settings. ' +
+              'The published site updates a few minutes after this comment._';
 
-            const issue_number = Number('${{ needs.prepare.outputs.issue }}');
+            const issue_number = Number(process.env.ISSUE_NUMBER);
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number,
-              body: '## Scan complete\n' + table + '\n' + notes,
+              body: '## Scan complete\n' + coverage + table + '\n' + notScannedBlock + notes,
             });
 
             // The issue is the run control: closed means finished, and
@@ -331,6 +620,8 @@ jobs:
       - name: Report a failed scan
         if: failure()
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
         with:
           script: |
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
@@ -338,7 +629,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: Number('${{ needs.prepare.outputs.issue }}'),
+              issue_number: Number(process.env.ISSUE_NUMBER),
               body: [
                 '## Scan failed',
                 '',
@@ -346,7 +637,8 @@ jobs:
                 '',
                 'This issue stays open because the request has not been serviced.',
                 'Common causes: the target was unreachable, or it did not respond within',
-                'the time budget. Close and reopen this issue to retry.',
+                'the time budget. To retry, edit the request (saving re-runs it), or close',
+                'and reopen this issue.',
               ].join('\n'),
             });
 
@@ -359,13 +651,18 @@ jobs:
     steps:
       - name: Explain why the request was rejected
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
+          PARSER_ERRORS: ${{ needs.prepare.outputs.errors }}
         with:
           script: |
-            const errors = `${{ needs.prepare.outputs.errors }}`.trim();
+            // Shown as a quote of plain lines; it echoes text from the issue.
+            const errors = (process.env.PARSER_ERRORS || '').trim()
+              .split('\n').filter(Boolean).map((e) => '> ' + e.replace(/@/g, '@\u200b')).join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: Number('${{ needs.prepare.outputs.issue }}'),
+              issue_number: Number(process.env.ISSUE_NUMBER),
               body: [
                 '## Scan request could not be processed',
                 '',
@@ -374,6 +671,6 @@ jobs:
                 'Only public web URLs can be scanned. Localhost and private addresses are rejected',
                 'because a hosted runner cannot reach them.',
                 '',
-                'Fix the request body, then close and reopen this issue to try again.',
+                '**Edit this issue to fix the request.** Saving the edit runs it again automatically.',
               ].join('\n'),
             });

@@ -1,7 +1,9 @@
 import type { BenchmarkResult, StepResult } from '../core/types.js';
 import { summarize, spearman, type Summary } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
-import { groupByStep } from './csv.js';
+import { groupByStep, failedSteps } from './csv.js';
+import { readableFailure } from '../core/failures.js';
+import { lighthouseSection } from './lighthouse-html.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -22,6 +24,7 @@ const num = (v: number | undefined, digits = 2): string =>
  */
 export function toHtml(result: BenchmarkResult): string {
   const byStep = groupByStep(result.scenarios);
+  const failed = failedSteps(result.scenarios);
   const env = result.environment;
 
   const stepRows = [...byStep.entries()].map(([step, runs]) => {
@@ -38,7 +41,7 @@ export function toHtml(result: BenchmarkResult): string {
   });
 
   const energyValues = result.scenarios
-    .filter((s) => !s.warmup && s.energy?.incrementalJoules !== undefined)
+    .filter((s) => !s.warmup && s.valid && s.energy?.incrementalJoules !== undefined)
     .map((s) => ({
       energy: s.energy!.incrementalJoules!,
       bytes: s.network?.transferBytes ?? Number.NaN,
@@ -157,6 +160,18 @@ ${
   </div>
 </section>
 
+${
+  failed.length
+    ? `<section aria-labelledby="failed-h">
+  <h2 id="failed-h">Not measured</h2>
+  <p class="note">No measured run of these steps succeeded, so they are left out of every table above.</p>
+  <ul>${failed
+    .map((f) => `<li><strong>${esc(f.step)}</strong><br>${esc(readableFailure(f.reason))}</li>`)
+    .join('')}</ul>
+</section>`
+    : ''
+}
+
 <section aria-labelledby="compare-h">
   <h2 id="compare-h">Modelled CO2e versus observed energy</h2>
   <p class="note">
@@ -241,6 +256,8 @@ ${
   </table>
   </div>
 </section>
+
+${lighthouseSection(result.lighthouse)}
 
 <section aria-labelledby="env-h">
   <h2 id="env-h">Environment</h2>

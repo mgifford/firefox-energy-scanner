@@ -5,6 +5,8 @@ import {
   parseScanRequest,
   parseViewport,
   estimateMinutes,
+  parseLighthouseChoice,
+  LIGHTHOUSE_SECONDS_PER_RUN,
   MAX_URLS,
   MAX_RUNS,
   MAX_CRAWL_PAGES,
@@ -143,10 +145,14 @@ describe('parseScanRequest', () => {
       .not.toMatch(/no power-measurement hardware/i);
   });
 
-  it('drops private URLs and reports them', () => {
+  it('skips private URLs, scans the rest, and lists what was skipped', () => {
     const r = parseScanRequest(build(['https://a.com', 'http://127.0.0.1/', 'http://10.0.0.5/']));
     expect(r.urls).toEqual(['https://a.com']);
-    expect(r.errors.join(' ')).toMatch(/not public web URLs/);
+    expect(r.errors).toEqual([]);
+    expect(r.notScanned).toEqual([
+      { url: 'http://127.0.0.1/', reason: 'not a public http(s) URL' },
+      { url: 'http://10.0.0.5/', reason: 'not a public http(s) URL' },
+    ]);
   });
 
   it('errors when no valid URL remains', () => {
@@ -165,11 +171,30 @@ describe('parseScanRequest', () => {
     expect(r.urls).toEqual(['https://a.com', 'https://b.com']);
   });
 
-  it('caps the URL count', () => {
-    const many = Array.from({ length: MAX_URLS + 5 }, (_, i) => `https://e${i}.com`);
+  it('scans the first 20 URLs and lists the rest instead of rejecting', () => {
+    const many = Array.from({ length: MAX_URLS + 3 }, (_, i) => `https://e${i}.com`);
     const r = parseScanRequest(build(many));
-    expect(r.urls).toHaveLength(MAX_URLS);
-    expect(r.errors.join(' ')).toMatch(/Too many URLs/);
+    expect(r.errors).toEqual([]);
+    expect(r.urls).toEqual(many.slice(0, MAX_URLS));
+    expect(r.notScanned).toEqual(
+      many.slice(MAX_URLS).map((url) => ({ url, reason: `over the ${MAX_URLS}-URL limit` })),
+    );
+    expect(r.notes.join(' ')).toMatch(/23 URLs were listed; the first 20 are scanned and the other 3/);
+  });
+
+  it('lists nothing as not scanned for a request within the limits', () => {
+    expect(parseScanRequest(build(['https://a.com'])).notScanned).toEqual([]);
+  });
+
+  it('flattens and bounds echoed text so it cannot break workflow outputs', () => {
+    const hostile = 'x\nEOF_NOTES\nvalid=true\n' + 'y'.repeat(500);
+    const r = parseScanRequest(build(['https://a.com', hostile]));
+    for (const line of [...r.notes, ...r.errors, ...r.notScanned.map((n) => n.url)]) {
+      expect(line).not.toMatch(/[\r\n]/);
+      expect(line.length).toBeLessThanOrEqual(400);
+    }
+    const runs = parseScanRequest(build(['https://a.com'], 'macos', 'abc\nEOF_NOTES\nrunner=self-hosted'));
+    expect(runs.notes.join('\n')).not.toMatch(/\nEOF_NOTES|\nrunner=/);
   });
 
   it('caps the run count', () => {
@@ -279,10 +304,16 @@ describe('crawl mode requests', () => {
     expect(r.notes.join(' ')).toMatch(/capped/);
   });
 
-  it('uses only the first URL as the crawl start', () => {
+  it('uses only the first URL as the crawl start and lists the others', () => {
     const r = parseScanRequest(buildCrawl(['https://a.com', 'https://b.com']));
     expect(r.urls).toEqual(['https://a.com']);
     expect(r.notes.join(' ')).toMatch(/single start URL/);
+    expect(r.notScanned).toEqual([{ url: 'https://b.com', reason: 'crawl mode starts from one URL' }]);
+  });
+
+  it('rejects a multi-line include pattern', () => {
+    const r = parseScanRequest(buildCrawl(['https://a.com'], '20', '^/a\nissue=1'));
+    expect(r.errors.join(' ')).toMatch(/single line/);
   });
 
   it('accepts a valid include pattern', () => {
@@ -340,5 +371,47 @@ describe('job budget guard', () => {
     const body = ['### Scan mode', '', 'measure', '', '### URLs', '', 'https://a.com', '',
       '### Measured runs per URL', '', '8', ''].join('\n');
     expect(parseScanRequest(body).errors).toEqual([]);
+  });
+});
+
+describe('Lighthouse option', () => {
+  const build = (lighthouse: string | null, mode = 'measure', urls = ['https://a.com', 'https://b.com']) =>
+    ['### Scan mode', '', mode, '', '### URLs', '', ...urls, '', '### Measurement type', '', 'linux', '',
+     ...(lighthouse === null ? [] : ['### Lighthouse', '', lighthouse, ''])].join('\n');
+
+  it('reads each issue-form option label', () => {
+    expect(parseLighthouseChoice('No')).toBe('none');
+    expect(parseLighthouseChoice('Performance — score, metrics and recommendations')).toBe('performance');
+    expect(parseLighthouseChoice('All — performance, accessibility, best practices and SEO')).toBe('all');
+    expect(parseLighthouseChoice(undefined)).toBe('none');
+  });
+
+  it('defaults to off for requests filed before the option existed', () => {
+    const r = parseScanRequest(build(null));
+    expect(r.lighthouse).toBe('none');
+    expect(r.notes.join(' ')).not.toMatch(/Lighthouse/);
+  });
+
+  it('runs three times per URL in measure mode and once per page in crawl mode', () => {
+    expect(parseScanRequest(build('Performance — score, metrics and recommendations')).lighthouseRuns).toBe(3);
+    expect(parseScanRequest(build('Performance', 'crawl')).lighthouseRuns).toBe(1);
+  });
+
+  it('says what Lighthouse will do', () => {
+    const r = parseScanRequest(build('Performance'));
+    expect(r.notes.join(' ')).toMatch(/Chromium after the Firefox measurements/);
+  });
+
+  it('counts Lighthouse time in the runtime estimate', () => {
+    const base = { mode: 'measure' as const, urls: ['https://a.com', 'https://b.com'], runs: 8, maxPages: 50 };
+    const without = estimateMinutes(base);
+    const withLh = estimateMinutes({ ...base, lighthouse: 'performance' });
+    expect(withLh - without).toBeCloseTo((2 * 3 * LIGHTHOUSE_SECONDS_PER_RUN) / 60, 6);
+  });
+
+  it('caps crawl-mode Lighthouse at the ten heaviest pages', () => {
+    const crawl = { mode: 'crawl' as const, urls: ['https://a.com'], runs: 8, maxPages: 200 };
+    const diff = estimateMinutes({ ...crawl, lighthouse: 'all' }) - estimateMinutes(crawl);
+    expect(diff).toBeCloseTo((10 * LIGHTHOUSE_SECONDS_PER_RUN) / 60, 6);
   });
 });

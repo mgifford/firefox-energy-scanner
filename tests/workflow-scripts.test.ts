@@ -146,3 +146,27 @@ describe('workflow github-script steps', () => {
     },
   );
 });
+
+/**
+ * Security: `${{ }}` is substituted into a script's source text before it
+ * runs, so an expression carrying issue text turns that text into code. The
+ * scan workflow once pasted parser notes (which quote the issue body) into a
+ * github-script template literal, in a job that can push to main. Values must
+ * reach scripts through `env:` and be read from `process.env` / `$VAR`.
+ */
+describe('workflow scripts take no inline expressions', () => {
+  const offenders: string[] = [];
+  for (const path of WORKFLOWS) {
+    const doc = parseYaml(readFileSync(path, 'utf8')) as Workflow;
+    for (const [jobName, job] of Object.entries(doc.jobs ?? {})) {
+      for (const step of job.steps ?? []) {
+        const body = step.with?.script ?? step.run ?? '';
+        if (body.includes('${{')) offenders.push(`${path} › ${jobName} › ${step.name ?? step.run}`);
+      }
+    }
+  }
+
+  it('passes every value through env instead of ${{ }} in the script body', () => {
+    expect(offenders).toEqual([]);
+  });
+});

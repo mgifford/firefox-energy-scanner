@@ -43,6 +43,8 @@ interface GeckoProcess {
 }
 
 export interface PowerUnit {
+  /** Counter label, e.g. "Process Power" or "Power: CPU package". */
+  name: string;
   /** Absolute epoch ms corresponding to this process's sample time 0. */
   processStartTime: number;
   samples: CounterSamples;
@@ -64,7 +66,7 @@ export function collectPowerUnits(profile: unknown): PowerUnit[] {
     const processStartTime = node.meta.startTime;
     for (const counter of node.counters ?? []) {
       if (counter?.category === 'power' && counter.samples?.data) {
-        units.push({ processStartTime, samples: counter.samples });
+        units.push({ name: counter.name ?? '', processStartTime, samples: counter.samples });
       }
     }
     for (const child of node.processes ?? []) visit(child);
@@ -72,6 +74,81 @@ export function collectPowerUnits(profile: unknown): PowerUnit[] {
 
   visit(profile as GeckoProcess);
   return units;
+}
+
+/**
+ * Which counters to add up, and what the total covers.
+ *
+ * Firefox exposes two kinds of power counter, and they must not be mixed:
+ *
+ *   per-process   "Process Power", one per Firefox process (Apple Silicon).
+ *                 They are disjoint, so summing them gives Firefox's energy.
+ *
+ *   system-wide   "Power: CPU package", "Power: CPU cores", "Power: iGPU",
+ *                 "Power: DRAM", "Power: System", "Power: CPU core N"
+ *                 (Linux RAPL, Windows EMI, Intel Macs). These are RAPL
+ *                 domains and they NEST: the package already contains the
+ *                 cores and the integrated GPU, and "System" (psys) contains
+ *                 the package. Summing them double-counts.
+ *
+ * Labels are taken from Firefox's tools/profiler/core/PowerCounters-*.cpp.
+ */
+export interface PowerSelection {
+  units: PowerUnit[];
+  scope: 'process' | 'cpu-package' | 'system';
+  /** Plain description of what was summed, for reports. */
+  basis: string;
+}
+
+export function selectPowerUnits(all: PowerUnit[]): PowerSelection {
+  const named = (re: RegExp) => all.filter((u) => re.test(u.name));
+  const perProcess = named(/^Process Power$/i);
+  if (perProcess.length > 0) {
+    return {
+      units: perProcess,
+      scope: 'process',
+      basis: 'Firefox per-process power counters, summed across the parent and content processes.',
+    };
+  }
+
+  const psys = named(/^Power: System$/i);
+  if (psys.length > 0) {
+    return {
+      units: psys,
+      scope: 'system',
+      basis:
+        'RAPL "psys" (Power: System): the whole platform as the CPU reports it, for every process on the machine.',
+    };
+  }
+
+  const pkg = named(/^Power: CPU package$/i);
+  if (pkg.length > 0) {
+    const dram = named(/^Power: DRAM$/i);
+    return {
+      units: [...pkg, ...dram],
+      scope: 'cpu-package',
+      basis:
+        'RAPL CPU package' + (dram.length ? ' plus DRAM' : '') +
+        ': the whole processor (cores and integrated GPU included), for every process on the machine. ' +
+        'Cores and iGPU counters are inside the package and are not added again.',
+    };
+  }
+
+  // An unrecognised set, e.g. vendor-named channels on Windows on ARM. With
+  // no way to tell whether they nest, take the single largest rather than
+  // risk adding overlapping domains.
+  const withData = all.filter((u) => u.samples.data.length > 0);
+  if (withData.length === 0) return { units: all, scope: 'system', basis: 'No power samples.' };
+  const total = (u: PowerUnit) => {
+    const i = u.samples.schema.count;
+    return i === undefined ? 0 : u.samples.data.reduce((acc, row) => acc + (row[i] ?? 0), 0);
+  };
+  const largest = withData.reduce((a, b) => (total(b) > total(a) ? b : a));
+  return {
+    units: [largest],
+    scope: 'system',
+    basis: `Unrecognised power counters; used the largest single one ("${largest.name}") so overlapping domains are not added together.`,
+  };
 }
 
 export interface WindowEnergy {

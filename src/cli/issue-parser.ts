@@ -11,6 +11,15 @@ export type ScanMode = 'measure' | 'crawl';
 
 export type RunnerChoice = 'linux' | 'macos' | 'self-hosted';
 
+/** 'all' adds accessibility, best practices and SEO to performance. */
+export type LighthouseChoice = 'none' | 'performance' | 'all';
+
+/** A listed URL that will not be scanned, and why. Reported in the results. */
+export interface NotScanned {
+  url: string;
+  reason: string;
+}
+
 export interface ScanRequest {
   mode: ScanMode;
   urls: string[];
@@ -20,6 +29,17 @@ export interface ScanRequest {
   maxPages: number;
   include?: string;
   viewport: { width: number; height: number };
+  lighthouse: LighthouseChoice;
+  /** Lighthouse runs per URL: a median of three in measure mode, one in crawl. */
+  lighthouseRuns: number;
+  /**
+   * Entries left out of this scan — past the URL limit, not a public URL, or
+   * extra start URLs in crawl mode. The request still runs on the rest, and
+   * the results list these so nothing silently disappears.
+   */
+  notScanned: NotScanned[];
+  /** Expected scanning time, quoted back to the requester when the run starts. */
+  estimatedMinutes: number;
   errors: string[];
   notes: string[];
 }
@@ -38,6 +58,22 @@ export const DEFAULT_RUNS = 8;
  */
 export const MAX_CRAWL_PAGES = 200;
 export const DEFAULT_CRAWL_PAGES = 50;
+
+/**
+ * Lighthouse cost. One run is ~15 s on a fast machine and slower on a shared
+ * runner against a heavy page, so the estimate is deliberately generous.
+ * A crawl audits only its heaviest pages, once each.
+ */
+export const LIGHTHOUSE_SECONDS_PER_RUN = 25;
+export const LIGHTHOUSE_MEASURE_RUNS = 3;
+export const LIGHTHOUSE_CRAWL_PAGES = 10;
+
+export function parseLighthouseChoice(raw: string | undefined): LighthouseChoice {
+  const value = (raw ?? '').toLowerCase().trim();
+  if (!value || value.startsWith('no')) return 'none';
+  if (value.includes('accessibility') || value.startsWith('all')) return 'all';
+  return 'performance';
+}
 
 /**
  * Wall-clock budget for one scan job.
@@ -82,6 +118,16 @@ export function parseViewport(raw: string | undefined): { width: number; height:
   if (isMobile) return VIEWPORTS[isLandscape ? 'mobile-landscape' : 'mobile-portrait']!;
   if (isTablet) return VIEWPORTS[isLandscape ? 'tablet-landscape' : 'tablet-portrait']!;
   return VIEWPORTS.desktop!;
+}
+
+/**
+ * Make issue text safe to echo back: one line, no control characters, and
+ * bounded. Everything the parser quotes from the body goes through this,
+ * because it ends up in workflow outputs and in a public comment.
+ */
+export function clip(text: string, max = 200): string {
+  const oneLine = text.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return oneLine.length > max ? oneLine.slice(0, max - 1) + '…' : oneLine;
 }
 
 /** Reject non-public hosts. */
@@ -150,12 +196,26 @@ export function estimateMinutes(request: {
   urls: string[];
   runs: number;
   maxPages: number;
+  lighthouse?: LighthouseChoice;
 }): number {
   const perRunSeconds = 2.4 + 2.0;
   const baselineSeconds = 15;
   const pages = request.mode === 'crawl' ? request.maxPages : request.urls.length;
   const runsPerPage = request.mode === 'crawl' ? 1 : request.runs + 2; // + warmups
-  return (baselineSeconds + pages * runsPerPage * perRunSeconds) / 60;
+  return (baselineSeconds + pages * runsPerPage * perRunSeconds + lighthouseSeconds(request)) / 60;
+}
+
+function lighthouseSeconds(request: {
+  mode: ScanMode;
+  urls: string[];
+  maxPages: number;
+  lighthouse?: LighthouseChoice;
+}): number {
+  if (!request.lighthouse || request.lighthouse === 'none') return 0;
+  const pages =
+    request.mode === 'crawl' ? Math.min(request.maxPages, LIGHTHOUSE_CRAWL_PAGES) : request.urls.length;
+  const runs = request.mode === 'crawl' ? 1 : LIGHTHOUSE_MEASURE_RUNS;
+  return pages * runs * LIGHTHOUSE_SECONDS_PER_RUN;
 }
 
 export function parseScanRequest(body: string): ScanRequest {
@@ -172,31 +232,41 @@ export function parseScanRequest(body: string): ScanRequest {
     .filter(Boolean);
 
   const urls: string[] = [];
-  const rejected: string[] = [];
+  const notScanned: NotScanned[] = [];
   for (const c of candidates) {
     if (isPublicHttpUrl(c)) {
       if (!urls.includes(c)) urls.push(c);
     } else {
-      rejected.push(c);
+      notScanned.push({ url: clip(c), reason: 'not a public http(s) URL' });
     }
   }
 
-  if (urls.length === 0) errors.push('No valid public http(s) URLs were found in the request.');
-  if (rejected.length > 0) {
+  // One bad line should not sink a request: scan the valid URLs and list the
+  // rest. Only a request with nothing scannable is rejected.
+  if (urls.length === 0) {
     errors.push(
-      `Rejected ${rejected.length} entr${rejected.length === 1 ? 'y' : 'ies'} that are not public web URLs: ` +
-        rejected.slice(0, 5).join(', '),
+      'No valid public http(s) URLs were found in the request.' +
+        (notScanned.length
+          ? ` Not usable: ${notScanned.slice(0, 5).map((n) => n.url).join(', ')}`
+          : ''),
     );
   }
 
   if (mode === 'crawl' && urls.length > 1) {
-    notes.push(`Crawl mode uses a single start URL; using ${urls[0]} and ignoring the rest.`);
+    for (const u of urls.slice(1)) {
+      notScanned.push({ url: u, reason: 'crawl mode starts from one URL' });
+    }
+    notes.push(`Crawl mode uses a single start URL; crawling from ${urls[0]}.`);
     urls.length = 1;
   }
   if (mode === 'measure' && urls.length > MAX_URLS) {
-    errors.push(
-      `Too many URLs (${urls.length}); the limit for measure mode is ${MAX_URLS}. ` +
-        `Use crawl mode to cover more pages, or split the request.`,
+    const extra = urls.length - MAX_URLS;
+    for (const u of urls.slice(MAX_URLS)) {
+      notScanned.push({ url: u, reason: `over the ${MAX_URLS}-URL limit` });
+    }
+    notes.push(
+      `${urls.length} URLs were listed; the first ${MAX_URLS} are scanned and the other ${extra} ` +
+        'are listed as not scanned. Open a second request, or use crawl mode, to cover them.',
     );
     urls.length = MAX_URLS;
   }
@@ -211,8 +281,9 @@ export function parseScanRequest(body: string): ScanRequest {
       : 'linux';
   if (runner !== 'self-hosted') {
     notes.push(
-      'Hosted runners have no power-measurement hardware, so this scan reports network, ' +
-        'CO2e, timing and page structure only — no energy.',
+      'Hosted runners are virtual machines with no power-measurement hardware, so this scan is ' +
+        'not expected to measure energy. It checks anyway and reports what it finds, along with ' +
+        'network, CO2e, timing and page structure.',
     );
   }
 
@@ -224,7 +295,7 @@ export function parseScanRequest(body: string): ScanRequest {
       runs = Math.min(parsed, MAX_RUNS);
       if (parsed > MAX_RUNS) notes.push(`Requested ${parsed} runs; capped at ${MAX_RUNS}.`);
     } else {
-      notes.push(`Could not read a run count from "${runsRaw}"; using ${DEFAULT_RUNS}.`);
+      notes.push(`Could not read a run count from "${clip(runsRaw, 40)}"; using ${DEFAULT_RUNS}.`);
     }
   }
 
@@ -238,30 +309,44 @@ export function parseScanRequest(body: string): ScanRequest {
         notes.push(`Requested ${parsed} pages; capped at ${MAX_CRAWL_PAGES}.`);
       }
     } else {
-      notes.push(`Could not read a page limit from "${pagesRaw}"; using ${DEFAULT_CRAWL_PAGES}.`);
+      notes.push(`Could not read a page limit from "${clip(pagesRaw, 40)}"; using ${DEFAULT_CRAWL_PAGES}.`);
     }
   }
 
   const includeRaw = extractSection(body, 'Include pattern');
   const include = includeRaw ? includeRaw.trim() : undefined;
   if (include) {
-    try {
-      new RegExp(include);
-    } catch {
-      errors.push(`Include pattern is not a valid regular expression: ${include}`);
+    if (/[\r\n]/.test(include)) {
+      errors.push('Include pattern must be a single line.');
+    } else {
+      try {
+        new RegExp(include);
+      } catch {
+        errors.push(`Include pattern is not a valid regular expression: ${clip(include, 80)}`);
+      }
     }
   }
 
   const viewport = parseViewport(extractSection(body, 'Viewport'));
 
+  const lighthouse = parseLighthouseChoice(extractSection(body, 'Lighthouse'));
+  const lighthouseRuns = mode === 'crawl' ? 1 : LIGHTHOUSE_MEASURE_RUNS;
+  if (lighthouse !== 'none') {
+    notes.push(
+      mode === 'crawl'
+        ? `Lighthouse audits the ${LIGHTHOUSE_CRAWL_PAGES} heaviest crawled pages, once each, in Chromium after the Firefox crawl.`
+        : `Lighthouse runs ${LIGHTHOUSE_MEASURE_RUNS} times per URL in Chromium after the Firefox measurements; the median run is reported.`,
+    );
+  }
+
   // Reject work that cannot finish inside the job budget, with a concrete fix.
-  const request = { mode, urls, runs, maxPages };
+  const request = { mode, urls, runs, maxPages, lighthouse };
   const minutes = estimateMinutes(request);
   if (minutes > JOB_BUDGET_MINUTES) {
     if (mode === 'measure') {
       errors.push(
         `This request would take roughly ${Math.round(minutes)} minutes, over the ${JOB_BUDGET_MINUTES}-minute budget. ` +
-          `Reduce the run count or the number of URLs, or use crawl mode (one run per page).`,
+          `Reduce the run count or the number of URLs, turn off Lighthouse, or use crawl mode (one run per page).`,
       );
     } else {
       errors.push(
@@ -280,5 +365,19 @@ export function parseScanRequest(body: string): ScanRequest {
     );
   }
 
-  return { mode, urls, runner, runs, maxPages, ...(include ? { include } : {}), viewport, errors, notes };
+  return {
+    mode,
+    urls,
+    runner,
+    runs,
+    maxPages,
+    ...(include ? { include } : {}),
+    viewport,
+    lighthouse,
+    lighthouseRuns,
+    notScanned,
+    estimatedMinutes: Math.round(minutes * 10) / 10,
+    errors,
+    notes,
+  };
 }
