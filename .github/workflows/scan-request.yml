@@ -251,7 +251,18 @@ jobs:
           node --input-type=module -e "const m = await import('chrome-launcher'); m.getChromePath();" \
             || npx playwright install chromium
 
-      - name: Environment preflight
+      # Firefox reads Linux RAPL power counters only when perf_event_paranoid
+      # is 0 or lower. Hosted runners are virtual machines and are not expected
+      # to expose RAPL, but setting this costs nothing and lets the run prove
+      # it either way. Only on disposable hosted runners: on a self-hosted
+      # machine this is the owner's decision (docs/local-energy.md).
+      - name: Allow Firefox to read RAPL power counters
+        if: runner.os == 'Linux' && runner.environment == 'github-hosted'
+        run: sudo sysctl -w kernel.perf_event_paranoid=0 || true
+
+      # Probes for a working energy path with a real Firefox session and says
+      # why not, if not. The scan repeats the check on its own profile.
+      - name: Energy check
         run: node dist/cli/index.js doctor || true
 
       - name: Run scan
@@ -429,6 +440,8 @@ jobs:
             }
             const failedRows = ((entry && entry.scenarios) || []).filter((s) => s.failed);
             const energyMeasured = !!(entry && entry.energyAvailable);
+            const check = (entry && entry.energyCheck) || null;
+            const wideScope = check && (check.scope === 'cpu-package' || check.scope === 'system');
 
             // Lighthouse is a separate engine and boundary, so it gets its own
             // table rather than extra columns on the Firefox one.
@@ -544,18 +557,27 @@ jobs:
               isCrawl
                 ? '_Crawl mode measures each page **once**. That is enough to rank pages and find outliers, but a single run cannot separate a real difference from noise — use measure mode for comparisons._'
                 : null,
-              selfHostedUsed
-                ? '_Ran on a self-hosted physical Apple Silicon runner, so energy was measured. Check the power-source and Low Power Mode flags in the result before comparing against other runs._'
-                : fellBack
-                  ? '_A self-hosted runner was requested but none was online, so this ran on a hosted runner. Structural metrics are complete; **no energy was measured**._'
-                  : '_Ran on a GitHub-hosted runner, which has no power-measurement hardware. Network, CO2e, timing and page-structure metrics are all valid; **no energy was measured**._',
+              fellBack
+                ? '_A self-hosted runner was requested but none was online, so this ran on a hosted runner._'
+                : null,
+              // The run's own energy check: what this machine could measure,
+              // and if nothing, why not and where it would work.
+              energyMeasured
+                ? `**Energy check: measured.** ${check ? check.reason : 'Firefox power counters produced samples.'}` +
+                  (wideScope
+                    ? ' The idle baseline is subtracted, but other activity on the machine still counts, so compare only runs made under the same conditions.'
+                    : ' Check the power-source and Low Power Mode flags in the result before comparing against other runs.')
+                : `**Energy check: not measured.** ${check ? check.reason : 'This host has no power-measurement hardware.'} ` +
+                  'Network, CO2e, timing and page-structure metrics are all valid.',
+              !energyMeasured && check && check.nextSteps && check.nextSteps.length
+                ? '\n**Where energy can be measured:**\n' + check.nextSteps.map((x) => '- ' + x).join('\n')
+                : null,
               '',
               energyMeasured
                 ? '`not resolved` means the measured energy was smaller than its own run-to-run spread, ' +
                   'or at/below idle. Small static pages usually land here — there is nothing above the ' +
                   'noise floor to measure.'
-                : '`not measured` means this host has no power-measurement hardware, so no energy reading ' +
-                  'was taken. It is an absence, not a zero. Request the self-hosted Apple Silicon runner for energy.',
+                : '`not measured` means no energy reading was taken on this machine. It is an absence, not a zero.',
               failedRows.length
                 ? `\n${failedRows.length} URL${failedRows.length === 1 ? '' : 's'} could not be measured. ` +
                   (failedRows.some((s) => s.notAPage)

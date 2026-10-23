@@ -281,8 +281,9 @@ export function parseScanRequest(body: string): ScanRequest {
       : 'linux';
   if (runner !== 'self-hosted') {
     notes.push(
-      'Hosted runners have no power-measurement hardware, so this scan reports network, ' +
-        'CO2e, timing and page structure only — no energy.',
+      'Hosted runners are virtual machines with no power-measurement hardware, so this scan is ' +
+        'not expected to measure energy. It checks anyway and reports what it finds, along with ' +
+        'network, CO2e, timing and page structure.',
     );
   }
 

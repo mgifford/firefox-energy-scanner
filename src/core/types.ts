@@ -219,6 +219,14 @@ export interface BenchmarkResult {
     tier: 'full' | 'structural';
     summary: string;
     unavailable: { metric: string; reason: string }[];
+    /** Why energy was or was not measured on this host, and what would change it. */
+    energyCheck?: {
+      verdict: 'energy' | 'fixable' | 'unavailable' | 'untested';
+      reason: string;
+      nextSteps: string[];
+      hypervisor?: string;
+      scope?: 'process' | 'cpu-package' | 'system';
+    };
   };
   target?: TargetInfo;
   targets?: TargetInfo[];

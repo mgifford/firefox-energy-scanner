@@ -37,7 +37,8 @@ import { summarize, compare, interleavedOrder, median, resolution } from '../cor
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import { SCHEMA_VERSION, type BenchmarkResult, type StepResult } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
-import { describeCapabilities, detectVirtualisation } from '../core/capability.js';
+import { describeCapabilities } from '../core/capability.js';
+import { collectHostFacts, judgeEnergy, type EnergyProbe, type FirefoxProbe } from '../energy/probe.js';
 import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run.js';
 import { pickLighthouseUrls } from '../lighthouse/select.js';
 import {
@@ -186,11 +187,7 @@ async function buildConfig(args: Args): Promise<Config> {
  * This is the only reliable way to know whether a host can measure energy:
  * platform and architecture are necessary but not sufficient.
  */
-async function probePowerCounters(): Promise<{
-  samples: number;
-  durationMs: number;
-  error?: string;
-}> {
+async function probePowerCounters(): Promise<FirefoxProbe & { durationMs: number }> {
   const started = Date.now();
   try {
     const outputPath = await createProfileOutputPath();
@@ -212,13 +209,34 @@ async function probePowerCounters(): Promise<{
 
     const results = await adapter.finalize();
     const probe = results.get('probe');
-    return { samples: probe?.sampleCount ?? 0, durationMs: Date.now() - started };
+    const selection = adapter.powerSelection();
+    return {
+      samples: probe?.sampleCount ?? 0,
+      counters: adapter.counterNames(),
+      ...(selection && (probe?.sampleCount ?? 0) > 0 ? { scope: selection.scope } : {}),
+      durationMs: Date.now() - started,
+    };
   } catch (err) {
-    return { samples: 0, durationMs: Date.now() - started, error: (err as Error).message };
+    return { samples: 0, counters: [], durationMs: Date.now() - started, error: firstLine((err as Error).message) };
   }
 }
 
-async function cmdDoctor(): Promise<number> {
+const firstLine = (m: string) => m.split('\n')[0]!.slice(0, 300);
+
+/** Host facts plus a real Firefox probe, judged into one verdict. */
+async function runEnergyProbe(): Promise<EnergyProbe> {
+  const facts = await collectHostFacts();
+  const firefoxProbe = await probePowerCounters();
+  const { durationMs: _ms, ...firefoxFacts } = firefoxProbe;
+  return { ...facts, firefox: firefoxFacts, ...judgeEnergy(facts, firefoxFacts) };
+}
+
+async function cmdDoctor(args: Args): Promise<number> {
+  // Machine-readable energy verdict, for CI and for scripting a local setup.
+  if (has(args, 'json')) {
+    console.log(JSON.stringify(await runEnergyProbe(), null, 2));
+    return 0;
+  }
   const lines: string[] = [];
   let failures = 0;
   const ok = (m: string) => lines.push(`  ok       ${m}`);
@@ -246,30 +264,38 @@ async function cmdDoctor(): Promise<number> {
   }
 
   lines.push('');
-  lines.push('Energy adapters');
-  const ffx = new FirefoxProfilerAdapter('/dev/null');
-  const ffxAvail = await ffx.available();
-  if (!ffxAvail.available) {
-    warn(`firefox-profiler: ${ffxAvail.reason}`);
-  } else {
-    // Platform support is not proof: virtualised macOS hosts expose a power
-    // counter that never emits a sample. Run a short real profile to find out.
-    const probe = await probePowerCounters();
-    if (probe.samples > 0) {
-      ok(
-        `firefox-profiler: power counters produced ${probe.samples} samples in a ${probe.durationMs} ms probe ` +
-          '(no elevated privileges needed)',
-      );
-    } else if (probe.error) {
-      warn(`firefox-profiler: probe could not run (${probe.error})`);
-    } else {
-      fail(
-        'firefox-profiler: the platform reports support but the power counters emitted NO samples. ' +
-          'This host cannot measure energy — common on virtualised macOS (e.g. GitHub-hosted runners). ' +
-          'Network, CO2.js and timing metrics still work.',
-      );
+  lines.push('Energy measurement');
+  // Platform support is not proof: virtual machines expose counters that never
+  // emit a sample, and Linux needs a kernel setting. So always run a real
+  // short profile and judge the result.
+  const probe = await runEnergyProbe();
+  if (probe.virtualised !== undefined) {
+    (probe.virtualised ? warn : ok)(
+      probe.virtualised ? `Virtual machine: ${probe.hypervisor ?? 'yes'}` : 'Physical machine (no hypervisor detected)',
+    );
+  }
+  if (probe.linux) {
+    const l = probe.linux;
+    (l.pmu ? ok : warn)(
+      l.pmu ? `RAPL power events: ${l.events.join(', ') || 'present'}` : 'RAPL power events: not exposed',
+    );
+    if (l.pmu) {
+      ((l.paranoid ?? 99) <= 0 ? ok : warn)(`kernel.perf_event_paranoid = ${l.paranoid ?? 'unreadable'} (Firefox needs <= 0)`);
     }
   }
+  if (probe.firefox?.error) {
+    warn(`Firefox probe could not run: ${probe.firefox.error}`);
+  } else if (probe.firefox) {
+    (probe.firefox.samples > 0 ? ok : warn)(
+      `Firefox power samples: ${probe.firefox.samples}` +
+        (probe.firefox.counters.length ? ` (counters: ${probe.firefox.counters.join(', ')})` : ' (no power counters)'),
+    );
+  }
+  const verdictLabel = { energy: 'CAN measure energy', fixable: 'can measure energy after one fix', unavailable: 'CANNOT measure energy', untested: 'not tested' }[probe.verdict];
+  lines.push(`  => This host ${verdictLabel}. ${probe.reason}`);
+  for (const step of probe.nextSteps) lines.push(`       - ${step}`);
+  lines.push('');
+  lines.push('Other adapters');
 
   const pm = new PowermetricsAdapter();
   const pmAvail = await pm.available();
@@ -324,15 +350,51 @@ async function cmdDoctor(): Promise<number> {
  */
 async function capabilitiesFor(
   energyAvailable: boolean,
+  scope?: FirefoxProbe['scope'],
 ): Promise<BenchmarkResult['capabilities']> {
-  const virtualised = await detectVirtualisation();
+  // The run itself is the probe: energyAvailable means its own profile had
+  // samples. Host facts explain why not, and what would fix it.
+  const facts = await collectHostFacts();
+  const check = judgeEnergy(facts, {
+    samples: energyAvailable ? 1 : 0,
+    counters: [],
+    ...(scope ? { scope } : {}),
+  });
   const c = describeCapabilities({
     powerSamplesObserved: energyAvailable,
     platform: process.platform,
     architecture: process.arch,
-    ...(virtualised !== undefined ? { virtualised } : {}),
+    ...(facts.virtualised !== undefined ? { virtualised: facts.virtualised } : {}),
+    reason: check.reason,
   });
-  return { tier: c.tier, summary: c.summary, unavailable: c.unavailable };
+  return {
+    tier: c.tier,
+    summary: c.summary,
+    unavailable: c.unavailable,
+    energyCheck: {
+      verdict: check.verdict,
+      reason: energyAvailable ? `Energy was measured: ${scopeText(scope)}.` : check.reason,
+      nextSteps: check.nextSteps,
+      ...(facts.hypervisor ? { hypervisor: facts.hypervisor } : {}),
+      ...(scope ? { scope } : {}),
+    },
+  };
+}
+
+/** What the measured energy covered, read from the first run that has energy. */
+function energyScopeOf(steps: StepResult[]): FirefoxProbe['scope'] {
+  const scope = steps.find((s) => s.energy?.raw.totalJoules !== undefined)?.energy?.raw.measurementScope;
+  return scope === 'process' || scope === 'cpu-package' || scope === 'system' ? scope : undefined;
+}
+
+function scopeText(scope: FirefoxProbe['scope']): string {
+  return scope === 'process'
+    ? 'per-process Firefox energy'
+    : scope === 'cpu-package'
+      ? 'the whole CPU package, for every process on the machine'
+      : scope === 'system'
+        ? 'the whole platform, for every process on the machine'
+        : 'Firefox power counters';
 }
 
 async function writeOutputs(result: BenchmarkResult, config: Config): Promise<string> {
@@ -416,7 +478,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'measure' },
-    capabilities: await capabilitiesFor(outcome.energyAvailable),
+    capabilities: await capabilitiesFor(outcome.energyAvailable, energyScopeOf(outcome.steps)),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,
@@ -466,7 +528,7 @@ async function cmdJourney(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'journey' },
-    capabilities: await capabilitiesFor(outcome.energyAvailable),
+    capabilities: await capabilitiesFor(outcome.energyAvailable, energyScopeOf(outcome.steps)),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,
@@ -505,7 +567,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,
     session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'crawl' },
-    capabilities: await capabilitiesFor(outcome.energyAvailable),
+    capabilities: await capabilitiesFor(outcome.energyAvailable, energyScopeOf(outcome.steps)),
     environment: await collectEnvironment({
       energyAdapter: config.energy.adapter,
       headed: config.browser.headed,
@@ -1272,7 +1334,7 @@ async function main(): Promise<number> {
 
   try {
     switch (command) {
-      case 'doctor': return await cmdDoctor();
+      case 'doctor': return await cmdDoctor(args);
       case 'measure': return await cmdMeasure(args);
       case 'crawl': return await cmdCrawl(args);
       case 'journey': return await cmdJourney(args);

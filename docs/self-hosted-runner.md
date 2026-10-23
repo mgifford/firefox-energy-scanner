@@ -51,15 +51,17 @@ npm ci && npx playwright install firefox && npm run build
 node dist/cli/index.js doctor
 ```
 
-Look for:
+Look for the verdict at the end of the **Energy measurement** section:
 
 ```
-ok  firefox-profiler: power counters produced 465 samples in a 5680 ms probe
+  ok       Firefox power samples: 465 (counters: Process Power)
+  => This host CAN measure energy. Firefox recorded 465 power samples: this host measures per-process Firefox energy.
 ```
 
-If it instead says **"the platform reports support but the power counters emitted NO
-samples"**, the machine is virtualised and cannot measure energy — check you are on
-real hardware, not a VM.
+If it instead says **"This host CANNOT measure energy"**, the reason and the
+alternatives follow on the next lines. The usual cause is a virtual machine — check you
+are on real hardware. Other machines that can measure energy are listed in
+[local-energy.md](local-energy.md).
 
 `doctor` also warns about battery power and Low Power Mode. For a runner, plug it in
 and turn Low Power Mode off:

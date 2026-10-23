@@ -66,12 +66,19 @@ VirtualMac2,1`, `kern.hv_vmm_present 1`). Firefox reads energy from the kernel v
 block — and that hardware is not exposed to a guest VM. `powermetrics` on the same host
 fails with `cannot find the IO registry entry for IODeviceTree:/arm-io/pmgr`.
 
-| Host | arm64 | Counter exists | Samples | Energy |
-|---|---|---|---|---|
-| Physical Apple Silicon | yes | yes | 465 in a 5.7 s probe | **yes** |
-| GitHub `macos-latest` | yes | yes | **0** | **no** |
-| GitHub `ubuntu-latest` | no | no | n/a | no |
-| Self-hosted Apple Silicon | yes | yes | yes | **yes** |
+| Host | Counter exists | Samples | Energy |
+|---|---|---|---|
+| Physical Apple Silicon | yes | 465 in a 5.7 s probe | **yes** |
+| GitHub `macos-latest` | yes | **0** | **no** |
+| GitHub `ubuntu-latest` | Linux RAPL needs bare metal; the runner is an Azure VM | 0 expected | **no** |
+| Self-hosted Apple Silicon | yes | yes | **yes** |
+
+Linux was previously listed as having no counters at all. That was an assumption, not a
+measurement: Firefox 107 and later read Intel and AMD RAPL counters on Linux. What rules
+the hosted Linux runner out is virtualisation. Every scan now checks for itself — on
+Linux runners it also sets `kernel.perf_event_paranoid=0` first — and the results
+comment states the outcome under **Energy check**. See
+[local-energy.md](local-energy.md) for the machines that do work.
 
 The blocker is virtualisation, not the datacentre. A *physical* Apple Silicon machine
 registered as a self-hosted runner measures energy correctly — and is better than a

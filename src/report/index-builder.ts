@@ -101,6 +101,8 @@ export interface IndexEntry {
   onBattery?: boolean;
   lowPowerMode?: boolean;
   runnerNote?: string;
+  /** Why energy was or was not measured, and the options when it was not. */
+  energyCheck?: NonNullable<BenchmarkResult['capabilities']>['energyCheck'];
   scenarios: IndexScenario[];
   /** Run-level Lighthouse context; per-URL results sit on each scenario. */
   lighthouse?: {
@@ -239,10 +241,12 @@ export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry 
     ...(!energyAvailable
       ? {
           runnerNote:
-            `No power counters on ${env.os}/${env.architecture}. Network, CO2.js and timing ` +
-            'metrics are valid; energy was not measured.',
+            result.capabilities?.energyCheck?.reason ??
+            `No power samples on ${env.os}/${env.architecture}. Network, CO2.js and timing ` +
+              'metrics are valid; energy was not measured.',
         }
       : {}),
+    ...(result.capabilities?.energyCheck ? { energyCheck: result.capabilities.energyCheck } : {}),
     scenarios,
     ...(result.lighthouse ? { lighthouse: lighthouseEntry(result.lighthouse, scenarios) } : {}),
     warnings: result.warnings,

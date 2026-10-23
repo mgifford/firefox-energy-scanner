@@ -10,7 +10,13 @@ import type {
   EnergyAdapterMetadata,
 } from './adapter.js';
 import type { EnergyResult } from '../core/types.js';
-import { collectPowerUnits, energyInWindow, type PowerUnit } from './gecko-profile.js';
+import {
+  collectPowerUnits,
+  energyInWindow,
+  selectPowerUnits,
+  type PowerSelection,
+  type PowerUnit,
+} from './gecko-profile.js';
 
 /**
  * Environment variables that enable session-scoped profiling.
@@ -81,6 +87,7 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
   readonly id = 'firefox-profiler';
 
   private units: PowerUnit[] | null = null;
+  private selection: PowerSelection | null = null;
   private windows = new Map<string, { label: string; start: number; end?: number }>();
   private counter = 0;
 
@@ -89,12 +96,15 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
     private readonly options: FirefoxProfilerOptions = {},
   ) {}
 
+  /**
+   * Scope is only known once the profile has been read: per-process counters
+   * on Apple Silicon, system-wide RAPL domains on Linux, Windows and Intel Macs.
+   */
   metadata(): EnergyAdapterMetadata {
     return {
       id: this.id,
-      description:
-        'Gecko Profiler per-process power counters, summed across Firefox parent and content processes.',
-      scope: 'process',
+      description: this.selection?.basis ?? 'Gecko Profiler power counters.',
+      scope: this.selection?.scope ?? 'process',
       type: 'hardware-estimate',
       unitBasis:
         'Counter samples are picowatt-hours; joules = pWh * 1e-12 * 3600 (firefox-devtools/profiler TrackCounterTooltipFormat.ts).',
@@ -102,23 +112,41 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
   }
 
   async available(): Promise<Availability> {
-    // Power counters are exposed on Apple Silicon macOS and Windows 11.
+    // Firefox has power counters on macOS (Apple Silicon and Intel), Windows 11
+    // and Linux (Intel/AMD RAPL, Firefox 107+).
     //
-    // Platform is necessary but NOT sufficient: a virtualised macOS host (such
-    // as a GitHub-hosted runner) reports arm64 and exposes a power counter that
-    // never emits a sample. Callers should treat this as "may work" and rely on
-    // hasPowerData() after a real run for the definitive answer.
-    if (process.platform === 'darwin' && process.arch === 'arm64') {
+    // Platform is necessary but NOT sufficient: a virtual machine (such as any
+    // GitHub-hosted runner) can expose a counter that never emits a sample.
+    // Treat this as "may work"; hasPowerData() after a real run, or the
+    // `doctor` probe, gives the definitive answer.
+    if (process.platform === 'darwin' || process.platform === 'win32') {
       return { available: true };
     }
-    if (process.platform === 'win32') {
+    if (process.platform === 'linux') {
+      const { linuxRaplStatus } = await import('./probe.js');
+      const rapl = linuxRaplStatus();
+      if (!rapl.pmu) {
+        return {
+          available: false,
+          reason:
+            'No RAPL energy events (/sys/bus/event_source/devices/power/events/energy-*). ' +
+            'Virtual machines, including every GitHub-hosted runner, do not expose them.',
+        };
+      }
+      if (rapl.paranoid === undefined || rapl.paranoid > 0) {
+        return {
+          available: false,
+          needsPrivileges: true,
+          reason:
+            `RAPL is present but kernel.perf_event_paranoid is ${rapl.paranoid ?? 'unreadable'}; ` +
+            'Firefox needs 0 or lower. Run: sudo sysctl kernel.perf_event_paranoid=0',
+        };
+      }
       return { available: true };
     }
     return {
       available: false,
-      reason:
-        `Firefox power counters are not expected on ${process.platform}/${process.arch}. ` +
-        'Verified support: macOS on Apple Silicon, and Windows 11.',
+      reason: `Firefox has no power counters on ${process.platform}/${process.arch}.`,
     };
   }
 
@@ -164,6 +192,8 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
       return results;
     }
     this.units = collectPowerUnits(profile);
+    const selection = selectPowerUnits(this.units);
+    this.selection = selection;
 
     const meta = this.metadata();
     for (const [id, w] of this.windows) {
@@ -177,7 +207,7 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
         adapterId: this.id,
       };
       if (this.units.length > 0) {
-        const { joules, sampleCount } = energyInWindow(this.units, w.start, w.end);
+        const { joules, sampleCount } = energyInWindow(selection.units, w.start, w.end);
         // A counter can exist while producing no samples — notably on
         // virtualised macOS runners, where the host does not expose Apple
         // Silicon power counters to the guest. Reporting 0 J there would
@@ -210,5 +240,15 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
   hasPowerData(): boolean {
     if (!this.units || this.units.length === 0) return false;
     return this.units.some((u) => u.samples.data.length > 0);
+  }
+
+  /** Counter labels found in the profile, for diagnostics. */
+  counterNames(): string[] {
+    return [...new Set((this.units ?? []).map((u) => u.name))];
+  }
+
+  /** What the reported energy covers, once finalize() has run. */
+  powerSelection(): PowerSelection | null {
+    return this.selection;
   }
 }

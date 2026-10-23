@@ -366,6 +366,21 @@
       text(p, entry.runnerNote);
       wrap.appendChild(p);
     }
+    const check = entry.energyCheck;
+    if (!entry.energyAvailable && check && check.nextSteps && check.nextSteps.length) {
+      const details = make('details', 'findings');
+      const summary = make('summary');
+      text(summary, 'Where energy can be measured');
+      details.appendChild(summary);
+      const ul = make('ul');
+      check.nextSteps.forEach(function (step) {
+        const li = make('li');
+        appendWithCode(li, step);
+        ul.appendChild(li);
+      });
+      details.appendChild(ul);
+      wrap.appendChild(details);
+    }
     (entry.warnings || []).slice(0, 3).forEach(function (w) {
       const p = make('p', 'run-warning');
       text(p, w);
@@ -441,6 +456,20 @@
     });
     details.appendChild(ul);
     return details;
+  }
+
+  /** Render `backticked` spans as <code>, everything else as text. */
+  function appendWithCode(el, value) {
+    String(value).split('`').forEach(function (part, i) {
+      if (!part) return;
+      if (i % 2 === 1) {
+        const c = make('code');
+        text(c, part);
+        el.appendChild(c);
+      } else {
+        el.appendChild(document.createTextNode(part));
+      }
+    });
   }
 
   function rating(score) {

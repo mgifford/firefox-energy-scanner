@@ -98,8 +98,11 @@ rejected, so the scanner cannot be pointed at internal networks.
 ## Requirements
 
 - Node.js 20+
-- macOS on Apple Silicon, or Windows 11, for energy measurement
-  (elsewhere the tool still runs and reports timing, bytes, and CO2.js — but no energy)
+- For energy measurement, a **physical** machine: an Apple Silicon Mac (per-process,
+  no setup), bare-metal Linux with an Intel or AMD CPU (one `sysctl`), or Windows 11.
+  Virtual machines, including GitHub-hosted runners, cannot measure energy; the tool
+  still reports timing, bytes, CO2.js and page structure there. Run `doctor` to find out
+  what your machine can do. See [docs/local-energy.md](docs/local-energy.md).
 
 Energy measurement needs **no elevated privileges**.
 
@@ -227,6 +230,7 @@ canvas charts) are generated alongside.
 - [docs/methodology.md](docs/methodology.md) — boundaries and what the numbers mean
 - [docs/energy-measurement.md](docs/energy-measurement.md) — how energy is captured
 - [docs/limitations.md](docs/limitations.md) — confounders and known limits
+- [docs/local-energy.md](docs/local-energy.md) — which machines can measure energy, and how
 - [docs/self-hosted-runner.md](docs/self-hosted-runner.md) — energy measurement in CI
 - [docs/what-costs-energy.md](docs/what-costs-energy.md) — which parts of a page cost most
 - [docs/comparisons.md](docs/comparisons.md) — comparing patches without confounding

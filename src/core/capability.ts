@@ -8,8 +8,9 @@
  *
  * The dividing line is physical power-measurement hardware:
  *
- *   full      physical Apple Silicon (or Windows 11). Firefox's power counters
- *             emit real samples, so energy, baselines and A/B regression work.
+ *   full      the run's own Firefox profile had power samples: physical Apple
+ *             Silicon (per-process), or Windows 11 / bare-metal Linux RAPL
+ *             (whole CPU package). Energy, baselines and A/B regression work.
  *   structural  any other host, including every GitHub-hosted runner. Network,
  *             CO2.js, timings and page structure are all fully valid — none of
  *             them depend on power hardware — but there is no energy.
@@ -56,6 +57,8 @@ export interface CapabilityInput {
   architecture: string;
   /** True when the host is a virtual machine, when known. */
   virtualised?: boolean;
+  /** Probe-derived explanation, preferred over the generic platform text. */
+  reason?: string;
 }
 
 export function describeCapabilities(input: CapabilityInput): Capabilities {
@@ -70,11 +73,13 @@ export function describeCapabilities(input: CapabilityInput): Capabilities {
     };
   }
 
-  const reason = input.virtualised
-    ? `${input.platform}/${input.architecture} is virtualised, and the host does not expose ` +
-      'power-measurement hardware to the guest.'
-    : `${input.platform}/${input.architecture} has no Firefox power counters. ` +
-      'Verified support: physical Apple Silicon macOS, and Windows 11.';
+  const reason =
+    input.reason ??
+    (input.virtualised
+      ? `${input.platform}/${input.architecture} is virtualised, and the host does not expose ` +
+        'power-measurement hardware to the guest.'
+      : `${input.platform}/${input.architecture} produced no Firefox power samples. Firefox has power ` +
+        'counters on physical Apple Silicon Macs, Windows 11, and bare-metal Linux with Intel or AMD RAPL.');
 
   return {
     tier: 'structural',

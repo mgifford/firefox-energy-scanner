@@ -42,9 +42,10 @@
       </dd>
       <dt>Observed client energy</dt>
       <dd>
-        Energy drawn by Firefox's own processes while performing the workload, read
-        from the Gecko Profiler's power counters in picowatt-hours. Measured on the
-        machine running the test.
+        Energy used while Firefox performs the workload, read from the Gecko
+        Profiler's power counters and measured on the machine running the test. On
+        Apple Silicon it covers Firefox's own processes; on Linux and Windows it covers
+        the whole CPU package, with the idle baseline subtracted.
       </dd>
     </dl>
     <p class="note">
@@ -75,8 +76,9 @@
       <li>
         <span class="step-num" aria-hidden="true">2</span>
         <strong>A runner measures it.</strong> A GitHub Action drives Firefox and
-        records network, CO<sub>2</sub>e, timing and page-structure data. Energy needs
-        a self-hosted physical Apple Silicon runner.
+        records network, CO<sub>2</sub>e, timing and page-structure data. It also
+        checks whether that machine can measure energy and says so. Energy needs a
+        physical machine, not one of GitHub's virtual ones.
       </li>
       <li>
         <span class="step-num" aria-hidden="true">3</span>
@@ -137,12 +139,13 @@
       <fieldset class="field">
         <legend>Runner</legend>
         <p class="hint" id="runner-hint">
-          <strong>Only a self-hosted physical Apple Silicon runner can measure
-          energy.</strong> GitHub's hosted macOS runners are virtual machines, and
-          Apple's Virtualization framework does not expose the SoC power-manager
-          hardware to a guest — so Firefox's power counters exist but never produce a
-          sample. Both hosted options report network, CO<sub>2</sub>e, timing and page
-          structure.
+          <strong>Only a physical machine can measure energy.</strong> GitHub's hosted
+          runners are virtual machines, which do not pass power-measurement hardware
+          through, so both hosted options report network, CO<sub>2</sub>e, timing and
+          page structure — each scan checks and states the result. For energy, use the
+          self-hosted runner, or
+          <a href="https://github.com/mgifford/firefox-energy-scanner/blob/main/docs/local-energy.md">run
+          the scanner on your own Mac, Linux or Windows computer</a>.
         </p>
         <div class="radio-row">
           <input type="radio" id="runner-linux" name="runner" value="linux" checked

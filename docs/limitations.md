@@ -6,10 +6,18 @@ Read this before quoting any number from this tool.
 
 ### Platform
 
-Firefox power counters are available on **macOS (Apple Silicon)** and **Windows 11**.
-Elsewhere — including x86-64 Linux, which is what most CI runners are — the profiler
-runs but emits no power category. The tool detects this and reports timing, bytes, and
-CO2.js only. It never fabricates an energy value.
+Firefox has power counters on physical **Apple Silicon Macs** (per-process),
+**Windows 11** and **bare-metal Linux with Intel or AMD RAPL** (whole CPU package; needs
+`kernel.perf_event_paranoid` ≤ 0), and Intel Macs. **Virtual machines**, including every
+GitHub-hosted runner, produce no samples. The tool probes with a real Firefox session,
+reports timing, bytes and CO2.js where it cannot measure, and never fabricates an energy
+value. See [local-energy.md](local-energy.md).
+
+### Scope differs by platform
+
+On Apple Silicon the energy is Firefox's own processes. On Linux, Windows and Intel Macs
+it is the whole CPU package, for every process on the machine, with the idle baseline
+subtracted. Each result records its scope; do not compare results across scopes.
 
 ### URLs that are files, not pages
 
