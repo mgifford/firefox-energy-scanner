@@ -1,0 +1,35 @@
+name: Tests
+
+# Type-check and unit tests on every pull request (including Dependabot's)
+# and on main. A major dependency bump that breaks the build shows up as a
+# failed check on its pull request, before merge, rather than as every scan
+# and Pages deploy failing afterwards.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # A full install: --omit=optional would also drop the platform-specific
+      # native packages the test runner needs. The npm cache keeps it cheap.
+      - run: npm ci
+
+      - run: npm test

@@ -30,7 +30,7 @@ const browserSchema = z
     viewport: viewportSchema.default({ width: 1440, height: 900 }),
   })
   .strict()
-  .default({});
+  .prefault({});
 
 const authSchema = z
   .object({
@@ -49,7 +49,7 @@ const benchmarkSchema = z
     cache_mode: z.enum(['warm', 'cold-context', 'new-browser']).default('warm'),
   })
   .strict()
-  .default({});
+  .prefault({});
 
 const stabilitySchema = z
   .object({
@@ -58,7 +58,7 @@ const stabilitySchema = z
     max_wait_ms: z.number().int().min(0).default(10000),
   })
   .strict()
-  .default({});
+  .prefault({});
 
 const crawlSchema = z
   .object({
@@ -73,7 +73,7 @@ const crawlSchema = z
     delay_ms: z.number().int().min(0).default(250),
   })
   .strict()
-  .default({});
+  .prefault({});
 
 const energySchema = z
   .object({
@@ -91,7 +91,7 @@ const energySchema = z
     retain_profile: z.boolean().default(false),
   })
   .strict()
-  .default({});
+  .prefault({});
 
 const co2Schema = z
   .object({
@@ -100,7 +100,7 @@ const co2Schema = z
     check_green_hosting: z.boolean().default(false),
   })
   .strict()
-  .default({});
+  .prefault({});
 
 const outputSchema = z
   .object({
@@ -111,7 +111,7 @@ const outputSchema = z
     collect_hostname: z.boolean().default(false),
   })
   .strict()
-  .default({});
+  .prefault({});
 
 export const configSchema = z
   .object({
@@ -123,7 +123,7 @@ export const configSchema = z
     crawl: crawlSchema,
     energy: energySchema,
     co2: co2Schema,
-    sitespeed: z.object({ enabled: z.boolean().default(false) }).strict().default({}),
+    sitespeed: z.object({ enabled: z.boolean().default(false) }).strict().prefault({}),
     output: outputSchema,
   })
   .strict();

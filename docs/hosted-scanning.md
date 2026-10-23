@@ -131,11 +131,26 @@ Issue bodies are untrusted public input, so:
 
 ## What gets published
 
-Result JSON is committed to `site/results/`. After each scan the workflow starts the
-Pages deploy, which builds `results/index.json` from those files and publishes the site.
-(Commits made by the workflow's own token cannot trigger other workflows, so before this
-the site only updated when someone pushed by hand.) The index is not tracked in git:
-concurrent scans each rewrote it and conflicted on push. Build it locally with
+Results are reviewed before they are published. Nothing is pushed to `main` by the
+workflow:
+
+- Each scan commits its result files to **one long-lived branch, `scan-results`**.
+- **One pull request** from that branch collects every scan until it is merged. Its
+  description lists the issue behind each result. The scan's own comment links to it.
+- **Merging publishes.** The merge is a push to `main`, which runs the Pages deploy; that
+  rebuilds `results/index.json` from the result files and publishes the site.
+- After a merge, the next scan resets `scan-results` to `main` and opens a fresh pull
+  request, so there is never more than one results branch or results pull request. If a
+  results pull request is closed without merging, its results stay on the branch and
+  roll into the next one.
+
+The workflow needs **Settings → Actions → General → Workflow permissions → Allow GitHub
+Actions to create and approve pull requests** to open that pull request. If it is off, the
+results are still pushed to the branch and the scan comment links to a page where you can
+open the pull request yourself.
+
+The index is not tracked in git, because concurrent scans each rewrote it. Build it
+locally with
 `node dist/cli/index.js build-index --dir site/results --out site/results/index.json`.
 
 Published results contain no credentials, cookies, session tokens, or hostnames.

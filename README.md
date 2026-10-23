@@ -68,7 +68,8 @@ Only the energy questions need a Mac.
 **<https://mgifford.github.io/firefox-energy-scanner/>**
 
 Request a scan through the web form (or by opening a `SCAN:` issue) and a GitHub
-Action runs it and publishes the results back to the site.
+Action runs it, comments the results on the issue, and adds them to a single rolling
+**Scan results** pull request. Merging that pull request publishes them to the site.
 
 Runner capability was measured, not assumed:
 
