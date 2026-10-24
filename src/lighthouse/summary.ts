@@ -62,7 +62,11 @@ export interface LhrAudit {
     type?: string;
     overallSavingsMs?: number;
     overallSavingsBytes?: number;
-    items?: Record<string, unknown>[];
+    /**
+     * An array for table and list details, but an object for others (the
+     * "checklist" type, e.g. document-latency-insight). Read through rows().
+     */
+    items?: unknown;
   };
 }
 
@@ -164,6 +168,12 @@ const score100 = (s: number | null | undefined): number | undefined =>
 const finite = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 
+/** An audit's detail rows, or none when its details are not a table. */
+function rows(audit: LhrAudit | undefined): Record<string, unknown>[] {
+  const items = audit?.details?.items;
+  return Array.isArray(items) ? items.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object') : [];
+}
+
 /** First markdown link in an audit description: Lighthouse's "Learn more". */
 function learnMoreLink(description: string | undefined): string | undefined {
   const m = /\]\((https:\/\/[^)\s]+)\)/.exec(description ?? '');
@@ -174,7 +184,7 @@ function learnMoreLink(description: string | undefined): string | undefined {
 function savedBytes(audit: LhrAudit): number | undefined {
   const overall = finite(audit.details?.overallSavingsBytes);
   if (overall !== undefined) return overall > 0 ? overall : undefined;
-  const items = audit.details?.items ?? [];
+  const items = rows(audit);
   const sum = items.reduce((acc, it) => acc + (finite(it['wastedBytes']) ?? 0), 0);
   return sum > 0 ? sum : undefined;
 }
@@ -206,8 +216,16 @@ export function extractRecommendations(lhr: Lhr): LighthouseRecommendation[] {
     if (typeof audit.score !== 'number' || audit.score >= PASS_THRESHOLD) continue;
     if (['notApplicable', 'manual', 'error', 'informative'].includes(audit.scoreDisplayMode)) continue;
 
-    const ms = savedMs(audit);
-    const bytes = savedBytes(audit);
+    // One unexpected audit shape must cost that audit's savings figures,
+    // not the whole Lighthouse result.
+    let ms: number | undefined;
+    let bytes: number | undefined;
+    try {
+      ms = savedMs(audit);
+      bytes = savedBytes(audit);
+    } catch {
+      ms = bytes = undefined;
+    }
     const learnMore = learnMoreLink(audit.description);
     out.push({
       id: audit.id,
@@ -235,7 +253,7 @@ function clean(s: string): string {
 
 function extractWork(lhr: Lhr): LighthouseWork {
   const a = lhr.audits;
-  const breakdown = (a['mainthread-work-breakdown']?.details?.items ?? [])
+  const breakdown = rows(a['mainthread-work-breakdown'])
     .map((it) => ({
       category: String(it['groupLabel'] ?? it['group'] ?? 'Other'),
       ms: Math.round(finite(it['duration']) ?? 0),
@@ -243,7 +261,7 @@ function extractWork(lhr: Lhr): LighthouseWork {
     .filter((x) => x.ms > 0)
     .sort((x, y) => y.ms - x.ms);
 
-  const thirdParties = (a['third-parties-insight']?.details?.items ?? [])
+  const thirdParties = rows(a['third-parties-insight'])
     .map((it) => {
       const entity = it['entity'];
       const name =
@@ -265,7 +283,7 @@ function extractWork(lhr: Lhr): LighthouseWork {
     .filter((x): x is NonNullable<typeof x> => x !== undefined)
     .slice(0, 8);
 
-  const domElements = (a['dom-size-insight']?.details?.items ?? []).find(
+  const domElements = rows(a['dom-size-insight']).find(
     (it) => it['statistic'] === 'Total elements',
   );
   const domValue = domElements?.['value'];
@@ -286,6 +304,14 @@ function extractWork(lhr: Lhr): LighthouseWork {
   set('domElements', round(dom));
   if (thirdParties.length) set('thirdParties', thirdParties);
   return work;
+}
+
+function safely<T>(fn: () => T, fallback: T): T {
+  try {
+    return fn();
+  } catch {
+    return fallback;
+  }
 }
 
 const round = (v: number | undefined): number | undefined =>
@@ -338,7 +364,7 @@ export function summarizeLhr(lhr: Lhr, requestedUrl: string): LighthouseRunSumma
     metrics,
     recommendations: lhr.runtimeError ? [] : extractRecommendations(lhr),
     failingAudits,
-    work: lhr.runtimeError ? {} : extractWork(lhr),
+    work: lhr.runtimeError ? {} : safely(() => extractWork(lhr), {}),
     ...(benchmarkIndex !== undefined ? { benchmarkIndex: Math.round(benchmarkIndex) } : {}),
     warnings: (lhr.runWarnings ?? []).map(clean),
   };
