@@ -13,7 +13,7 @@
  * npx playwright install firefox)
  */
 import http from 'node:http';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -73,11 +73,25 @@ const check = (ok, message) => {
   }
 };
 
-function run(args, outDir) {
-  const r = spawnSync('node', ['dist/cli/index.js', ...args, '--headless', '--no-energy', '--out', outDir], {
-    encoding: 'utf8',
-    timeout: 5 * 60 * 1000,
+// Asynchronous on purpose: the test site is served by this same process, so
+// a blocking spawnSync would stop it answering while the scanner runs.
+function exec(cmd, args) {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += d));
+    child.stderr.on('data', (d) => (stderr += d));
+    const timer = setTimeout(() => child.kill('SIGKILL'), 5 * 60 * 1000);
+    child.on('close', (status) => {
+      clearTimeout(timer);
+      resolve({ status, stdout, stderr });
+    });
   });
+}
+
+async function run(args, outDir) {
+  const r = await exec('node', ['dist/cli/index.js', ...args, '--headless', '--no-energy', '--out', outDir]);
   if (r.status !== 0) {
     console.log(r.stdout, r.stderr);
     annotate('error', `${args[0]} exited ${r.status}: ${(r.stderr || r.stdout || '').trim().slice(-800)}`);
@@ -89,7 +103,7 @@ function run(args, outDir) {
 await new Promise((resolve) => server.listen(PORT, '127.0.0.1', resolve));
 try {
   // 1. Crawl from the bare domain, which redirects to www.
-  const crawl = run(['crawl', `${BARE}/`, '--max-pages', '20'], mkdtempSync(join(tmpdir(), 'crawl-')));
+  const crawl = await run(['crawl', `${BARE}/`, '--max-pages', '20'], mkdtempSync(join(tmpdir(), 'crawl-')));
   check(crawl !== null, 'crawl wrote a result');
   const pages = (crawl?.scenarios ?? []).filter((s) => s.valid).map((s) => s.url ?? s.step);
   const paths = pages.map((u) => new URL(u).pathname.replace(/\/$/, '') || '/').sort();
@@ -104,7 +118,7 @@ try {
   check(!(crawl?.scenarios ?? []).some((s) => s.step.endsWith('.pdf')), 'crawl skipped the PDF link');
 
   // 2. A list that includes a PDF directly.
-  const list = run(['measure', `${WWW}/en/`, `${WWW}/docs/report.pdf`, '--runs', '1', '--warmups', '0'],
+  const list = await run(['measure', `${WWW}/en/`, `${WWW}/docs/report.pdf`, '--runs', '1', '--warmups', '0'],
     mkdtempSync(join(tmpdir(), 'list-')));
   const pdf = (list?.scenarios ?? []).find((s) => s.step.endsWith('.pdf'));
   check(!!pdf && pdf.valid === false && /^Not a web page/.test(pdf.warnings[0] ?? ''), 'a listed PDF is reported as not a web page');
