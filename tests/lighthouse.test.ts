@@ -301,9 +301,15 @@ describe('pickLighthouseUrls', () => {
     step('https://example.org/broken', 0, false, 'Step failed: net::ERR_NAME_NOT_RESOLVED'),
   ];
 
-  it('skips file downloads in measure mode but keeps other failures', () => {
-    const r = pickLighthouseUrls(steps, steps.map((s) => s.step), 'measure', 10);
+  it('audits every listed page except file downloads when there is no limit', () => {
+    const r = pickLighthouseUrls(steps, steps.map((s) => s.step), 'measure', undefined);
     expect(r.urls).toEqual(['https://example.org/', 'https://example.org/big', 'https://example.org/broken']);
+    expect(r.skipped).toEqual(['https://example.org/report']);
+  });
+
+  it('audits only the heaviest listed pages when limited', () => {
+    const r = pickLighthouseUrls(steps, steps.map((s) => s.step), 'measure', 1);
+    expect(r.urls).toEqual(['https://example.org/big']);
     expect(r.skipped).toEqual(['https://example.org/report']);
   });
 

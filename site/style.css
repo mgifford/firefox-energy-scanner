@@ -294,3 +294,9 @@ td.failed-note { text-align: left; min-width: 16rem; }
 .lh-note { font-size: .85rem; }
 .lh-sitewide { margin: .35rem 0 0; padding-left: 1.2rem; }
 .lh-sitewide li { margin-bottom: .4rem; font-size: .9rem; }
+
+/* "More options" disclosure on the request form. */
+.more-options { border: 1px solid var(--line); padding: .75rem 1rem; }
+.more-options > summary { cursor: pointer; font-weight: 600; }
+.more-options[open] > summary { margin-bottom: 1rem; }
+.more-options .field:last-child { margin-bottom: 0; }

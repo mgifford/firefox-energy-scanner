@@ -68,9 +68,9 @@ describe('judgeEnergy', () => {
     ({ platform: 'linux', arch: 'x64', virtualised: false, linux: rapl, ...over }) as HostFacts;
 
   it('reports energy when Firefox recorded samples, whatever the platform guessed', () => {
-    const j = judgeEnergy(linux(), { samples: 420, counters: ['Power: CPU package'], scope: 'cpu-package' });
+    const j = judgeEnergy(linux(), { samples: 420, joules: 1.234, windowMs: 1500, counters: ['Power: CPU package'], scope: 'cpu-package' });
     expect(j.verdict).toBe('energy');
-    expect(j.reason).toMatch(/420 power samples/);
+    expect(j.reason).toMatch(/420 power samples \(1\.23 J over 1\.5 s of test work\)/);
     expect(j.reason).toMatch(/whole-CPU-package/);
     expect(j.nextSteps.join(' ')).toMatch(/Close other applications/);
   });

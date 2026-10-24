@@ -5,23 +5,42 @@
   'use strict';
 
   const REPO = 'mgifford/firefox-energy-scanner';
-  const MAX_URLS = 20;
+  const MAX_URLS = 200;
 
   /* ---------------------------------------------------------------- form */
 
   const form = document.getElementById('scan-form');
   const status = document.getElementById('form-status');
 
+  // Must match the issue template's option labels exactly: the parser reads
+  // the label text (tests/issue-parser.test.ts checks every option).
+  const LABELS = {
+    lighthouse: {
+      'performance-top': 'Performance — the 10 heaviest pages',
+      'performance-every': 'Performance — every page (slower)',
+      'all-top': 'All categories — the 10 heaviest pages',
+      none: 'No',
+    },
+    what: {
+      auto: 'Auto — one URL crawls its site; several URLs scan just those',
+      only: 'Only the listed URLs',
+      crawl: 'Crawl the site from the first URL',
+    },
+    where: {
+      auto: "Auto — an energy-measuring machine if one is set up, otherwise GitHub's cloud",
+      cloud: "GitHub's cloud only (no energy)",
+    },
+  };
+
   /**
    * Only public http(s) URLs are accepted. Localhost and private ranges are
    * rejected because a hosted runner cannot reach them, and accepting them
-   * would invite pointing the scanner at internal hosts.
+   * would invite pointing the scanner at internal hosts. The server checks
+   * again; this is for immediate feedback.
    */
-  function validateUrls(raw, mode) {
-    const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
+  function validateUrls(raw) {
+    const lines = raw.split(/[\n,]+/).map((l) => l.trim()).filter(Boolean);
     if (lines.length === 0) return { error: 'Enter at least one URL.' };
-    // More than MAX_URLS is allowed: the first MAX_URLS are scanned and the
-    // rest are listed as "not scanned" in the results, so nothing is lost.
     const bad = [];
     for (const line of lines) {
       let u;
@@ -48,135 +67,88 @@
     if (bad.length > 0) {
       return { error: 'Not public web URLs: ' + bad.slice(0, 3).join(', ') + (bad.length > 3 ? '…' : '') };
     }
-    // Crawl mode starts from a single page; extra URLs would be ignored.
-    return { urls: mode === 'crawl' ? lines.slice(0, 1) : lines };
+    return { urls: lines };
   }
 
-  function currentMode() {
-    const el = document.querySelector('input[name="mode"]:checked');
-    return el ? el.value : 'measure';
+  function value(id, fallback) {
+    const el = document.getElementById(id);
+    return (el && el.value) || fallback;
+  }
+
+  /** Mirrors chooseMode() in issue-parser.ts. */
+  function willCrawl(urlCount) {
+    const what = value('what', 'auto');
+    return what === 'crawl' || (what === 'auto' && urlCount === 1);
   }
 
   /**
-   * Mirror the server-side runtime estimate so the cost of a request is visible
-   * before it is filed. Keep in sync with estimateMinutes() in issue-parser.ts.
+   * Mirrors estimateMinutes() in issue-parser.ts for GitHub's cloud: one visit
+   * per page (~4.4 s), plus ~25 s per Lighthouse page.
    */
-  function estimateMinutes(mode, urlCount, runs, pages, lighthouse) {
-    const perRunSeconds = 2.4 + 2.0;
-    const baselineSeconds = 15;
-    const p = mode === 'crawl' ? pages : urlCount;
-    const runsPerPage = mode === 'crawl' ? 1 : runs + 2;
-    // Lighthouse: 3 runs per URL in measure mode; the 10 heaviest pages once
-    // each in crawl mode; ~25 s per run.
-    const lhSeconds = !lighthouse || lighthouse === 'none' ? 0
-      : mode === 'crawl' ? Math.min(pages, 10) * 25 : urlCount * 3 * 25;
-    return (baselineSeconds + p * runsPerPage * perRunSeconds + lhSeconds) / 60;
-  }
-
-  function updateFormMode() {
-    const mode = currentMode();
-    const crawlFields = document.getElementById('crawl-fields');
-    const runsField = document.getElementById('runs-field');
-    const urlsHint = document.getElementById('urls-hint');
-
-    if (crawlFields) crawlFields.hidden = mode !== 'crawl';
-    if (runsField) runsField.hidden = mode === 'crawl';
-    if (urlsHint) {
-      urlsHint.textContent = mode === 'crawl'
-        ? 'One public http:// or https:// URL — the page the crawl starts from.'
-        : 'One public http:// or https:// URL per line. The first 20 are scanned; any more are listed in the results as not scanned.';
-    }
-    updateEstimate();
+  function estimateMinutes(urlCount, pages, lighthouse) {
+    const crawl = willCrawl(urlCount);
+    const scanned = crawl ? pages : Math.min(urlCount, MAX_URLS);
+    const audited = lighthouse === 'none' ? 0
+      : lighthouse === 'performance-every' ? scanned : Math.min(scanned, 10);
+    return (15 + scanned * 4.4 + audited * 25) / 60;
   }
 
   function updateEstimate() {
     const el = document.getElementById('estimate');
     if (!el) return;
-    const mode = currentMode();
-    const listed = (document.getElementById('urls').value || '')
-      .split('\n').map(function (s) { return s.trim(); }).filter(Boolean).length;
-    const urlCount = Math.min(listed, MAX_URLS);
-    const runs = parseInt(document.getElementById('runs').value, 10) || 8;
-    const pages = parseInt(document.getElementById('max-pages').value, 10) || 50;
-    const lhEl = document.getElementById('lighthouse');
-    const lighthouse = lhEl ? lhEl.value : 'none';
-
-    if (mode === 'measure' && urlCount === 0) { el.textContent = ''; return; }
-    const minutes = estimateMinutes(mode, urlCount, runs, pages, lighthouse);
+    const listed = (value('urls', '')).split(/[\n,]+/).map(function (s) { return s.trim(); }).filter(Boolean).length;
+    if (listed === 0) { el.textContent = ''; return; }
+    const pages = parseInt(value('max-pages', '50'), 10) || 50;
+    const minutes = estimateMinutes(listed, pages, value('lighthouse', 'performance-top'));
     const rounded = minutes < 1 ? '<1' : String(Math.round(minutes));
-    el.textContent = 'Estimated runtime: about ' + rounded + ' minute' +
-      (rounded === '1' ? '' : 's') + '.' +
-      (mode === 'measure' && listed > MAX_URLS
-        ? ' ' + listed + ' URLs listed: the first ' + MAX_URLS + ' will be scanned and the other ' +
-          (listed - MAX_URLS) + ' listed as not scanned.'
-        : '') +
-      (minutes > 90 ? ' That exceeds the 90-minute budget and will be rejected.' : '');
-    el.className = minutes > 90 ? 'estimate over' : 'estimate';
+    const what = willCrawl(listed)
+      ? 'Crawls the site from that URL, up to ' + pages + ' pages.'
+      : 'Scans ' + Math.min(listed, MAX_URLS) + ' listed page' + (listed === 1 ? '' : 's') + '.' +
+        (listed > MAX_URLS ? ' The other ' + (listed - MAX_URLS) + ' will be listed as not scanned.' : '');
+    el.textContent = what + ' About ' + rounded + ' minute' + (rounded === '1' ? '' : 's') + '.';
+    el.className = 'estimate';
   }
 
   if (form) {
-    ['mode-measure', 'mode-crawl'].forEach(function (id) {
+    ['urls', 'max-pages'].forEach(function (id) {
       const el = document.getElementById(id);
-      if (el) el.addEventListener('change', updateFormMode);
+      if (el) el.addEventListener('input', updateEstimate);
     });
-    ['urls', 'runs', 'max-pages', 'lighthouse'].forEach(function (id) {
+    ['lighthouse', 'what', 'where'].forEach(function (id) {
       const el = document.getElementById(id);
-      if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', updateEstimate);
+      if (el) el.addEventListener('change', updateEstimate);
     });
-    updateFormMode();
+    updateEstimate();
 
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       status.textContent = '';
 
-      const mode = currentMode();
-      const result = validateUrls(document.getElementById('urls').value, mode);
+      const result = validateUrls(value('urls', ''));
       if (result.error) {
         status.textContent = result.error;
         document.getElementById('urls').focus();
         return;
       }
 
-      const title = document.getElementById('title').value.trim();
+      const title = value('title', '').trim();
       if (!title) {
         status.textContent = 'Add a short description for the issue title.';
         document.getElementById('title').focus();
         return;
       }
 
-      const runner = (document.querySelector('input[name="runner"]:checked') || {}).value || 'linux';
-      const runs = document.getElementById('runs').value || '8';
-      const maxPages = document.getElementById('max-pages').value || '50';
-      const include = document.getElementById('include').value.trim();
-      const viewport = document.getElementById('viewport').value;
-      const lighthouse = (document.getElementById('lighthouse') || {}).value || 'none';
-
       // Field ids here must match the issue template's field ids so GitHub
       // pre-fills the form correctly.
       const params = new URLSearchParams();
       params.set('template', 'scan-request.yml');
       params.set('title', 'SCAN: ' + title);
-      params.set('mode', mode === 'crawl'
-        ? 'crawl — follow links from one URL, once each (up to 200 pages)'
-        : 'measure — repeat a few URLs many times (up to 20 URLs)');
       params.set('urls', result.urls.join('\n'));
-      params.set('runner',
-        runner === 'self-hosted'
-          ? 'self-hosted — physical Apple Silicon, includes ENERGY'
-          : runner === 'macos'
-            ? 'macos — structural only, desktop-like browser profile'
-            : 'linux — structural only (fastest, always available)');
-      params.set('runs', String(runs));
-      params.set('max-pages', String(maxPages));
-      if (include) params.set('include', include);
-      params.set('viewport', viewport);
-      // Must match the issue template's option labels exactly.
-      params.set('lighthouse',
-        lighthouse === 'all'
-          ? 'All — performance, accessibility, best practices and SEO'
-          : lighthouse === 'performance'
-            ? 'Performance — score, metrics and recommendations'
-            : 'No');
+      params.set('lighthouse', LABELS.lighthouse[value('lighthouse', 'performance-top')]);
+      params.set('viewport', value('viewport', 'Desktop (1280x800)'));
+      params.set('what', LABELS.what[value('what', 'auto')]);
+      params.set('max-pages', String(parseInt(value('max-pages', '50'), 10) || 50));
+      params.set('where', LABELS.where[value('where', 'auto')]);
 
       const url = 'https://github.com/' + REPO + '/issues/new?' + params.toString();
 

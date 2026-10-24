@@ -63,8 +63,10 @@ jobs:
       viewport_height: ${{ steps.parse.outputs.viewport_height }}
       lighthouse: ${{ steps.parse.outputs.lighthouse }}
       lighthouse_runs: ${{ steps.parse.outputs.lighthouse_runs }}
+      lighthouse_scope: ${{ steps.parse.outputs.lighthouse_scope }}
+      runs_on: ${{ steps.parse.outputs.runs_on }}
+      energy_machine: ${{ steps.parse.outputs.energy_machine }}
       issue: ${{ steps.parse.outputs.issue }}
-      runner_available: ${{ steps.runner-check.outputs.available }}
       valid: ${{ steps.parse.outputs.valid }}
       errors: ${{ steps.parse.outputs.errors }}
       notes: ${{ steps.parse.outputs.notes }}
@@ -111,6 +113,10 @@ jobs:
         id: parse
         env:
           ISSUE_NUMBER: ${{ steps.body.outputs.number }}
+          # Labels of this repository's energy-measuring machine, if one is
+          # registered, e.g. "self-hosted,macOS,ARM64". GitHub's own token
+          # cannot list runners, so the repository says so explicitly.
+          ENERGY_RUNNER: ${{ vars.ENERGY_RUNNER }}
         run: |
           set +e
           node dist/cli/index.js parse-issue --file issue-body.txt > request.json
@@ -141,6 +147,16 @@ jobs:
           set('viewport_height', String(r.viewport.height));
           set('lighthouse', r.lighthouse);
           set('lighthouse_runs', String(r.lighthouseRuns));
+          set('lighthouse_scope', r.lighthouseScope);
+          // Where to run. Every GitHub-hosted machine is a virtual machine and
+          // cannot measure energy (tested: the Energy probe workflow), so
+          // "auto" means the repository's own machine when one is set up.
+          const labels = (process.env.ENERGY_RUNNER || '').split(',').map((l) => l.trim()).filter(Boolean);
+          const labelsOk = labels.length > 0 && labels.every((l) => /^[\w.-]+$/.test(l));
+          const energyMachine = r.runner === 'auto' && labelsOk;
+          set('energy_machine', energyMachine ? 'true' : 'false');
+          set('energy_labels', labels.join(', '));
+          set('runs_on', JSON.stringify(energyMachine ? labels : r.runner === 'macos' ? 'macos-latest' : 'ubuntu-latest'));
           set('valid', r.errors.length === 0 && r.urls.length > 0 ? 'true' : 'false');
           set('url_count', String(r.urls.length));
           set('not_scanned_count', String((r.notScanned ?? []).length));
@@ -162,6 +178,10 @@ jobs:
           ESTIMATE: ${{ steps.parse.outputs.estimate }}
           URL_COUNT: ${{ steps.parse.outputs.url_count }}
           NOT_SCANNED_COUNT: ${{ steps.parse.outputs.not_scanned_count }}
+          SCAN_MODE: ${{ steps.parse.outputs.mode }}
+          MAX_PAGES: ${{ steps.parse.outputs.max_pages }}
+          ENERGY_MACHINE: ${{ steps.parse.outputs.energy_machine }}
+          ENERGY_LABELS: ${{ steps.parse.outputs.energy_labels }}
         with:
           script: |
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
@@ -171,8 +191,13 @@ jobs:
               repo: context.repo.repo,
               issue_number: Number(process.env.ISSUE_NUMBER),
               body: [
-                `**Scan started** for ${process.env.URL_COUNT} URL${process.env.URL_COUNT === '1' ? '' : 's'}` +
-                  ` — about ${process.env.ESTIMATE} min of scanning. [Follow the run](${run}).`,
+                (process.env.SCAN_MODE === 'crawl'
+                  ? `**Scan started:** crawling the site, up to ${process.env.MAX_PAGES} pages`
+                  : `**Scan started** for ${process.env.URL_COUNT} page${process.env.URL_COUNT === '1' ? '' : 's'}`) +
+                  ` — about ${process.env.ESTIMATE} min. [Follow the run](${run}).`,
+                process.env.ENERGY_MACHINE === 'true'
+                  ? `Running on this repository's energy-measuring machine (\`${process.env.ENERGY_LABELS}\`); it starts when that machine is free.`
+                  : "Running in GitHub's cloud, which cannot measure energy, so each page is visited once.",
                 skipped
                   ? `${skipped} listed URL${skipped === 1 ? ' is' : 's are'} not included; the results will list ${skipped === 1 ? 'it' : 'them'}.`
                   : null,
@@ -180,40 +205,12 @@ jobs:
               ].filter(Boolean).join('\n\n'),
             });
 
-      # A self-hosted job queues indefinitely when no runner is registered, so
-      # check first and fall back rather than leaving the request hanging.
-      - name: Check for a registered self-hosted runner
-        id: runner-check
-        if: steps.parse.outputs.runner == 'self-hosted'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            let available = false;
-            try {
-              const { data } = await github.rest.actions.listSelfHostedRunnersForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-              });
-              // Busy is fine: the job waits for the machine. Only an offline
-              // runner means falling back, rather than queuing forever.
-              available = (data.runners || []).some((r) => r.status === 'online');
-              core.info(`self-hosted runners: ${data.total_count}, usable: ${available}`);
-            } catch (err) {
-              // Token may lack admin scope; assume unavailable rather than hang.
-              core.warning(`Could not list self-hosted runners: ${err.message}`);
-            }
-            core.setOutput('available', available ? 'true' : 'false');
-
   scan:
     needs: prepare
     if: needs.prepare.outputs.valid == 'true'
-    # Only a registered self-hosted macOS runner can measure energy. If one was
-    # requested but is not online, fall back to a hosted runner so the request
-    # still returns structural results instead of queuing forever.
-    runs-on: >-
-      ${{ (needs.prepare.outputs.runner == 'self-hosted' && needs.prepare.outputs.runner_available == 'true')
-          && fromJSON('["self-hosted","macOS","ARM64"]')
-          || (needs.prepare.outputs.runner == 'macos' && 'macos-latest' || 'ubuntu-latest') }}
+    # Chosen by the prepare job: the repository's energy-measuring machine when
+    # ENERGY_RUNNER names one, otherwise GitHub's cloud.
+    runs-on: ${{ fromJSON(needs.prepare.outputs.runs_on) }}
     # The request budget is 90 minutes of scanning; this leaves room for
     # checkout, install, commit and comment without hitting the 360-minute cap.
     timeout-minutes: 120
@@ -276,6 +273,8 @@ jobs:
           SCAN_VIEWPORT: ${{ needs.prepare.outputs.viewport_width }}x${{ needs.prepare.outputs.viewport_height }}
           SCAN_LIGHTHOUSE: ${{ needs.prepare.outputs.lighthouse }}
           SCAN_LIGHTHOUSE_RUNS: ${{ needs.prepare.outputs.lighthouse_runs }}
+          SCAN_LIGHTHOUSE_SCOPE: ${{ needs.prepare.outputs.lighthouse_scope }}
+          ENERGY_MACHINE: ${{ needs.prepare.outputs.energy_machine }}
         run: |
           mkdir -p site/results
           # URLs come from an env var and are passed as argv, never interpolated
@@ -283,6 +282,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { spawnSync } from 'node:child_process';
           import { readdirSync, appendFileSync } from 'node:fs';
+          import { planRuns } from './dist/cli/issue-parser.js';
           const urls = (process.env.SCAN_URLS || '').split('\n').map(s => s.trim()).filter(Boolean);
           if (urls.length === 0) { console.error('no urls'); process.exit(1); }
 
@@ -297,9 +297,13 @@ jobs:
           const lighthouse = lh === 'performance' || lh === 'all'
             ? ['--lighthouse',
                '--lighthouse-categories', lh === 'all' ? 'all' : 'performance',
-               '--lighthouse-runs', process.env.SCAN_LIGHTHOUSE_RUNS || '3',
+               '--lighthouse-runs', process.env.SCAN_LIGHTHOUSE_RUNS || '1',
+               '--lighthouse-top', process.env.SCAN_LIGHTHOUSE_SCOPE === 'every' ? 'all' : '10',
                '--lighthouse-reports', 'lighthouse-reports']
             : [];
+          // One cold visit per page in the cloud; repeated runs only where
+          // energy can be measured, scaled to fit the budget.
+          const plan = planRuns(urls.length, process.env.ENERGY_MACHINE === 'true', Number(process.env.SCAN_RUNS) || undefined);
           const args = mode === 'crawl'
             ? ['dist/cli/index.js', 'crawl', urls[0],
                '--max-pages', process.env.SCAN_MAX_PAGES || '50',
@@ -307,12 +311,12 @@ jobs:
                ...viewport, ...lighthouse,
                '--headless', '--out', 'site/results']
             : ['dist/cli/index.js', 'measure', ...urls,
-               '--runs', process.env.SCAN_RUNS || '8',
-               '--warmups', '2',
+               '--runs', String(plan.runs),
+               '--warmups', String(plan.warmups),
                ...viewport, ...lighthouse,
                '--headless', '--out', 'site/results'];
 
-          console.log('mode:', mode, '| targets:', urls.length);
+          console.log('mode:', mode, '| targets:', urls.length, '| runs:', plan.runs, '| warmups:', plan.warmups);
           const before = new Set(readdirSync('site/results'));
           // Below the 90-minute request budget, leaving room for setup/commit.
           const r = spawnSync('node', args, { stdio: 'inherit', timeout: 95 * 60 * 1000 });
@@ -444,7 +448,7 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
           REQUESTED_RUNNER: ${{ needs.prepare.outputs.runner }}
-          RUNNER_AVAILABLE: ${{ needs.prepare.outputs.runner_available }}
+          ENERGY_MACHINE: ${{ needs.prepare.outputs.energy_machine }}
           SCAN_MODE: ${{ needs.prepare.outputs.mode }}
           PARSER_NOTES: ${{ needs.prepare.outputs.notes }}
           NOT_SCANNED: ${{ needs.prepare.outputs.not_scanned }}
@@ -456,10 +460,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const requestedRunner = process.env.REQUESTED_RUNNER;
-            const selfHostedUsed =
-              requestedRunner === 'self-hosted' && process.env.RUNNER_AVAILABLE === 'true';
-            const fellBack = requestedRunner === 'self-hosted' && !selfHostedUsed;
+            const onEnergyMachine = process.env.ENERGY_MACHINE === 'true';
+            const noEnergyMachine = process.env.REQUESTED_RUNNER === 'auto' && !onEnergyMachine;
 
             // Listed URLs this scan left out (over the limit, not public, extra
             // crawl starts). Shown in code spans: the text comes from the issue,
@@ -623,12 +625,10 @@ jobs:
               'interchangeable. The measurement boundary is the client machine only — nothing here',
               'measures server or data-centre energy.',
               '',
-              isCrawl
-                ? '_Crawl mode measures each page **once**. That is enough to rank pages and find outliers, but a single run cannot separate a real difference from noise — use measure mode for comparisons._'
-                : null,
-              fellBack
-                ? '_A self-hosted runner was requested but none was online, so this ran on a hosted runner._'
-                : null,
+              onEnergyMachine
+                ? null
+                : "_Ran in GitHub's cloud, visiting each page once. GitHub-hosted machines are virtual machines and cannot measure energy — tested on all six types by the Energy probe workflow._" +
+                  (noEnergyMachine ? ' _No energy-measuring machine is set up for this repository (see docs/local-energy.md)._' : ''),
               // The run's own energy check: what this machine could measure,
               // and if nothing, why not and where it would work.
               energyMeasured

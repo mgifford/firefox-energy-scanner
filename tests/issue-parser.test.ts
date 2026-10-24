@@ -6,7 +6,10 @@ import {
   parseViewport,
   estimateMinutes,
   parseLighthouseChoice,
+  planRuns,
   LIGHTHOUSE_SECONDS_PER_RUN,
+  LIGHTHOUSE_TOP_PAGES,
+  DEFAULT_RUNS,
   MAX_URLS,
   MAX_RUNS,
   MAX_CRAWL_PAGES,
@@ -105,48 +108,104 @@ describe('extractSection', () => {
   });
 });
 
-describe('parseScanRequest', () => {
-  const build = (urls: string[], runner = 'macos', runs = '8', mode = 'measure') =>
-    ['### Scan mode', '', mode, '', '### URLs', '', ...urls, '', '### Measurement type', '', runner,
-     '', '### Measured runs per URL', '', runs, ''].join('\n');
 
-  it('parses a well-formed request', () => {
-    const r = parseScanRequest(build(['https://a.com', 'https://b.com'], 'macos', '10'));
-    expect(r.urls).toEqual(['https://a.com', 'https://b.com']);
-    expect(r.runner).toBe('macos');
-    expect(r.runs).toBe(10);
+/** The new, short form: URLs, plus optional fields. */
+const form = (urls: string[], fields: Record<string, string> = {}) =>
+  ['### URLs', '', ...urls, '', ...Object.entries(fields).flatMap(([k, v]) => [`### ${k}`, '', v, ''])].join('\n');
+
+/** The older, longer form (issues #2–#11 were filed with it). */
+const legacy = (urls: string[], mode = 'measure', runner = 'linux', runs = '8', extra: Record<string, string> = {}) =>
+  form(urls, { 'Scan mode': mode, 'Measurement type': runner, 'Measured runs per URL': runs, ...extra });
+
+describe('parseScanRequest: the easy default', () => {
+  it('needs nothing but URLs', () => {
+    const r = parseScanRequest(form(['https://a.com/', 'https://a.com/about']));
     expect(r.errors).toEqual([]);
+    expect(r.mode).toBe('measure');
+    expect(r.runner).toBe('auto');
+    expect(r.urls).toEqual(['https://a.com/', 'https://a.com/about']);
   });
 
-  it('selects the linux runner when requested', () => {
-    expect(parseScanRequest(build(['https://a.com'], 'linux')).runner).toBe('linux');
+  it('crawls the site when given a single URL', () => {
+    const r = parseScanRequest(form(['https://france.fr/']));
+    expect(r.mode).toBe('crawl');
+    expect(r.maxPages).toBe(50);
+    expect(r.notes[0]).toMatch(/Crawling https:\/\/france\.fr\/ .* up to 50 pages/);
   });
 
-  it('defaults to the linux runner', () => {
-    // Hosted macOS gives no energy advantage, so the faster runner is the
-    // sensible default.
-    expect(parseScanRequest(build(['https://a.com'], 'something else')).runner).toBe('linux');
+  it('scans a list as a list', () => {
+    const r = parseScanRequest(form(['https://a.com/1', 'https://a.com/2', 'https://a.com/3']));
+    expect(r.mode).toBe('measure');
+    expect(r.notes[0]).toBe('Scanning 3 listed pages.');
   });
 
-  it('selects the self-hosted runner when requested', () => {
-    const r = parseScanRequest(build(['https://a.com'], 'self-hosted — physical Apple Silicon'));
-    expect(r.runner).toBe('self-hosted');
+  it('honours an explicit choice either way', () => {
+    expect(parseScanRequest(form(['https://a.com/'], { 'What to scan': 'Only the listed URLs' })).mode).toBe('measure');
+    const crawl = parseScanRequest(form(['https://a.com/', 'https://a.com/b'], { 'What to scan': 'Crawl the site from the first URL' }));
+    expect(crawl.mode).toBe('crawl');
+    expect(crawl.notScanned).toEqual([{ url: 'https://a.com/b', reason: 'crawling starts from one URL' }]);
   });
 
-  it('warns that hosted runners cannot measure energy', () => {
-    expect(parseScanRequest(build(['https://a.com'], 'linux')).notes.join(' '))
-      .toMatch(/no power-measurement hardware/i);
-    expect(parseScanRequest(build(['https://a.com'], 'macos')).notes.join(' '))
-      .toMatch(/no power-measurement hardware/i);
+  it('accepts comma-separated URLs, as the web form allows', () => {
+    expect(parseScanRequest(form(['https://a.com/1, https://a.com/2'])).urls).toEqual(['https://a.com/1', 'https://a.com/2']);
   });
 
-  it('does not add the no-energy note for self-hosted', () => {
-    expect(parseScanRequest(build(['https://a.com'], 'self-hosted')).notes.join(' '))
-      .not.toMatch(/no power-measurement hardware/i);
+  it('scans up to 200 URLs and lists the rest instead of rejecting', () => {
+    const many = Array.from({ length: MAX_URLS + 3 }, (_, i) => `https://e${i}.com`);
+    const r = parseScanRequest(form(many));
+    expect(MAX_URLS).toBe(200);
+    expect(r.errors).toEqual([]);
+    expect(r.urls).toHaveLength(MAX_URLS);
+    expect(r.notScanned.map((n) => n.reason)).toEqual(Array(3).fill(`over the ${MAX_URLS}-URL limit`));
+  });
+
+  it('turns Lighthouse on for the heaviest pages by default in the new form', () => {
+    const r = parseScanRequest(form(['https://a.com/'], { Lighthouse: 'Performance — the 10 heaviest pages' }));
+    expect(r.lighthouse).toBe('performance');
+    expect(r.lighthouseScope).toBe('top');
+    expect(r.lighthouseRuns).toBe(1);
+  });
+
+  it('can audit every page, or switch Lighthouse off', () => {
+    expect(parseScanRequest(form(['https://a.com/1', 'https://a.com/2'], { Lighthouse: 'Performance — every page (slower)' })).lighthouseScope).toBe('every');
+    expect(parseScanRequest(form(['https://a.com/'], { Lighthouse: 'No' })).lighthouse).toBe('none');
+  });
+
+  it('falls back to the heaviest pages when Lighthouse on every page would overrun', () => {
+    const many = Array.from({ length: 200 }, (_, i) => `https://e${i}.com`);
+    const r = parseScanRequest(form(many, { Lighthouse: 'Performance — every page (slower)' }));
+    expect(r.errors).toEqual([]);
+    expect(r.lighthouseScope).toBe('top');
+    expect(r.notes.join(' ')).toMatch(/would overrun/);
+  });
+
+  it('reads every option of the issue template exactly as written', async () => {
+    // The labels come from the template itself, so a reworded option that the
+    // parser no longer understands fails here rather than in production.
+    const { readFileSync } = await import('node:fs');
+    const { parse } = await import('yaml');
+    const tpl = parse(readFileSync('.github/ISSUE_TEMPLATE/scan-request.yml', 'utf8')) as {
+      body: { id?: string; attributes: { label?: string; options?: string[] } }[];
+    };
+    const options = (id: string) => tpl.body.find((b) => b.id === id)!.attributes.options!;
+    const label = (id: string) => tpl.body.find((b) => b.id === id)!.attributes.label!;
+    const one = (id: string, value: string, urls = ['https://a.com/', 'https://a.com/b']) =>
+      parseScanRequest(form(urls, { [label(id)]: value }));
+
+    expect(options('where').map((o) => one('where', o).runner)).toEqual(['auto', 'cloud']);
+    expect(options('what').map((o) => one('what', o).mode)).toEqual(['measure', 'measure', 'crawl']);
+    expect(options('what').map((o) => one('what', o, ['https://a.com/']).mode)).toEqual(['crawl', 'measure', 'crawl']);
+    expect(options('lighthouse').map((o) => `${one('lighthouse', o).lighthouse}/${one('lighthouse', o).lighthouseScope}`)).toEqual([
+      'performance/top',
+      'performance/every',
+      'all/top',
+      'none/top',
+    ]);
+    expect(options('viewport').map((o) => one('viewport', o).viewport.width)).toEqual([1280, 768, 1024, 390, 844]);
   });
 
   it('skips private URLs, scans the rest, and lists what was skipped', () => {
-    const r = parseScanRequest(build(['https://a.com', 'http://127.0.0.1/', 'http://10.0.0.5/']));
+    const r = parseScanRequest(form(['https://a.com', 'http://127.0.0.1/', 'http://10.0.0.5/']));
     expect(r.urls).toEqual(['https://a.com']);
     expect(r.errors).toEqual([]);
     expect(r.notScanned).toEqual([
@@ -156,61 +215,97 @@ describe('parseScanRequest', () => {
   });
 
   it('errors when no valid URL remains', () => {
-    const r = parseScanRequest(build(['http://localhost/']));
+    const r = parseScanRequest(form(['http://localhost/']));
     expect(r.urls).toEqual([]);
     expect(r.errors.join(' ')).toMatch(/No valid public/);
   });
 
-  it('deduplicates repeated URLs', () => {
-    const r = parseScanRequest(build(['https://a.com', 'https://a.com']));
-    expect(r.urls).toEqual(['https://a.com']);
-  });
-
-  it('strips markdown list markers', () => {
-    const r = parseScanRequest(build(['- https://a.com', '* https://b.com']));
-    expect(r.urls).toEqual(['https://a.com', 'https://b.com']);
-  });
-
-  it('scans the first 20 URLs and lists the rest instead of rejecting', () => {
-    const many = Array.from({ length: MAX_URLS + 3 }, (_, i) => `https://e${i}.com`);
-    const r = parseScanRequest(build(many));
-    expect(r.errors).toEqual([]);
-    expect(r.urls).toEqual(many.slice(0, MAX_URLS));
-    expect(r.notScanned).toEqual(
-      many.slice(MAX_URLS).map((url) => ({ url, reason: `over the ${MAX_URLS}-URL limit` })),
-    );
-    expect(r.notes.join(' ')).toMatch(/23 URLs were listed; the first 20 are scanned and the other 3/);
-  });
-
-  it('lists nothing as not scanned for a request within the limits', () => {
-    expect(parseScanRequest(build(['https://a.com'])).notScanned).toEqual([]);
+  it('deduplicates repeated URLs and strips list markers', () => {
+    expect(parseScanRequest(form(['- https://a.com', '* https://a.com', 'https://b.com'])).urls).toEqual([
+      'https://a.com',
+      'https://b.com',
+    ]);
   });
 
   it('flattens and bounds echoed text so it cannot break workflow outputs', () => {
     const hostile = 'x\nEOF_NOTES\nvalid=true\n' + 'y'.repeat(500);
-    const r = parseScanRequest(build(['https://a.com', hostile]));
+    const r = parseScanRequest(form(['https://a.com', hostile], { 'Maximum pages to crawl': 'abc\nEOF_NOTES\nrunner=x' }));
     for (const line of [...r.notes, ...r.errors, ...r.notScanned.map((n) => n.url)]) {
       expect(line).not.toMatch(/[\r\n]/);
       expect(line.length).toBeLessThanOrEqual(400);
     }
-    const runs = parseScanRequest(build(['https://a.com'], 'macos', 'abc\nEOF_NOTES\nrunner=self-hosted'));
-    expect(runs.notes.join('\n')).not.toMatch(/\nEOF_NOTES|\nrunner=/);
   });
 
-  it('caps the run count', () => {
-    const r = parseScanRequest(build(['https://a.com'], 'macos', '999'));
-    expect(r.runs).toBe(MAX_RUNS);
-    expect(r.notes.join(' ')).toMatch(/capped/);
+  it('rejects a multi-line include pattern', () => {
+    const r = parseScanRequest(form(['https://a.com'], { 'Include pattern': '^/a\nissue=1' }));
+    expect(r.errors.join(' ')).toMatch(/single line/);
+  });
+});
+
+describe('parseScanRequest: requests written with the older form', () => {
+  it('scans a pasted list even when the old form said crawl (issue #11)', () => {
+    const urls = Array.from({ length: 82 }, (_, i) => `https://france.fr/page-${i}`);
+    const r = parseScanRequest(legacy(urls, 'crawl — follow links from one URL, once each (up to 200 pages)'));
+    expect(r.mode).toBe('measure');
+    expect(r.urls).toHaveLength(82);
+    expect(r.notScanned).toEqual([]);
+    expect(r.notes.join(' ')).toMatch(/82 URLs were listed, so they are scanned as a list/);
   });
 
-  it('falls back to the default run count on unparseable input', () => {
-    const r = parseScanRequest(build(['https://a.com'], 'macos', 'lots'));
-    expect(r.runs).toBe(8);
-    expect(r.notes.join(' ')).toMatch(/Could not read a run count/);
+  it('still crawls from a single URL when the old form said crawl', () => {
+    expect(parseScanRequest(legacy(['https://france.fr/'], 'crawl')).mode).toBe('crawl');
   });
 
-  it('defaults to measure mode', () => {
-    expect(parseScanRequest(build(['https://a.com'])).mode).toBe('measure');
+  it('keeps the old measure meaning for a single URL', () => {
+    expect(parseScanRequest(legacy(['https://a.com/'], 'measure')).mode).toBe('measure');
+  });
+
+  it('maps the old runner choices', () => {
+    expect(parseScanRequest(legacy(['https://a.com'], 'measure', 'self-hosted — physical Apple Silicon')).runner).toBe('auto');
+    expect(parseScanRequest(legacy(['https://a.com'], 'measure', 'macos — structural only')).runner).toBe('macos');
+    expect(parseScanRequest(legacy(['https://a.com'], 'measure', 'linux — structural only')).runner).toBe('cloud');
+  });
+
+  it('reads the old run count, capped, for machines that measure energy', () => {
+    expect(parseScanRequest(legacy(['https://a.com'], 'measure', 'self-hosted', '999')).runs).toBe(MAX_RUNS);
+    expect(parseScanRequest(legacy(['https://a.com'], 'measure', 'self-hosted', 'lots')).runs).toBe(DEFAULT_RUNS);
+  });
+
+  it('maps the old Lighthouse labels to the heaviest pages', () => {
+    const r = parseScanRequest(legacy(['https://a.com'], 'measure', 'linux', '8', { Lighthouse: 'Performance — score, metrics and recommendations' }));
+    expect(r.lighthouse).toBe('performance');
+    expect(r.lighthouseScope).toBe('top');
+  });
+
+  it('leaves Lighthouse off when the old form had no Lighthouse field', () => {
+    expect(parseScanRequest(legacy(['https://a.com'])).lighthouse).toBe('none');
+  });
+});
+
+describe('parseLighthouseChoice', () => {
+  it('reads each label', () => {
+    expect(parseLighthouseChoice('No')).toBe('none');
+    expect(parseLighthouseChoice('Performance — the 10 heaviest pages')).toBe('performance');
+    expect(parseLighthouseChoice('All categories — the 10 heaviest pages')).toBe('all');
+    expect(parseLighthouseChoice('All — performance, accessibility, best practices and SEO')).toBe('all');
+    expect(parseLighthouseChoice(undefined)).toBe('none');
+  });
+});
+
+describe('planRuns', () => {
+  it('visits each page once on a machine that cannot measure energy', () => {
+    expect(planRuns(80, false)).toEqual({ runs: 1, warmups: 0 });
+  });
+
+  it('repeats pages on a machine that measures energy', () => {
+    expect(planRuns(5, true)).toEqual({ runs: DEFAULT_RUNS, warmups: 2 });
+  });
+
+  it('scales runs down so a long list still fits the budget', () => {
+    const plan = planRuns(200, true);
+    expect(plan.runs).toBeGreaterThanOrEqual(3);
+    expect(plan.runs).toBeLessThan(DEFAULT_RUNS);
+    expect(estimateMinutes({ mode: 'measure', urls: Array(150).fill('x'), maxPages: 0, energyMachine: true })).toBeLessThan(JOB_BUDGET_MINUTES + 1);
   });
 });
 
@@ -240,178 +335,46 @@ describe('parseViewport', () => {
   });
 });
 
+
 describe('estimateMinutes', () => {
   it('scales linearly with pages in crawl mode', () => {
-    const one = estimateMinutes({ mode: 'crawl', urls: ['https://a.com'], runs: 1, maxPages: 50 });
-    const two = estimateMinutes({ mode: 'crawl', urls: ['https://a.com'], runs: 1, maxPages: 100 });
+    const one = estimateMinutes({ mode: 'crawl', urls: ['https://a.com'], maxPages: 50 });
+    const two = estimateMinutes({ mode: 'crawl', urls: ['https://a.com'], maxPages: 100 });
     expect(two).toBeGreaterThan(one * 1.8);
   });
 
-  it('scales with runs in measure mode', () => {
-    const few = estimateMinutes({ mode: 'measure', urls: ['https://a.com'], runs: 2, maxPages: 0 });
-    const many = estimateMinutes({ mode: 'measure', urls: ['https://a.com'], runs: 20, maxPages: 0 });
-    expect(many).toBeGreaterThan(few * 3);
+  it('keeps the largest cloud requests inside the budget', () => {
+    const urls = Array.from({ length: MAX_URLS }, (_, i) => `https://e${i}.com`);
+    expect(estimateMinutes({ mode: 'measure', urls, maxPages: 0, lighthouse: 'all', lighthouseScope: 'top' })).toBeLessThan(JOB_BUDGET_MINUTES);
+    expect(estimateMinutes({ mode: 'crawl', urls: ['https://a.com'], maxPages: MAX_CRAWL_PAGES, lighthouse: 'all' })).toBeLessThan(JOB_BUDGET_MINUTES);
   });
 
-  /**
-   * The distinction that motivates separate limits for the two modes: a full
-   * 200-page crawl fits the budget, while repeating 200 URLs eight times each
-   * does not.
-   */
-  it('shows a 200-page crawl is feasible where 200 measured URLs are not', () => {
-    const crawl = estimateMinutes({ mode: 'crawl', urls: ['https://a.com'], runs: 1, maxPages: 200 });
-    const measure = estimateMinutes({
-      mode: 'measure',
-      urls: Array.from({ length: 200 }, (_, i) => `https://e${i}.com`),
-      runs: 8,
-      maxPages: 0,
-    });
-    expect(crawl).toBeLessThan(JOB_BUDGET_MINUTES);
-    expect(measure).toBeGreaterThan(JOB_BUDGET_MINUTES);
-    // Roughly 44 minutes versus 147.
-    expect(Math.round(crawl)).toBeLessThan(60);
-    expect(Math.round(measure)).toBeGreaterThan(120);
+  it('counts Lighthouse on the heaviest pages only, by default', () => {
+    const urls = Array.from({ length: 40 }, (_, i) => `https://e${i}.com`);
+    const base = { mode: 'measure' as const, urls, maxPages: 0 };
+    const diff = estimateMinutes({ ...base, lighthouse: 'performance' }) - estimateMinutes(base);
+    expect(diff).toBeCloseTo((LIGHTHOUSE_TOP_PAGES * LIGHTHOUSE_SECONDS_PER_RUN) / 60, 6);
+    const every = estimateMinutes({ ...base, lighthouse: 'performance', lighthouseScope: 'every' }) - estimateMinutes(base);
+    expect(every).toBeCloseTo((40 * LIGHTHOUSE_SECONDS_PER_RUN) / 60, 6);
   });
 });
 
-describe('crawl mode requests', () => {
-  const buildCrawl = (urls: string[], pages = '50', include?: string) =>
-    [
-      '### Scan mode', '', 'crawl', '',
-      '### URLs', '', ...urls, '',
-      '### Measurement type', '', 'macos', '',
-      '### Maximum pages to crawl', '', pages, '',
-      ...(include ? ['### Include pattern', '', include, ''] : []),
-    ].join('\n');
+describe('crawl requests', () => {
+  const crawlForm = (pages?: string, include?: string) =>
+    form(['https://a.com'], {
+      ...(pages ? { 'Maximum pages to crawl': pages } : {}),
+      ...(include ? { 'Include pattern': include } : {}),
+    });
 
-  it('parses a crawl request', () => {
-    const r = parseScanRequest(buildCrawl(['https://a.com'], '80'));
-    expect(r.mode).toBe('crawl');
-    expect(r.maxPages).toBe(80);
-    expect(r.errors).toEqual([]);
-  });
-
-  it('allows many more pages than measure mode allows URLs', () => {
-    const r = parseScanRequest(buildCrawl(['https://a.com'], String(MAX_CRAWL_PAGES)));
-    expect(r.maxPages).toBe(MAX_CRAWL_PAGES);
-    expect(MAX_CRAWL_PAGES).toBeGreaterThan(MAX_URLS);
-    expect(r.errors).toEqual([]);
-  });
-
-  it('caps the page limit', () => {
-    const r = parseScanRequest(buildCrawl(['https://a.com'], '5000'));
+  it('reads the page limit and caps it', () => {
+    expect(parseScanRequest(crawlForm('80')).maxPages).toBe(80);
+    const r = parseScanRequest(crawlForm('5000'));
     expect(r.maxPages).toBe(MAX_CRAWL_PAGES);
     expect(r.notes.join(' ')).toMatch(/capped/);
   });
 
-  it('uses only the first URL as the crawl start and lists the others', () => {
-    const r = parseScanRequest(buildCrawl(['https://a.com', 'https://b.com']));
-    expect(r.urls).toEqual(['https://a.com']);
-    expect(r.notes.join(' ')).toMatch(/single start URL/);
-    expect(r.notScanned).toEqual([{ url: 'https://b.com', reason: 'crawl mode starts from one URL' }]);
-  });
-
-  it('rejects a multi-line include pattern', () => {
-    const r = parseScanRequest(buildCrawl(['https://a.com'], '20', '^/a\nissue=1'));
-    expect(r.errors.join(' ')).toMatch(/single line/);
-  });
-
-  it('accepts a valid include pattern', () => {
-    const r = parseScanRequest(buildCrawl(['https://a.com'], '20', '^/admin'));
-    expect(r.include).toBe('^/admin');
-    expect(r.errors).toEqual([]);
-  });
-
-  it('rejects an invalid include pattern', () => {
-    const r = parseScanRequest(buildCrawl(['https://a.com'], '20', '[unclosed'));
-    expect(r.errors.join(' ')).toMatch(/not a valid regular expression/);
-  });
-
-  it('warns that a crawl is not a regression workload', () => {
-    const r = parseScanRequest(buildCrawl(['https://a.com']));
-    expect(r.notes.join(' ')).toMatch(/not for regression comparison/);
-  });
-});
-
-describe('job budget guard', () => {
-  /**
-   * The URL and run caps already keep measure requests well inside the budget:
-   * the maximum allowed request (20 URLs x 30 runs) is about 47 minutes. The
-   * guard exists for crawls, where the page limit dominates.
-   */
-  it('allows the largest permitted measure request', () => {
-    const many = Array.from({ length: MAX_URLS }, (_, i) => `https://e${i}.com`);
-    const body = ['### Scan mode', '', 'measure', '', '### URLs', '', ...many, '',
-      '### Measured runs per URL', '', String(MAX_RUNS), ''].join('\n');
-    const r = parseScanRequest(body);
-    expect(r.errors).toEqual([]);
-    expect(estimateMinutes(r)).toBeLessThan(JOB_BUDGET_MINUTES);
-  });
-
-  it('rejects a crawl that would exceed the budget', () => {
-    // estimateMinutes is exercised directly because the page cap prevents a
-    // request from expressing an over-budget crawl through the form.
-    const withinBudget = estimateMinutes({
-      mode: 'crawl', urls: ['https://a.com'], runs: 1, maxPages: MAX_CRAWL_PAGES,
-    });
-    const overBudget = estimateMinutes({
-      mode: 'crawl', urls: ['https://a.com'], runs: 1, maxPages: 2000,
-    });
-    expect(withinBudget).toBeLessThan(JOB_BUDGET_MINUTES);
-    expect(overBudget).toBeGreaterThan(JOB_BUDGET_MINUTES);
-  });
-
-  it('rejects an oversized crawl only when it exceeds the budget', () => {
-    const ok = parseScanRequest(['### Scan mode', '', 'crawl', '', '### URLs', '',
-      'https://a.com', '', '### Maximum pages to crawl', '', '200', ''].join('\n'));
-    expect(ok.errors).toEqual([]);
-  });
-
-  it('accepts a request that fits', () => {
-    const body = ['### Scan mode', '', 'measure', '', '### URLs', '', 'https://a.com', '',
-      '### Measured runs per URL', '', '8', ''].join('\n');
-    expect(parseScanRequest(body).errors).toEqual([]);
-  });
-});
-
-describe('Lighthouse option', () => {
-  const build = (lighthouse: string | null, mode = 'measure', urls = ['https://a.com', 'https://b.com']) =>
-    ['### Scan mode', '', mode, '', '### URLs', '', ...urls, '', '### Measurement type', '', 'linux', '',
-     ...(lighthouse === null ? [] : ['### Lighthouse', '', lighthouse, ''])].join('\n');
-
-  it('reads each issue-form option label', () => {
-    expect(parseLighthouseChoice('No')).toBe('none');
-    expect(parseLighthouseChoice('Performance — score, metrics and recommendations')).toBe('performance');
-    expect(parseLighthouseChoice('All — performance, accessibility, best practices and SEO')).toBe('all');
-    expect(parseLighthouseChoice(undefined)).toBe('none');
-  });
-
-  it('defaults to off for requests filed before the option existed', () => {
-    const r = parseScanRequest(build(null));
-    expect(r.lighthouse).toBe('none');
-    expect(r.notes.join(' ')).not.toMatch(/Lighthouse/);
-  });
-
-  it('runs three times per URL in measure mode and once per page in crawl mode', () => {
-    expect(parseScanRequest(build('Performance — score, metrics and recommendations')).lighthouseRuns).toBe(3);
-    expect(parseScanRequest(build('Performance', 'crawl')).lighthouseRuns).toBe(1);
-  });
-
-  it('says what Lighthouse will do', () => {
-    const r = parseScanRequest(build('Performance'));
-    expect(r.notes.join(' ')).toMatch(/Chromium after the Firefox measurements/);
-  });
-
-  it('counts Lighthouse time in the runtime estimate', () => {
-    const base = { mode: 'measure' as const, urls: ['https://a.com', 'https://b.com'], runs: 8, maxPages: 50 };
-    const without = estimateMinutes(base);
-    const withLh = estimateMinutes({ ...base, lighthouse: 'performance' });
-    expect(withLh - without).toBeCloseTo((2 * 3 * LIGHTHOUSE_SECONDS_PER_RUN) / 60, 6);
-  });
-
-  it('caps crawl-mode Lighthouse at the ten heaviest pages', () => {
-    const crawl = { mode: 'crawl' as const, urls: ['https://a.com'], runs: 8, maxPages: 200 };
-    const diff = estimateMinutes({ ...crawl, lighthouse: 'all' }) - estimateMinutes(crawl);
-    expect(diff).toBeCloseTo((10 * LIGHTHOUSE_SECONDS_PER_RUN) / 60, 6);
+  it('accepts a valid include pattern and rejects an invalid one', () => {
+    expect(parseScanRequest(crawlForm('20', '^/admin')).include).toBe('^/admin');
+    expect(parseScanRequest(crawlForm('20', '[unclosed')).errors.join(' ')).toMatch(/not a valid regular expression/);
   });
 });

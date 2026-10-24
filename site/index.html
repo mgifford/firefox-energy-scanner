@@ -99,114 +99,42 @@
     </p>
 
     <form id="scan-form">
-      <fieldset class="field">
-        <legend>Scan mode</legend>
-        <div class="radio-row">
-          <input type="radio" id="mode-measure" name="mode" value="measure" checked
-            aria-describedby="mode-measure-hint">
-          <label for="mode-measure">Measure <span class="muted">— repeat a few URLs many times</span></label>
-        </div>
-        <p class="hint indent" id="mode-measure-hint">
-          Up to 20 URLs, each measured several times. Repetition is what makes a result
-          trustworthy. Use this for comparisons.
-        </p>
-        <div class="radio-row">
-          <input type="radio" id="mode-crawl" name="mode" value="crawl"
-            aria-describedby="mode-crawl-hint">
-          <label for="mode-crawl">Crawl <span class="muted">— follow links, once each</span></label>
-        </div>
-        <p class="hint indent" id="mode-crawl-hint">
-          Up to 200 pages from one start URL, measured once each. Good for discovery and
-          ranking; a single run cannot separate a real difference from noise.
-        </p>
-      </fieldset>
-
       <div class="field">
         <label for="urls" id="urls-label">URLs to scan</label>
         <p class="hint" id="urls-hint">
-          One public <code>http://</code> or <code>https://</code> URL per line.
-          The first 20 are scanned; any more are listed in the results as not scanned.
+          One public <code>http://</code> or <code>https://</code> URL per line, or
+          comma-separated. <strong>One URL</strong> crawls its site (www and non-www,
+          http and https count as one site). <strong>Several URLs</strong> scans just
+          those, up to 200 — a list from
+          <a href="https://mgifford.github.io/top-task-finder/">Top Task Finder</a> works well.
         </p>
         <textarea id="urls" name="urls" rows="6" aria-describedby="urls-hint"
-          placeholder="https://example.com/&#10;https://example.com/about" required></textarea>
+          placeholder="https://www.example.gov/&#10;https://www.example.gov/about" required></textarea>
       </div>
 
       <div class="field">
         <label for="title">Short description</label>
-        <p class="hint" id="title-hint">Used as the issue title, e.g. "example.com landing pages".</p>
+        <p class="hint" id="title-hint">Used as the issue title, e.g. "example.gov top tasks".</p>
         <input type="text" id="title" name="title" aria-describedby="title-hint" required>
       </div>
 
-      <fieldset class="field">
-        <legend>Runner</legend>
-        <p class="hint" id="runner-hint">
-          <strong>Only a physical machine can measure energy.</strong> GitHub's hosted
-          runners are virtual machines, which do not pass power-measurement hardware
-          through, so both hosted options report network, CO<sub>2</sub>e, timing and
-          page structure — each scan checks and states the result. For energy, use the
-          self-hosted runner, or
-          <a href="https://github.com/mgifford/firefox-energy-scanner/blob/main/docs/local-energy.md">run
-          the scanner on your own Mac, Linux or Windows computer</a>.
+      <div class="field">
+        <label for="lighthouse">Lighthouse</label>
+        <p class="hint" id="lighthouse-hint">
+          Google Lighthouse, in Chromium, after the Firefox scan: Performance score, lab
+          Core Web Vitals and the failing recommendations with estimated savings.
         </p>
-        <div class="radio-row">
-          <input type="radio" id="runner-linux" name="runner" value="linux" checked
-            aria-describedby="runner-hint">
-          <label for="runner-linux">
-            Linux <span class="muted">— network + CO<sub>2</sub>e + timing (faster)</span>
-          </label>
-        </div>
-        <div class="radio-row">
-          <input type="radio" id="runner-macos" name="runner" value="macos">
-          <label for="runner-macos">
-            macOS <span class="muted">— same metrics, closer to a desktop browser profile</span>
-          </label>
-        </div>
-        <div class="radio-row">
-          <input type="radio" id="runner-self" name="runner" value="self-hosted">
-          <label for="runner-self">
-            Self-hosted Apple Silicon <span class="muted">— includes energy, if a runner is online</span>
-          </label>
-        </div>
-        <p class="hint indent">
-          Self-hosted requires a physical Apple Silicon machine registered as a runner
-          on this repository. If none is online the scan falls back to a hosted runner
-          and reports structural metrics only.
-        </p>
-      </fieldset>
-
-      <div class="field" id="runs-field">
-        <label for="runs">Measured runs per URL</label>
-        <p class="hint" id="runs-hint">
-          More runs give a tighter result. 8 is a reasonable default; below 10 no
-          statistical significance is claimed. Maximum 30.
-        </p>
-        <input type="number" id="runs" name="runs" value="8" min="1" max="30"
-          aria-describedby="runs-hint">
-      </div>
-
-      <div class="field" id="crawl-fields" hidden>
-        <label for="max-pages">Maximum pages to crawl</label>
-        <p class="hint" id="pages-hint">
-          Up to 200. A full 200-page crawl takes roughly 15 minutes.
-        </p>
-        <input type="number" id="max-pages" name="max-pages" value="50" min="1" max="200"
-          aria-describedby="pages-hint">
-
-        <label for="include" class="spaced">Include pattern <span class="muted">(optional)</span></label>
-        <p class="hint" id="include-hint">
-          A regular expression matched against the URL path, e.g. <code>^/admin</code>.
-          Leave blank to crawl the whole origin.
-        </p>
-        <input type="text" id="include" name="include" placeholder="^/admin"
-          aria-describedby="include-hint">
+        <select id="lighthouse" name="lighthouse" aria-describedby="lighthouse-hint">
+          <option value="performance-top">Performance — the 10 heaviest pages</option>
+          <option value="performance-every">Performance — every page (slower)</option>
+          <option value="all-top">All categories — the 10 heaviest pages</option>
+          <option value="none">No</option>
+        </select>
       </div>
 
       <div class="field">
         <label for="viewport">Viewport</label>
-        <p class="hint" id="viewport-hint">
-          Viewport affects layout and rendering work, so it can change measured energy.
-        </p>
-        <select id="viewport" name="viewport" aria-describedby="viewport-hint">
+        <select id="viewport" name="viewport">
           <option value="Desktop (1280x800)">Desktop (1280&times;800)</option>
           <option value="Tablet portrait (768x1024)">Tablet portrait (768&times;1024)</option>
           <option value="Tablet landscape (1024x768)">Tablet landscape (1024&times;768)</option>
@@ -215,20 +143,40 @@
         </select>
       </div>
 
-      <div class="field">
-        <label for="lighthouse">Lighthouse</label>
-        <p class="hint" id="lighthouse-hint">
-          Also run Google Lighthouse, in Chromium, after the Firefox measurements finish.
-          You get the Performance score, lab Core Web Vitals and the failing performance
-          recommendations with estimated savings. Measure mode reports the median of 3
-          runs per URL; crawl mode audits the 10 heaviest pages once each.
-        </p>
-        <select id="lighthouse" name="lighthouse" aria-describedby="lighthouse-hint">
-          <option value="none">No</option>
-          <option value="performance">Performance</option>
-          <option value="all">All categories (performance, accessibility, best practices, SEO)</option>
-        </select>
-      </div>
+      <details class="field more-options">
+        <summary>More options</summary>
+
+        <div class="field">
+          <label for="what">What to scan</label>
+          <select id="what" name="what">
+            <option value="auto">Auto — one URL crawls its site; several URLs scan just those</option>
+            <option value="only">Only the listed URLs</option>
+            <option value="crawl">Crawl the site from the first URL</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="max-pages">Maximum pages to crawl</label>
+          <p class="hint" id="pages-hint">Used only when crawling. Up to 200; 50 pages takes about 5 minutes.</p>
+          <input type="number" id="max-pages" name="max-pages" value="50" min="1" max="200"
+            aria-describedby="pages-hint">
+        </div>
+
+        <div class="field">
+          <label for="where">Where to run</label>
+          <p class="hint" id="where-hint">
+            <strong>GitHub's cloud machines cannot measure energy</strong> — they are
+            virtual, and all six types were tested. Energy needs a physical machine:
+            <a href="https://github.com/mgifford/firefox-energy-scanner/blob/main/docs/local-energy.md">run
+            the scanner on your own Mac, Linux or Windows computer</a>, or register one for
+            this repository.
+          </p>
+          <select id="where" name="where" aria-describedby="where-hint">
+            <option value="auto">Auto — an energy-measuring machine if one is set up, otherwise GitHub's cloud</option>
+            <option value="cloud">GitHub's cloud only (no energy)</option>
+          </select>
+        </div>
+      </details>
 
       <p class="estimate" id="estimate" role="status" aria-live="polite"></p>
 
