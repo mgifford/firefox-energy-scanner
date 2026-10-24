@@ -30,12 +30,16 @@ on:
 permissions:
   contents: read
 
-# One queue per issue. A single shared group let only one run wait, so a
-# third request queued behind a running scan silently cancelled the second.
-# Self-hosted energy scans still run one at a time: there is one machine.
+# One group per issue, and the newest request wins. Reopening and adding
+# `rescan`, or reopening and then saving an edit, are two triggers seconds
+# apart; each run reads the issue body as it is when it starts, so queuing
+# them scanned the same request twice (issue #11). A newer trigger cancels
+# the run still in progress and scans the latest body instead. Different
+# issues never cancel each other. Self-hosted energy scans still run one at a
+# time, because there is one machine.
 concurrency:
   group: energy-scan-${{ github.event.issue.number || github.event.inputs.issue_number }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   prepare:
@@ -186,24 +190,33 @@ jobs:
           script: |
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const skipped = Number(process.env.NOT_SCANNED_COUNT || 0);
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: Number(process.env.ISSUE_NUMBER),
-              body: [
-                (process.env.SCAN_MODE === 'crawl'
-                  ? `**Scan started:** crawling the site, up to ${process.env.MAX_PAGES} pages`
-                  : `**Scan started** for ${process.env.URL_COUNT} page${process.env.URL_COUNT === '1' ? '' : 's'}`) +
-                  ` — about ${process.env.ESTIMATE} min. [Follow the run](${run}).`,
-                process.env.ENERGY_MACHINE === 'true'
-                  ? `Running on this repository's energy-measuring machine (\`${process.env.ENERGY_LABELS}\`); it starts when that machine is free.`
-                  : "Running in GitHub's cloud, which cannot measure energy, so each page is visited once.",
-                skipped
-                  ? `${skipped} listed URL${skipped === 1 ? ' is' : 's are'} not included; the results will list ${skipped === 1 ? 'it' : 'them'}.`
-                  : null,
-                'Results will be posted here, and the issue closed, when it finishes.',
-              ].filter(Boolean).join('\n\n'),
-            });
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.ISSUE_NUMBER);
+            const marker = '<!-- scan-started -->';
+            const body = [
+              marker,
+              (process.env.SCAN_MODE === 'crawl'
+                ? `**Scan started:** crawling the site, up to ${process.env.MAX_PAGES} pages`
+                : `**Scan started** for ${process.env.URL_COUNT} page${process.env.URL_COUNT === '1' ? '' : 's'}`) +
+                ` — about ${process.env.ESTIMATE} min. [Follow the run](${run}).`,
+              process.env.ENERGY_MACHINE === 'true'
+                ? `Running on this repository's energy-measuring machine (\`${process.env.ENERGY_LABELS}\`); it starts when that machine is free.`
+                : "Running in GitHub's cloud, which cannot measure energy, so each page is visited once.",
+              skipped
+                ? `${skipped} listed URL${skipped === 1 ? ' is' : 's are'} not included; the results will list ${skipped === 1 ? 'it' : 'them'}.`
+                : null,
+              'Results will be posted here, and the issue closed, when it finishes.',
+            ].filter(Boolean).join('\n\n');
+
+            // If the bot's latest comment is a "Scan started" from a run this
+            // one superseded, edit it rather than leave a start with no result.
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const lastBot = comments.filter((c) => c.user && c.user.type === 'Bot').pop();
+            if (lastBot && lastBot.body && lastBot.body.includes(marker)) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: lastBot.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
 
   scan:
     needs: prepare

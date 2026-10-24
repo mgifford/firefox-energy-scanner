@@ -65,8 +65,11 @@ means "not yet serviced":
   are posted as a comment and the scan never starts.
 - **failed scan** (target unreachable, timed out) — a comment links the run log.
 
-Each issue has its own queue, so re-running several requests at once queues them all;
-none is dropped.
+Different issues never block or cancel each other. For the **same** issue, the newest
+trigger wins: reopening and adding `rescan`, or reopening and then saving an edit, are
+two triggers seconds apart, so the later one cancels the run still in progress and scans
+the issue as it now reads. The earlier "Scan started" comment is updated rather than
+left without a result.
 
 ### More than 200 URLs
 
