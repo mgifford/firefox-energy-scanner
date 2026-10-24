@@ -1,19 +1,21 @@
 # Measuring energy locally
 
-GitHub-hosted runners are virtual machines. Virtual machines do not pass
-power-measurement hardware through to the guest, so **hosted scans cannot measure
-energy**. Every hosted scan checks anyway and says what it found. To measure energy,
-run the scanner on a physical machine: your own computer, or one you register as a
-self-hosted runner. That is the primary path for energy work.
+GitHub-hosted runners are virtual machines, and **none of them can measure Firefox
+energy**: the Energy probe workflow tested all six types and every one produced zero
+power samples ([hosted-scanning.md](hosted-scanning.md#github-hosted-runners-cannot-measure-energy)).
+To measure energy, run the scanner on a physical machine — your own computer, or one
+you register for this repository. That is the primary path for energy work.
 
 ## 1. Ask the machine
 
+From a checkout of this repository:
+
 ```bash
 npm ci
-npx playwright install firefox
-npm run build
-node dist/cli/index.js doctor
+npm run energy-check
 ```
+
+That installs Firefox for Playwright, builds the tool and runs `doctor`.
 
 The **Energy measurement** section runs Firefox for a few seconds with the profiler on,
 counts real power samples and ends with one verdict:
@@ -112,11 +114,19 @@ than one.
 
 ## 5. Or let issues use your machine
 
-To have scans requested through issues run on your machine, register it as a
-self-hosted runner and choose **self-hosted** in the scan form. See
-[self-hosted-runner.md](self-hosted-runner.md). The workflow currently targets runners
-labelled `self-hosted`, `macOS`, `ARM64`, which is an Apple Silicon Mac. A Linux or
-Windows energy runner would need those labels changed in
-`.github/workflows/scan-request.yml`. On a self-hosted Linux runner, set
+To have scans requested through issues run on your machine:
+
+1. Register it as a self-hosted runner ([self-hosted-runner.md](self-hosted-runner.md)).
+2. Set the repository variable **`ENERGY_RUNNER`** to its labels, e.g.
+   `self-hosted,macOS,ARM64` (Settings → Secrets and variables → Actions → Variables).
+
+Requests then run there by default ("Where to run: Auto"). Any platform works — use the
+labels your runner was registered with. On a self-hosted Linux runner, set
 `perf_event_paranoid` on the machine itself: the workflow only changes it on disposable
 GitHub-hosted runners.
+
+**No suitable machine of your own?** Cloud providers rent physical hardware too, for
+example Apple Silicon Mac minis by the hour (AWS EC2 Mac, Scaleway, MacStadium) or
+bare-metal Linux servers. These are physical machines, not virtual ones, so they should
+work as energy runners — but none has been tested with this tool yet. Run
+`npm run energy-check` on one before relying on it.

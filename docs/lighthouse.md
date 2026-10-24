@@ -8,8 +8,9 @@ Firefox energy window.
 
 For each URL:
 
-- the **Performance score** (0–100), as the median of 3 runs in measure mode, with the
-  lowest and highest score in brackets so the spread stays visible
+- the **Performance score** (0–100). Locally the CLI reports the median of 3 runs with
+  the lowest and highest score in brackets; hosted scans run once per page to keep a
+  long list affordable
 - lab metrics: Largest Contentful Paint, Total Blocking Time, Cumulative Layout Shift,
   First Contentful Paint and Speed Index
 - the **failing performance recommendations** (Lighthouse's "Insights" and
@@ -81,9 +82,11 @@ Lighthouse cannot audit them either.
 
 ## Hosted scans
 
-Choose **Lighthouse** in the scan form or the issue template. The issue comment then
-gains a Lighthouse table and the most common recommendations, and the published site
-shows each URL's score, metrics and recommendations.
+Lighthouse is **on by default** in the scan form and issue template: performance, on
+the 10 heaviest pages of the scan (by transferred bytes), one run each — about four
+minutes. You can pick every page, all four categories, or turn it off. The issue
+comment gains a Lighthouse table and the most common recommendations, and the published
+site shows each audited page's score, metrics and recommendations.
 
 Full HTML reports are uploaded as a **workflow artifact kept for 14 days**, linked from
 the issue comment. They are not committed to the repository: each one is about half a

@@ -60,9 +60,17 @@ const server = http.createServer((req, res) => {
 });
 
 const failures = [];
+// In GitHub Actions, also emit annotations: they show on the pull request and
+// can be read through the API, unlike the raw log.
+const annotate = (level, message) => {
+  if (process.env.GITHUB_ACTIONS) console.log(`::${level} title=crawl-e2e::${message.replace(/\n/g, '%0A')}`);
+};
 const check = (ok, message) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${message}`);
-  if (!ok) failures.push(message);
+  if (!ok) {
+    failures.push(message);
+    annotate('error', message);
+  }
 };
 
 function run(args, outDir) {
@@ -70,7 +78,10 @@ function run(args, outDir) {
     encoding: 'utf8',
     timeout: 5 * 60 * 1000,
   });
-  if (r.status !== 0) console.log(r.stdout, r.stderr);
+  if (r.status !== 0) {
+    console.log(r.stdout, r.stderr);
+    annotate('error', `${args[0]} exited ${r.status}: ${(r.stderr || r.stdout || '').trim().slice(-800)}`);
+  }
   const file = readdirSync(outDir).find((f) => f.endsWith('.json'));
   return file ? JSON.parse(readFileSync(join(outDir, file), 'utf8')) : null;
 }
@@ -83,6 +94,7 @@ try {
   const pages = (crawl?.scenarios ?? []).filter((s) => s.valid).map((s) => s.url ?? s.step);
   const paths = pages.map((u) => new URL(u).pathname.replace(/\/$/, '') || '/').sort();
   console.log('     crawled:', pages.join(', '));
+  annotate('notice', `crawled ${pages.length}: ${pages.join(', ')} | all steps: ${(crawl?.scenarios ?? []).map((s) => `${s.step}${s.valid ? '' : ' (FAILED: ' + (s.warnings[0] ?? '') + ')'}`).join(', ')}`);
   check(pages.length >= 5, `crawl followed the redirect and covered the site (${pages.length} pages, want 5)`);
   for (const p of ['/en', '/en/about', '/en/contact', '/en/team', '/fr']) {
     check(paths.includes(p), `crawl reached ${p}`);
