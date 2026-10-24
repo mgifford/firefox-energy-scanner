@@ -1,7 +1,7 @@
 import type { Config } from '../core/config.js';
 import type { StepResult, EnergyResult } from '../core/types.js';
 import { BrowserSession, waitForStablePage, readTimings } from './session.js';
-import { normalizeUrl, matchesRules, sameOrigin, sortUrls } from './urls.js';
+import { normalizeUrl, matchesRules, pageKey, siteOf, sortUrls } from './urls.js';
 import { StepRunner, buildStepResults, type StepRecord } from '../core/runner.js';
 import { deriveBaseline, type Baseline } from '../core/baseline.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
@@ -87,25 +87,45 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
       });
     }
 
-    const queue: QueueItem[] = [{ url: normalizeUrl(startUrl, { queryStrategy: config.crawl.query_strategy }), depth: 0 }];
+    const keyOpts = { queryStrategy: config.crawl.query_strategy };
+    const queue: QueueItem[] = [{ url: normalizeUrl(startUrl, keyOpts), depth: 0 }];
+    // The sites in scope: the start URL's, plus wherever it redirects to
+    // (france.fr -> www.france.fr/en/), so following the redirect, as a
+    // browser does, never empties the crawl.
+    const sites = new Set([siteOf(startUrl)]);
+    let pagesMeasured = 0;
 
-    while (queue.length > 0 && visited.size < config.crawl.max_pages) {
+    while (queue.length > 0 && pagesMeasured < config.crawl.max_pages) {
       const item = queue.shift()!;
-      if (visited.has(item.url)) continue;
-      visited.add(item.url);
+      const key = pageKey(item.url, keyOpts);
+      if (visited.has(key)) continue;
+      visited.add(key);
       discovered.push(item.url);
+      pagesMeasured++;
 
-      options.onProgress?.(`[${visited.size}/${config.crawl.max_pages}] ${item.url}`);
+      options.onProgress?.(`[${pagesMeasured}/${config.crawl.max_pages}] ${item.url}`);
 
       // Each page is a single measured run so the result shape matches other modes.
       await runner.measure(`run:0:${item.url}`, async () => {
         await session.getPage().goto(item.url, { waitUntil: 'domcontentloaded' });
       });
 
-      if (item.depth < config.crawl.max_depth) {
-        const links = await extractLinks(session, item.url, config, robotsDisallow);
+      // After a failed navigation the browser still shows the previous page,
+      // so its URL and links say nothing about this one.
+      const loaded = runner.getRecords().at(-1)?.valid === true;
+
+      // Where the browser actually ended up. Mark it visited too, so a page
+      // reached through a redirect is not crawled again under its own URL.
+      const landed = loaded ? session.getPage().url() : '';
+      if (siteOf(landed)) {
+        visited.add(pageKey(landed, keyOpts));
+        if (item.depth === 0) sites.add(siteOf(landed));
+      }
+
+      if (loaded && item.depth < config.crawl.max_depth) {
+        const links = await extractLinks(session, landed || item.url, sites, config, robotsDisallow);
         for (const link of links) {
-          if (!visited.has(link)) queue.push({ url: link, depth: item.depth + 1 });
+          if (!visited.has(pageKey(link, keyOpts))) queue.push({ url: link, depth: item.depth + 1 });
         }
       }
 
@@ -143,10 +163,10 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
   };
 }
 
-/** Collect same-origin links that pass include/exclude and robots rules. */
 async function extractLinks(
   session: BrowserSession,
   pageUrl: string,
+  sites: Set<string>,
   config: Config,
   robotsDisallow: string[],
 ): Promise<string[]> {
@@ -158,8 +178,24 @@ async function extractLinks(
   } catch {
     return [];
   }
+  return selectCrawlLinks(hrefs, pageUrl, sites, config.crawl, robotsDisallow);
+}
 
-  const out = new Set<string>();
+/**
+ * The links worth crawling from one page. Pure, so it is tested directly.
+ *
+ * `same_origin` (the config key predates this) means "same site": www and
+ * non-www, http and https all count, because redirects between them are
+ * routine. Each page appears once, under the first spelling seen.
+ */
+export function selectCrawlLinks(
+  hrefs: string[],
+  pageUrl: string,
+  sites: Set<string>,
+  crawl: Pick<Config['crawl'], 'same_origin' | 'query_strategy' | 'include' | 'exclude'>,
+  robotsDisallow: string[] = [],
+): string[] {
+  const out = new Map<string, string>();
   for (const href of hrefs) {
     let abs: string;
     try {
@@ -167,16 +203,19 @@ async function extractLinks(
     } catch {
       continue;
     }
-    if (!abs.startsWith('http')) continue;
-    if (config.crawl.same_origin && !sameOrigin(abs, pageUrl)) continue;
+    if (!/^https?:/i.test(abs)) continue;
+    if (crawl.same_origin && !sites.has(siteOf(abs))) continue;
+    // A file, not a page: a browser downloads it and there is nothing to measure.
+    if (/\.(pdf|docx?|xlsx?|pptx?|zip|csv|mp3|mp4|mov|jpe?g|png|gif|svg|webp)$/i.test(new URL(abs).pathname)) continue;
 
-    const normalized = normalizeUrl(abs, { queryStrategy: config.crawl.query_strategy });
-    if (!matchesRules(normalized, config.crawl.include, config.crawl.exclude)) continue;
+    const normalized = normalizeUrl(abs, { queryStrategy: crawl.query_strategy });
+    if (!matchesRules(normalized, crawl.include, crawl.exclude)) continue;
     if (isRobotsDisallowed(normalized, robotsDisallow)) continue;
-    out.add(normalized);
+    const key = pageKey(normalized, { queryStrategy: crawl.query_strategy });
+    if (!out.has(key)) out.set(key, normalized);
   }
   // Deterministic ordering so repeated crawls visit pages in the same sequence.
-  return sortUrls([...out]);
+  return sortUrls([...out.values()]);
 }
 
 /** Minimal robots.txt handling: User-agent: * Disallow prefixes. */

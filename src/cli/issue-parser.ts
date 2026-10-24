@@ -2,17 +2,33 @@
  * Parse a scan request from a GitHub issue body.
  *
  * This is untrusted public input. URLs are validated strictly: anything that is
- * not a public http(s) address is rejected, both because a hosted runner cannot
- * reach private hosts and because the scanner must not be usable to probe
- * internal networks.
+ * not a public http(s) address is skipped and listed, both because a hosted
+ * runner cannot reach private hosts and because the scanner must not be usable
+ * to probe internal networks.
+ *
+ * The default is meant to be easy: paste URLs, nothing else is required.
+ *   - one URL    -> crawl that site (www/non-www and http/https included)
+ *   - a list     -> scan exactly those pages
+ *   - runs       -> one visit per page in GitHub's cloud, which cannot
+ *                   measure energy; repeated runs only on a machine that can
+ *   - Lighthouse -> on, for the 10 heaviest pages
+ * Bodies written for the older, longer form still parse.
  */
 
+/** 'measure' scans the listed pages; 'crawl' follows links from the first. */
 export type ScanMode = 'measure' | 'crawl';
 
-export type RunnerChoice = 'linux' | 'macos' | 'self-hosted';
+/**
+ * 'auto' uses the repository's energy-measuring machine when one is set up
+ * (the ENERGY_RUNNER variable), otherwise GitHub's cloud. 'macos' is kept for
+ * older requests that asked for a hosted Mac.
+ */
+export type RunnerChoice = 'auto' | 'cloud' | 'macos';
 
 /** 'all' adds accessibility, best practices and SEO to performance. */
 export type LighthouseChoice = 'none' | 'performance' | 'all';
+/** 'top' audits the heaviest pages; 'every' audits all of them. */
+export type LighthouseScope = 'top' | 'every';
 
 /** A listed URL that will not be scanned, and why. Reported in the results. */
 export interface NotScanned {
@@ -24,67 +40,82 @@ export interface ScanRequest {
   mode: ScanMode;
   urls: string[];
   runner: RunnerChoice;
+  /**
+   * Measured runs per page on a machine that can measure energy. In the
+   * cloud every page is visited once instead; see planRuns().
+   */
   runs: number;
   /** Crawl mode only. */
   maxPages: number;
   include?: string;
   viewport: { width: number; height: number };
   lighthouse: LighthouseChoice;
-  /** Lighthouse runs per URL: a median of three in measure mode, one in crawl. */
+  lighthouseScope: LighthouseScope;
+  /** Lighthouse runs per audited page. */
   lighthouseRuns: number;
   /**
    * Entries left out of this scan — past the URL limit, not a public URL, or
-   * extra start URLs in crawl mode. The request still runs on the rest, and
-   * the results list these so nothing silently disappears.
+   * extra lines when crawling from one URL. The request still runs on the
+   * rest, and the results list these so nothing silently disappears.
    */
   notScanned: NotScanned[];
-  /** Expected scanning time, quoted back to the requester when the run starts. */
+  /** Expected scanning time in GitHub's cloud, quoted when the run starts. */
   estimatedMinutes: number;
   errors: string[];
   notes: string[];
 }
 
-export const MAX_URLS = 20;
+/** One visit per page keeps a long list cheap; 200 is about 15 minutes. */
+export const MAX_URLS = 200;
 export const MAX_RUNS = 30;
-export const DEFAULT_RUNS = 8;
+/** Runs per page on an energy-measuring machine. */
+export const DEFAULT_RUNS = 10;
+export const ENERGY_WARMUPS = 2;
 
-/**
- * Crawl page limits.
- *
- * A crawl measures each page once, so cost scales linearly with pages: 200
- * pages is roughly 15 minutes. A measure request repeats each URL `runs` times
- * plus warmups, so it scales far more steeply — 200 URLs at 8 runs each would
- * be about 2.5 hours. Crawls are therefore allowed many more pages.
- */
+/** Crawl page limits. A crawl visits each page once: 200 pages is ~15 minutes. */
 export const MAX_CRAWL_PAGES = 200;
 export const DEFAULT_CRAWL_PAGES = 50;
 
 /**
  * Lighthouse cost. One run is ~15 s on a fast machine and slower on a shared
  * runner against a heavy page, so the estimate is deliberately generous.
- * A crawl audits only its heaviest pages, once each.
  */
 export const LIGHTHOUSE_SECONDS_PER_RUN = 25;
-export const LIGHTHOUSE_MEASURE_RUNS = 3;
-export const LIGHTHOUSE_CRAWL_PAGES = 10;
+export const LIGHTHOUSE_TOP_PAGES = 10;
+/** @deprecated kept for older callers; the heaviest-pages limit applies to both modes. */
+export const LIGHTHOUSE_CRAWL_PAGES = LIGHTHOUSE_TOP_PAGES;
+
+/** Seconds per measured page visit, from observed timings (load + settle). */
+const SECONDS_PER_VISIT = 2.4 + 2.0;
 
 export function parseLighthouseChoice(raw: string | undefined): LighthouseChoice {
   const value = (raw ?? '').toLowerCase().trim();
-  if (!value || value.startsWith('no')) return 'none';
+  if (!value || value.startsWith('no') || value.startsWith('off')) return 'none';
   if (value.includes('accessibility') || value.startsWith('all')) return 'all';
   return 'performance';
 }
 
+export function parseLighthouseScope(raw: string | undefined): LighthouseScope {
+  return /every/i.test(raw ?? '') ? 'every' : 'top';
+}
+
 /**
- * Wall-clock budget for one scan job.
- *
- * GitHub's hard ceiling is 360 minutes, but shared runners are billed and
- * noisy, and a multi-hour scan on one is poor value: the longer it runs, the
- * more thermal and neighbour drift it accumulates. 90 minutes leaves a full
- * 200-page crawl (~15 min) and the largest permitted measure request
- * (20 URLs x 30 runs, ~47 min) comfortably inside.
+ * Runs and warmups for a scan. A machine that cannot measure energy visits
+ * each page once, cold — repeating would only refine timing medians, at a
+ * multiple of the cost. A machine that can measure energy repeats each page
+ * so the energy result can be resolved, scaled down for long lists so the
+ * scan still fits the job budget.
  */
-export const JOB_BUDGET_MINUTES = 90;
+export function planRuns(
+  urlCount: number,
+  energyMachine: boolean,
+  requested = DEFAULT_RUNS,
+): { runs: number; warmups: number } {
+  if (!energyMachine) return { runs: 1, warmups: 0 };
+  const budget = JOB_BUDGET_MINUTES * 60 - 120;
+  const fit = Math.floor(budget / (Math.max(1, urlCount) * SECONDS_PER_VISIT)) - ENERGY_WARMUPS;
+  return { runs: Math.max(3, Math.min(requested, MAX_RUNS, fit)), warmups: ENERGY_WARMUPS };
+}
 
 const VIEWPORTS: Record<string, { width: number; height: number }> = {
   desktop: { width: 1280, height: 800 },
@@ -185,24 +216,35 @@ export function extractSection(body: string, label: string): string | undefined 
 }
 
 /**
- * Estimate wall-clock minutes for a request.
+ * Wall-clock budget for one scan job.
  *
- * Derived from observed timings: ~2.4 s per run plus ~2.0 s settle, with a
- * one-off idle baseline. Used to reject requests that cannot finish rather
- * than letting them hit the job timeout after an hour of work.
+ * GitHub's hard ceiling is 360 minutes, but shared runners are billed and
+ * noisy, and a multi-hour scan on one is poor value.
+ */
+export const JOB_BUDGET_MINUTES = 90;
+
+/**
+ * Estimate wall-clock minutes for a request in GitHub's cloud (one visit per
+ * page). Derived from observed timings: ~2.4 s per load plus ~2.0 s settle,
+ * with a one-off idle baseline.
  */
 export function estimateMinutes(request: {
   mode: ScanMode;
   urls: string[];
-  runs: number;
   maxPages: number;
+  runs?: number;
+  /** True for a machine that measures energy and so repeats each page. */
+  energyMachine?: boolean;
   lighthouse?: LighthouseChoice;
+  lighthouseScope?: LighthouseScope;
 }): number {
-  const perRunSeconds = 2.4 + 2.0;
   const baselineSeconds = 15;
   const pages = request.mode === 'crawl' ? request.maxPages : request.urls.length;
-  const runsPerPage = request.mode === 'crawl' ? 1 : request.runs + 2; // + warmups
-  return (baselineSeconds + pages * runsPerPage * perRunSeconds + lighthouseSeconds(request)) / 60;
+  const plan =
+    request.mode === 'crawl'
+      ? { runs: 1, warmups: 0 }
+      : planRuns(pages, !!request.energyMachine, request.runs);
+  return (baselineSeconds + pages * (plan.runs + plan.warmups) * SECONDS_PER_VISIT + lighthouseSeconds(request)) / 60;
 }
 
 function lighthouseSeconds(request: {
@@ -210,24 +252,54 @@ function lighthouseSeconds(request: {
   urls: string[];
   maxPages: number;
   lighthouse?: LighthouseChoice;
+  lighthouseScope?: LighthouseScope;
 }): number {
   if (!request.lighthouse || request.lighthouse === 'none') return 0;
-  const pages =
-    request.mode === 'crawl' ? Math.min(request.maxPages, LIGHTHOUSE_CRAWL_PAGES) : request.urls.length;
-  const runs = request.mode === 'crawl' ? 1 : LIGHTHOUSE_MEASURE_RUNS;
-  return pages * runs * LIGHTHOUSE_SECONDS_PER_RUN;
+  const pages = request.mode === 'crawl' ? request.maxPages : request.urls.length;
+  const audited = request.lighthouseScope === 'every' ? pages : Math.min(pages, LIGHTHOUSE_TOP_PAGES);
+  return audited * LIGHTHOUSE_SECONDS_PER_RUN;
+}
+
+/**
+ * What to scan. The new form's "What to scan" field wins; the older form's
+ * "Scan mode" is honoured, except that a pasted list is always scanned as a
+ * list — crawling from its first line and ignoring the rest is never what a
+ * list means.
+ */
+function chooseMode(body: string, urlCount: number, notes: string[]): ScanMode {
+  const what = extractSection(body, 'What to scan')?.toLowerCase();
+  const legacy = extractSection(body, 'Scan mode')?.toLowerCase();
+  const wantsCrawl = what ? what.startsWith('crawl') : legacy?.includes('crawl') ?? false;
+  const wantsList = what ? what.startsWith('only') : legacy !== undefined && !legacy.includes('crawl');
+
+  if (wantsCrawl && urlCount > 1 && !what) {
+    notes.push(`${urlCount} URLs were listed, so they are scanned as a list. To crawl a site, give one URL.`);
+    return 'measure';
+  }
+  if (wantsCrawl) return 'crawl';
+  if (wantsList) return 'measure';
+  return urlCount === 1 ? 'crawl' : 'measure';
+}
+
+function chooseRunner(body: string): RunnerChoice {
+  const where = extractSection(body, 'Where to run')?.toLowerCase();
+  // "Auto — ... otherwise GitHub's cloud" also mentions the cloud, so key on
+  // how the label starts.
+  if (where) return where.startsWith('auto') ? 'auto' : /cloud/.test(where) ? 'cloud' : 'auto';
+  // Older form: "Measurement type".
+  const legacy = (extractSection(body, 'Measurement type') ?? '').toLowerCase();
+  if (legacy.includes('self')) return 'auto';
+  if (legacy.includes('macos')) return 'macos';
+  return legacy ? 'cloud' : 'auto';
 }
 
 export function parseScanRequest(body: string): ScanRequest {
   const errors: string[] = [];
   const notes: string[] = [];
 
-  const modeRaw = (extractSection(body, 'Scan mode') ?? 'measure').toLowerCase();
-  const mode: ScanMode = modeRaw.includes('crawl') ? 'crawl' : 'measure';
-
   const urlBlock = extractSection(body, 'URLs') ?? '';
   const candidates = urlBlock
-    .split(/\r?\n/)
+    .split(/[\r\n,]+/)
     .map((l) => l.trim().replace(/^[-*]\s*/, ''))
     .filter(Boolean);
 
@@ -252,11 +324,12 @@ export function parseScanRequest(body: string): ScanRequest {
     );
   }
 
+  const mode = chooseMode(body, urls.length, notes);
+
   if (mode === 'crawl' && urls.length > 1) {
     for (const u of urls.slice(1)) {
-      notScanned.push({ url: u, reason: 'crawl mode starts from one URL' });
+      notScanned.push({ url: u, reason: 'crawling starts from one URL' });
     }
-    notes.push(`Crawl mode uses a single start URL; crawling from ${urls[0]}.`);
     urls.length = 1;
   }
   if (mode === 'measure' && urls.length > MAX_URLS) {
@@ -266,36 +339,20 @@ export function parseScanRequest(body: string): ScanRequest {
     }
     notes.push(
       `${urls.length} URLs were listed; the first ${MAX_URLS} are scanned and the other ${extra} ` +
-        'are listed as not scanned. Open a second request, or use crawl mode, to cover them.',
+        'are listed as not scanned. Open a second request to cover them.',
     );
     urls.length = MAX_URLS;
   }
 
-  // 'self-hosted' is the only option that can produce energy data, and only
-  // when a physical Apple Silicon runner is actually registered.
-  const runnerRaw = (extractSection(body, 'Measurement type') ?? 'linux').toLowerCase();
-  const runner: RunnerChoice = runnerRaw.includes('self')
-    ? 'self-hosted'
-    : runnerRaw.includes('macos')
-      ? 'macos'
-      : 'linux';
-  if (runner !== 'self-hosted') {
-    notes.push(
-      'Hosted runners are virtual machines with no power-measurement hardware, so this scan is ' +
-        'not expected to measure energy. It checks anyway and reports what it finds, along with ' +
-        'network, CO2e, timing and page structure.',
-    );
-  }
+  const runner = chooseRunner(body);
 
+  // Older form only; the new form leaves runs to planRuns().
   const runsRaw = extractSection(body, 'Measured runs per URL');
   let runs = DEFAULT_RUNS;
   if (runsRaw) {
     const parsed = Number.parseInt(runsRaw.trim(), 10);
     if (Number.isFinite(parsed) && parsed >= 1) {
       runs = Math.min(parsed, MAX_RUNS);
-      if (parsed > MAX_RUNS) notes.push(`Requested ${parsed} runs; capped at ${MAX_RUNS}.`);
-    } else {
-      notes.push(`Could not read a run count from "${clip(runsRaw, 40)}"; using ${DEFAULT_RUNS}.`);
     }
   }
 
@@ -305,10 +362,10 @@ export function parseScanRequest(body: string): ScanRequest {
     const parsed = Number.parseInt(pagesRaw.trim(), 10);
     if (Number.isFinite(parsed) && parsed >= 1) {
       maxPages = Math.min(parsed, MAX_CRAWL_PAGES);
-      if (parsed > MAX_CRAWL_PAGES) {
+      if (parsed > MAX_CRAWL_PAGES && mode === 'crawl') {
         notes.push(`Requested ${parsed} pages; capped at ${MAX_CRAWL_PAGES}.`);
       }
-    } else {
+    } else if (mode === 'crawl') {
       notes.push(`Could not read a page limit from "${clip(pagesRaw, 40)}"; using ${DEFAULT_CRAWL_PAGES}.`);
     }
   }
@@ -329,40 +386,37 @@ export function parseScanRequest(body: string): ScanRequest {
 
   const viewport = parseViewport(extractSection(body, 'Viewport'));
 
-  const lighthouse = parseLighthouseChoice(extractSection(body, 'Lighthouse'));
-  const lighthouseRuns = mode === 'crawl' ? 1 : LIGHTHOUSE_MEASURE_RUNS;
-  if (lighthouse !== 'none') {
+  const lighthouseRaw = extractSection(body, 'Lighthouse');
+  const lighthouse = parseLighthouseChoice(lighthouseRaw);
+  let lighthouseScope = parseLighthouseScope(lighthouseRaw);
+
+  const pages = mode === 'crawl' ? maxPages : urls.length;
+  let minutes = estimateMinutes({ mode, urls, maxPages, lighthouse, lighthouseScope });
+  // Lighthouse on every page of a long list is the one way to overrun the
+  // budget; fall back to the heaviest pages rather than reject the request.
+  if (minutes > JOB_BUDGET_MINUTES && lighthouseScope === 'every') {
+    lighthouseScope = 'top';
+    minutes = estimateMinutes({ mode, urls, maxPages, lighthouse, lighthouseScope });
     notes.push(
-      mode === 'crawl'
-        ? `Lighthouse audits the ${LIGHTHOUSE_CRAWL_PAGES} heaviest crawled pages, once each, in Chromium after the Firefox crawl.`
-        : `Lighthouse runs ${LIGHTHOUSE_MEASURE_RUNS} times per URL in Chromium after the Firefox measurements; the median run is reported.`,
+      `Lighthouse on all ${pages} pages would overrun the ${JOB_BUDGET_MINUTES}-minute budget, so it ` +
+        `audits the ${LIGHTHOUSE_TOP_PAGES} heaviest instead.`,
     );
   }
-
-  // Reject work that cannot finish inside the job budget, with a concrete fix.
-  const request = { mode, urls, runs, maxPages, lighthouse };
-  const minutes = estimateMinutes(request);
   if (minutes > JOB_BUDGET_MINUTES) {
-    if (mode === 'measure') {
-      errors.push(
-        `This request would take roughly ${Math.round(minutes)} minutes, over the ${JOB_BUDGET_MINUTES}-minute budget. ` +
-          `Reduce the run count or the number of URLs, turn off Lighthouse, or use crawl mode (one run per page).`,
-      );
-    } else {
-      errors.push(
-        `A ${maxPages}-page crawl would take roughly ${Math.round(minutes)} minutes, over the ` +
-          `${JOB_BUDGET_MINUTES}-minute budget. Lower the page limit.`,
-      );
-    }
-  } else if (minutes > 60) {
-    notes.push(`Estimated runtime is about ${Math.round(minutes)} minutes.`);
+    errors.push(
+      `This request would take roughly ${Math.round(minutes)} minutes, over the ${JOB_BUDGET_MINUTES}-minute budget. ` +
+        (mode === 'crawl' ? 'Lower the page limit.' : 'Split the URLs across two requests.'),
+    );
   }
 
-  if (mode === 'crawl') {
-    notes.push(
-      'Crawl mode measures each page once. It is for discovery and ranking, not for ' +
-        'regression comparison — single runs cannot separate a real difference from noise.',
-    );
+  notes.unshift(
+    mode === 'crawl'
+      ? `Crawling ${urls[0] ?? 'the site'} and the pages it links to on the same site, up to ${maxPages} pages, once each.`
+      : `Scanning ${urls.length} listed page${urls.length === 1 ? '' : 's'}.`,
+  );
+  if (lighthouse !== 'none') {
+    const audited = lighthouseScope === 'every' ? 'every page' : `the ${Math.min(LIGHTHOUSE_TOP_PAGES, pages)} heaviest page${Math.min(LIGHTHOUSE_TOP_PAGES, pages) === 1 ? '' : 's'}`;
+    notes.push(`Lighthouse (${lighthouse === 'all' ? 'all categories' : 'performance'}) audits ${audited}, in Chromium, after the Firefox scan.`);
   }
 
   return {
@@ -374,7 +428,8 @@ export function parseScanRequest(body: string): ScanRequest {
     ...(include ? { include } : {}),
     viewport,
     lighthouse,
-    lighthouseRuns,
+    lighthouseScope,
+    lighthouseRuns: 1,
     notScanned,
     estimatedMinutes: Math.round(minutes * 10) / 10,
     errors,

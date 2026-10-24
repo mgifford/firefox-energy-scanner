@@ -1,111 +1,48 @@
-name: Energy scan request
-description: Measure browser energy and modelled CO2e for public URLs, or crawl a site.
+name: Scan request
+description: Scan public web pages for weight, modelled CO2e, page structure and Lighthouse performance.
 title: "SCAN: "
-labels: ["scan-request"]
+labels: []
 body:
   - type: markdown
     attributes:
       value: |
-        ## Browser energy scan request
+        ## Scan request
 
-        The issue title **must** begin with `SCAN:`.
+        **Paste URLs — that is all that is required.** One URL crawls its site; a list
+        scans just those pages. Every other field has a sensible default.
 
         > **Tip:** the [web form](https://mgifford.github.io/firefox-energy-scanner/)
-        > pre-fills this template for you.
-
-        **What this measures.** Modelled CO2e is estimated by CO2.js from transferred
-        bytes. It is *not* server energy and *not* a total carbon figure.
-
-        **Hosted scans do not include energy.** GitHub's runners are virtual machines
-        with no power-measurement hardware exposed, so Firefox's power counters produce
-        nothing. Observed energy — what Firefox's own processes draw — requires a
-        physical Apple Silicon machine. Run the CLI locally, or register a self-hosted
-        runner, for that.
-
-        **Small static pages usually cannot be measured.** They paint, then the browser
-        goes idle, leaving nothing above the noise floor. Those results publish as
-        "not resolved" rather than as a number.
-
-  - type: dropdown
-    id: mode
-    attributes:
-      label: Scan mode
-      description: >
-        **Measure** repeats each URL several times, which is what makes a result
-        trustworthy — use it for real comparisons. **Crawl** follows links from one
-        start URL and measures each page once; it covers far more pages but a single
-        run cannot separate a real difference from noise, so it is for discovery and
-        ranking only.
-      options:
-        - measure — repeat a few URLs many times (up to 20 URLs)
-        - crawl — follow links from one URL, once each (up to 200 pages)
-      default: 0
-    validations:
-      required: true
+        > fills this in for you. The issue title **must** begin with `SCAN:`.
 
   - type: textarea
     id: urls
     attributes:
       label: URLs
       description: >
-        One public `https://` or `http://` URL per line. Measure mode scans the first
-        20; any more are listed in the results as not scanned. Crawl mode uses the
-        first URL as its starting point. Localhost and private addresses are skipped
-        and listed — a hosted runner cannot reach them.
+        One public `https://` or `http://` URL per line, or comma-separated. **One URL**:
+        the scanner crawls that site (www and non-www, http and https count as the same
+        site) up to the page limit below. **Several URLs**: it scans exactly those, up to
+        200; any more are listed in the results as not scanned.
       placeholder: |
-        https://example.com/
-        https://example.com/about
+        https://www.example.gov/
+        https://www.example.gov/about
     validations:
       required: true
 
   - type: dropdown
-    id: runner
+    id: lighthouse
     attributes:
-      label: Measurement type
+      label: Lighthouse
       description: >
-        Only a **self-hosted physical Apple Silicon** runner can measure energy.
-        GitHub's hosted macOS runners are virtual machines whose power counters emit no
-        samples, so both hosted options report network, CO2e, timing and page structure
-        only. If you pick self-hosted and no runner is online, the scan falls back to a
-        hosted runner rather than queuing forever, and says so.
+        Google Lighthouse in Chromium, after the Firefox scan: Performance score, lab
+        Core Web Vitals and the failing recommendations with estimated savings. It is a
+        different engine, so its numbers sit beside the Firefox results.
       options:
-        - linux — structural only (fastest, always available)
-        - macos — structural only, desktop-like browser profile
-        - self-hosted — physical Apple Silicon, includes ENERGY
+        - Performance — the 10 heaviest pages
+        - Performance — every page (slower)
+        - All categories — the 10 heaviest pages
+        - No
       default: 0
-    validations:
-      required: true
-
-  - type: input
-    id: runs
-    attributes:
-      label: Measured runs per URL
-      description: >
-        Measure mode only. More runs give a tighter result; below 10 no statistical
-        significance is claimed. Maximum 30.
-      value: "8"
-    validations:
-      required: false
-
-  - type: input
-    id: max-pages
-    attributes:
-      label: Maximum pages to crawl
-      description: >
-        Crawl mode only. Maximum 200. A full 200-page crawl takes roughly 15 minutes.
-      value: "50"
-    validations:
-      required: false
-
-  - type: input
-    id: include
-    attributes:
-      label: Include pattern
-      description: >
-        Crawl mode only. A regular expression matched against the URL path, e.g.
-        `^/admin` to crawl only administrative pages. Leave blank to crawl everything
-        on the same origin.
-      placeholder: "^/admin"
     validations:
       required: false
 
@@ -113,9 +50,6 @@ body:
     id: viewport
     attributes:
       label: Viewport
-      description: >
-        Screen size to emulate. Viewport affects layout and rendering work, so it can
-        change measured energy.
       options:
         - Desktop (1280x800)
         - Tablet portrait (768x1024)
@@ -127,21 +61,37 @@ body:
       required: false
 
   - type: dropdown
-    id: lighthouse
+    id: what
     attributes:
-      label: Lighthouse
-      description: >
-        Also run Google Lighthouse in Chromium, after the Firefox measurements have
-        finished. Reports the Performance score, Core Web Vitals lab metrics and the
-        failing performance recommendations with their estimated savings. Measure mode
-        runs it 3 times per URL and reports the median; crawl mode audits the 10
-        heaviest pages once each. Adds roughly 1–1.5 minutes per URL. Lighthouse is a
-        different browser engine under simulated throttling, so its numbers sit beside
-        the Firefox results and are never combined with them.
+      label: What to scan
       options:
-        - No
-        - Performance — score, metrics and recommendations
-        - All — performance, accessibility, best practices and SEO
+        - Auto — one URL crawls its site; several URLs scan just those
+        - Only the listed URLs
+        - Crawl the site from the first URL
+      default: 0
+    validations:
+      required: false
+
+  - type: input
+    id: max-pages
+    attributes:
+      label: Maximum pages to crawl
+      description: Used only when crawling. Up to 200; 50 pages takes about 5 minutes.
+      value: "50"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where to run
+      description: >
+        GitHub's cloud machines are virtual and **cannot measure energy** (tested on all
+        of them). Energy needs a physical machine: run the scanner locally, or register
+        one for this repository — see docs/local-energy.md.
+      options:
+        - Auto — an energy-measuring machine if one is set up, otherwise GitHub's cloud
+        - GitHub's cloud only (no energy)
       default: 0
     validations:
       required: false
@@ -158,15 +108,7 @@ body:
     attributes:
       value: |
         ---
-        Once this issue is saved the scan starts automatically. Results are posted as a
-        comment here and published to
-        [GitHub Pages](https://mgifford.github.io/firefox-energy-scanner/).
-
-        **The issue is closed when the scan finishes. Reopen it to run the scan again** —
-        edit the request above first if you want different settings. A request that fails
-        or is rejected stays open, with an explanation: **edit it, and saving the edit runs
-        it again.** You can also add the `rescan` label to any request, open or closed.
-
-        Scans run on shared GitHub runners, which have no thermal or noisy-neighbour
-        control. Treat the numbers as indicative; regression-grade comparison needs a
-        dedicated machine.
+        The scan starts when this issue is saved. A comment confirms it has started, and
+        the results are posted here when it finishes. **The issue then closes; reopen it to
+        scan again** (edit it first to change anything). A rejected or failed request stays
+        open: edit it, and saving runs it again. The `rescan` label also re-runs any request.

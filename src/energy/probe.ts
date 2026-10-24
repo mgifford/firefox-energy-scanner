@@ -37,6 +37,10 @@ export interface HostFacts {
 
 export interface FirefoxProbe {
   samples: number;
+  /** Energy recorded during the probe's short CPU workload, when measured. */
+  joules?: number;
+  /** Length of the measured window, in milliseconds. */
+  windowMs?: number;
   counters: string[];
   scope?: 'process' | 'cpu-package' | 'system';
   error?: string;
@@ -108,8 +112,32 @@ export async function collectHostFacts(): Promise<HostFacts> {
     const v = await detectVirtualisation();
     if (v !== undefined) facts.virtualised = v;
     if (v) facts.hypervisor = 'Apple Virtualization (macOS guest)';
+  } else if (process.platform === 'win32') {
+    Object.assign(facts, await windowsVirtualisation());
   }
   return facts;
+}
+
+/** Windows reports the hypervisor through the system model and manufacturer. */
+async function windowsVirtualisation(): Promise<{ virtualised?: boolean; hypervisor?: string }> {
+  try {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const { stdout } = await promisify(execFile)(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command',
+        '$c = Get-CimInstance Win32_ComputerSystem; "$($c.Manufacturer)|$($c.Model)|$($c.HypervisorPresent)"'],
+      { timeout: 15000, windowsHide: true },
+    );
+    const [maker = '', model = '', present = ''] = stdout.trim().split('|');
+    const vm = /virtual|vmware|qemu|kvm|xen|parallels|virtualbox/i.test(`${maker} ${model}`);
+    // HypervisorPresent is also true on a physical PC with Hyper-V or VBS on,
+    // so on its own it does not mean "virtual machine".
+    if (vm) return { virtualised: true, hypervisor: `${maker} ${model}`.trim() };
+    return present ? { virtualised: false } : {};
+  } catch {
+    return {};
+  }
 }
 
 /** Where energy measurement does work, best first. Shown whenever this host cannot. */
@@ -133,7 +161,12 @@ export function judgeEnergy(facts: HostFacts, firefox?: FirefoxProbe): Omit<Ener
     const scope = firefox.scope ? SCOPE_TEXT[firefox.scope] : 'energy';
     return {
       verdict: 'energy',
-      reason: `Firefox recorded ${firefox.samples} power samples: this host measures ${scope}.`,
+      reason:
+        `Firefox recorded ${firefox.samples} power samples` +
+        (firefox.joules !== undefined && firefox.windowMs
+          ? ` (${firefox.joules.toFixed(2)} J over ${(firefox.windowMs / 1000).toFixed(1)} s of test work)`
+          : '') +
+        `: this host measures ${scope}.`,
       nextSteps:
         firefox.scope && firefox.scope !== 'process'
           ? ['Close other applications while measuring; the idle baseline is subtracted, but background work still adds noise.']

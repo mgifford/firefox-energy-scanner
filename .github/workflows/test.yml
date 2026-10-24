@@ -33,3 +33,26 @@ jobs:
       - run: npm ci
 
       - run: npm test
+
+  # Real Firefox against a small local site served as site.test and
+  # www.site.test, the first redirecting to the second. Covers what unit tests
+  # cannot: that a crawl follows a www redirect and reaches every page once,
+  # and that a PDF in a list is reported as "not a web page".
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --omit=optional
+      - run: npx playwright install --with-deps firefox
+      - run: npm run build
+
+      - name: Map the test site's host names to this machine
+        run: echo "127.0.0.1 site.test www.site.test" | sudo tee -a /etc/hosts
+
+      - run: node tests/e2e/crawl-e2e.mjs

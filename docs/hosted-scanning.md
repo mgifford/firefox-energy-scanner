@@ -8,13 +8,32 @@ results published back to the static site. The pattern follows
 
 ## Requesting a scan
 
-Hosted runners have no power-measurement hardware, so their energy column reads
-**not measured**. Turn on **Lighthouse** in the form to add Chromium lab scores and
-performance recommendations; see [lighthouse.md](lighthouse.md).
+Use the web form (it pre-fills a GitHub issue that you review and submit), or open an
+issue titled `SCAN: <description>` with the *Scan request* template.
 
-Either use the web form (which pre-fills a GitHub issue — you still review and submit
-it yourself), or open an issue titled `SCAN: <description>` using the
-*Energy scan request* template.
+**Only the URLs are required.** Everything else has a default:
+
+| Field | Default | |
+|---|---|---|
+| URLs | — | One URL crawls its site; several URLs scan exactly those (up to 200). Comma-separated works too. |
+| Lighthouse | Performance, the 10 heaviest pages | Or every page, all four categories, or off. One run per page. See [lighthouse.md](lighthouse.md). |
+| Viewport | Desktop, 1280×800 | Desktop-width viewports use Lighthouse's desktop profile; narrower ones its mobile profile. |
+| What to scan | Auto | Force a list scan of a single URL, or a crawl from the first of several. |
+| Maximum pages to crawl | 50 | Crawls only; up to 200. |
+| Where to run | Auto | The repository's energy-measuring machine if one is set up, otherwise GitHub's cloud. |
+
+**Crawling** follows links on the same site. A leading `www.` and the scheme do not
+matter, and redirects are followed as a browser follows them: a crawl of `france.fr`
+covers `www.france.fr`, and each page is visited once whichever spelling links to it.
+Links to files (PDF, Office documents, images, media) are skipped.
+
+**Runs.** GitHub's cloud cannot measure energy, so there each page is visited once,
+cold — repeating a page only matters for resolving energy. On an energy-measuring
+machine each page gets 2 warmups and 10 measured runs, reduced for long lists so the
+scan fits the 90-minute budget.
+
+Requests written with the older form (scan mode, measurement type, runs per URL) still
+work. A pasted list is always scanned as a list, even if the old form said crawl.
 
 ### The issue is the run control
 
@@ -49,9 +68,9 @@ means "not yet serviced":
 Each issue has its own queue, so re-running several requests at once queues them all;
 none is dropped.
 
-### More than 20 URLs
+### More than 200 URLs
 
-Measure mode scans the first 20 URLs. Any beyond that — and any line that is not a
+A list scan covers the first 200 URLs. Any beyond that — and any line that is not a
 public `http(s)` URL — are listed under **Not scanned** in the results comment, with
 the reason, rather than rejecting the whole request. A request is only rejected when
 nothing in it can be scanned.
@@ -59,41 +78,39 @@ nothing in it can be scanned.
 ## GitHub-hosted runners cannot measure energy
 
 **No GitHub-hosted runner can produce energy data**, and no configuration changes that.
+This is measured: the [Energy probe](../.github/workflows/energy-probe.yml) workflow runs
+Firefox with its power profiler on every hosted machine type and counts real samples.
+Its run on 24 October 2026:
 
-GitHub's macOS runners are virtual machines (`Apple M1 (Virtual)`, `hw.model
-VirtualMac2,1`, `kern.hv_vmm_present 1`). Firefox reads energy from the kernel via
-`task_info(TASK_POWER_INFO_V2)`, which is ultimately fed by the SoC's power-manager
-block — and that hardware is not exposed to a guest VM. `powermetrics` on the same host
-fails with `cannot find the IO registry entry for IODeviceTree:/arm-io/pmgr`.
+| Runner | Virtual machine | Linux RAPL | Firefox power | Verdict |
+|---|---|---|---|---|
+| `macos-latest` (Apple Silicon) | yes, Apple Virtualization | n/a | 0 samples (`Process Power` counter present) | cannot |
+| `macos-15-intel` | yes, Apple Virtualization | n/a | 0 samples, no counters | cannot |
+| `ubuntu-latest` (x64) | yes, Azure | none, `perf_event_paranoid` 0 | 0 samples, no counters | cannot |
+| `ubuntu-24.04-arm` | yes, Azure | none, `perf_event_paranoid` 0 | 0 samples, no counters | cannot |
+| `windows-latest` (x64) | yes, Azure | n/a | 0 samples, no counters | cannot |
+| `windows-11-arm` | (not reported) | n/a | 0 samples, no counters | cannot |
 
-| Host | Counter exists | Samples | Energy |
-|---|---|---|---|
-| Physical Apple Silicon | yes | 465 in a 5.7 s probe | **yes** |
-| GitHub `macos-latest` | yes | **0** | **no** |
-| GitHub `ubuntu-latest` | Linux RAPL needs bare metal; the runner is an Azure VM | 0 expected | **no** |
-| Self-hosted Apple Silicon | yes | yes | **yes** |
+The blocker is virtualisation, not the datacentre. On macOS, Firefox reads energy via
+`task_info(TASK_POWER_INFO_V2)`, which the SoC's power manager feeds, and a guest VM
+has no such hardware. On Linux and Windows, Firefox reads the CPU's RAPL counters,
+which Azure VMs do not expose. Re-run the probe from the Actions tab at any time.
 
-Linux was previously listed as having no counters at all. That was an assumption, not a
-measurement: Firefox 107 and later read Intel and AMD RAPL counters on Linux. What rules
-the hosted Linux runner out is virtualisation. Every scan now checks for itself — on
-Linux runners it also sets `kernel.perf_event_paranoid=0` first — and the results
-comment states the outcome under **Energy check**. See
-[local-energy.md](local-energy.md) for the machines that do work.
+A *physical* machine works: a physical Apple Silicon Mac (per-process), or a bare-metal
+Linux or Windows 11 PC (whole CPU package). Run the scanner on it directly, or register
+it for this repository so issue scans use it:
 
-The blocker is virtualisation, not the datacentre. A *physical* Apple Silicon machine
-registered as a self-hosted runner measures energy correctly — and is better than a
-laptop for it: mains power, stable thermals, no Low Power Mode, no competing user
-workload.
+1. Register it as a self-hosted runner ([self-hosted-runner.md](self-hosted-runner.md)).
+2. Set the repository variable **`ENERGY_RUNNER`** to its labels, comma-separated, e.g.
+   `self-hosted,macOS,ARM64` (Settings → Secrets and variables → Actions → Variables).
 
-So, in practice:
+With `ENERGY_RUNNER` set, "Where to run: Auto" sends scans to that machine, and they
+wait for it if it is busy or offline. Without it, scans run in GitHub's cloud and the
+results comment says so. (GitHub's own workflow token cannot list runners, so the
+repository has to say which machine to use.)
 
-- **Hosted runners** (either OS) — network, CO2e and timing only. Useful, and these
-  metrics do not depend on machine state.
-- **Self-hosted Apple Silicon** — the full set, including energy.
-
-Results are labelled "no energy data" rather than silently omitting the column, because
-an absent number and an unmeasured one mean different things. `doctor` probes for real
-samples and fails loudly on a host that cannot measure.
+Results from the cloud read **not measured** in the energy column rather than omitting
+it, because an absent number and an unmeasured one mean different things.
 
 ## What hosted results are good for
 

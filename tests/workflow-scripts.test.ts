@@ -32,6 +32,7 @@ const WORKFLOWS = [
   '.github/workflows/scan-request.yml',
   '.github/workflows/deploy-pages.yml',
   '.github/workflows/test.yml',
+  '.github/workflows/energy-probe.yml',
 ];
 
 function githubScriptSteps(): { workflow: string; step: string; script: string }[] {

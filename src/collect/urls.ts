@@ -51,6 +51,43 @@ export function normalizeUrl(input: string, options: NormalizeOptions = {}): str
   return u.toString();
 }
 
+/**
+ * The site a URL belongs to: its host without a leading "www.".
+ *
+ * example.org, www.example.org, http:// and https:// are one site to a
+ * visitor, so they are one site to the crawler. Redirecting between them is
+ * routine and must not end a crawl.
+ */
+export function siteOf(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return u.hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+export function sameSite(a: string, b: string): boolean {
+  const sa = siteOf(a);
+  return sa !== '' && sa === siteOf(b);
+}
+
+/**
+ * Identity of a page for "have we been here?": the normalized URL with the
+ * scheme and a leading "www." ignored, so http/https and www/non-www links
+ * to the same page are crawled once.
+ */
+export function pageKey(url: string, options: NormalizeOptions = {}): string {
+  const normalized = normalizeUrl(url, options);
+  try {
+    const u = new URL(normalized);
+    return `${u.hostname.replace(/^www\./, '')}${u.port ? `:${u.port}` : ''}${u.pathname}${u.search}`;
+  } catch {
+    return normalized;
+  }
+}
+
 export function sameOrigin(a: string, b: string): boolean {
   try {
     return new URL(a).origin === new URL(b).origin;

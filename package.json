@@ -16,7 +16,8 @@
     "test": "tsc -p tsconfig.json --noEmit && vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "energy-check": "npx playwright install firefox && npm run build && node dist/cli/index.js doctor"
   },
   "dependencies": {
     "@tgwf/co2": "^0.19.0",

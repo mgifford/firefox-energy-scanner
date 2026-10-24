@@ -85,7 +85,8 @@ Lighthouse (optional; runs in Chromium after the Firefox session has closed):
   --lighthouse-runs <n>         Runs per URL; the median is reported (default 3)
   --lighthouse-categories <c>   performance (default), a comma list, or "all"
   --lighthouse-form-factor <f>  mobile | desktop (default: from the viewport)
-  --lighthouse-top <n>          Crawl mode: audit the n heaviest pages (default 10)
+  --lighthouse-top <n|all>      Audit only the n heaviest pages (crawl default 10;
+                                lists default all)
   --lighthouse-reports <dir>    Also write each URL's full HTML report here
 `;
 
@@ -212,6 +213,7 @@ async function probePowerCounters(): Promise<FirefoxProbe & { durationMs: number
     const selection = adapter.powerSelection();
     return {
       samples: probe?.sampleCount ?? 0,
+      ...(probe?.totalJoules !== undefined ? { joules: probe.totalJoules, windowMs: probe.durationMs } : {}),
       counters: adapter.counterNames(),
       ...(selection && (probe?.sampleCount ?? 0) > 0 ? { scope: selection.scope } : {}),
       durationMs: Date.now() - started,
@@ -227,7 +229,7 @@ const firstLine = (m: string) => m.split('\n')[0]!.slice(0, 300);
 async function runEnergyProbe(): Promise<EnergyProbe> {
   const facts = await collectHostFacts();
   const firefoxProbe = await probePowerCounters();
-  const { durationMs: _ms, ...firefoxFacts } = firefoxProbe;
+  const { durationMs: _total, ...firefoxFacts } = firefoxProbe;
   return { ...facts, firefox: firefoxFacts, ...judgeEnergy(facts, firefoxFacts) };
 }
 
@@ -597,13 +599,17 @@ interface LighthouseArgs {
   runs: number;
   categories: ReturnType<typeof parseCategories>;
   formFactor: FormFactor;
-  top: number;
+  /** Audit only the heaviest N pages; undefined means every page. */
+  top?: number;
   reportsDir?: string;
 }
 
-function lighthouseArgs(args: Args, config: Config): LighthouseArgs {
+function lighthouseArgs(args: Args, config: Config, mode: 'measure' | 'crawl' = 'measure'): LighthouseArgs {
   const runs = Number.parseInt(one(args, 'lighthouse-runs') ?? '3', 10);
-  const top = Number.parseInt(one(args, 'lighthouse-top') ?? '10', 10);
+  // A crawl can reach hundreds of pages, so it always has a limit; a list
+  // is audited in full unless --lighthouse-top says otherwise.
+  const topRaw = one(args, 'lighthouse-top') ?? (mode === 'crawl' ? '10' : 'all');
+  const top = topRaw === 'all' ? undefined : Number.parseInt(topRaw, 10);
   const ff = one(args, 'lighthouse-form-factor');
   if (ff && ff !== 'mobile' && ff !== 'desktop') {
     throw new Error(`--lighthouse-form-factor must be mobile or desktop (got "${ff}")`);
@@ -613,7 +619,7 @@ function lighthouseArgs(args: Args, config: Config): LighthouseArgs {
     runs: Number.isFinite(runs) && runs >= 1 ? Math.min(runs, 9) : 3,
     categories: parseCategories(one(args, 'lighthouse-categories')),
     formFactor: (ff as FormFactor | undefined) ?? formFactorFor(config.browser.viewport),
-    top: Number.isFinite(top) && top >= 0 ? top : 10,
+    ...(top === undefined ? {} : { top: Number.isFinite(top) && top >= 0 ? top : 10 }),
     ...(reportsDir ? { reportsDir: resolve(reportsDir) } : {}),
   };
 }
@@ -632,7 +638,7 @@ async function attachLighthouse(
   mode: 'measure' | 'crawl',
 ): Promise<void> {
   if (!has(args, 'lighthouse')) return;
-  const opts = lighthouseArgs(args, config);
+  const opts = lighthouseArgs(args, config, mode);
   const { urls, skipped } = pickLighthouseUrls(result.scenarios, requested, mode, opts.top);
   if (skipped.length) {
     result.warnings.push(

@@ -124,6 +124,43 @@ describe('extractRecommendations', () => {
   });
 });
 
+describe('audits whose details are not a table', () => {
+  /**
+   * Regression, issue #11: on france.fr the document-latency insight failed.
+   * Its details are a "checklist", whose items are an object, not an array.
+   * Summing wastedBytes over it threw "items.reduce is not a function" and
+   * the whole Lighthouse result was reported as failed.
+   */
+  it('keeps the result when a failing audit has checklist details', () => {
+    const withChecklist: Lhr = {
+      ...lhr,
+      audits: {
+        ...lhr.audits,
+        'document-latency-insight': {
+          id: 'document-latency-insight',
+          title: 'Document request latency',
+          score: 0,
+          scoreDisplayMode: 'metricSavings',
+          metricSavings: { FCP: 300, LCP: 300 },
+          details: {
+            type: 'checklist',
+            items: {
+              noRedirects: { label: 'Avoids redirects', value: false },
+              serverResponseIsFast: { label: 'Server responds quickly', value: true },
+            },
+          },
+        },
+      },
+    };
+    const s = summarizeLhr(withChecklist, 'https://france.fr/');
+    expect(s.error).toBeUndefined();
+    expect(s.scores.performance).toBe(68);
+    const rec = s.recommendations.find((r) => r.id === 'document-latency-insight');
+    expect(rec?.savingsMs).toBe(300);
+    expect(rec?.savingsBytes).toBeUndefined();
+  });
+});
+
 describe('third-party parsing', () => {
   it('reads entity names, bytes and main-thread time', () => {
     const withThirdParties: Lhr = {
@@ -264,9 +301,15 @@ describe('pickLighthouseUrls', () => {
     step('https://example.org/broken', 0, false, 'Step failed: net::ERR_NAME_NOT_RESOLVED'),
   ];
 
-  it('skips file downloads in measure mode but keeps other failures', () => {
-    const r = pickLighthouseUrls(steps, steps.map((s) => s.step), 'measure', 10);
+  it('audits every listed page except file downloads when there is no limit', () => {
+    const r = pickLighthouseUrls(steps, steps.map((s) => s.step), 'measure', undefined);
     expect(r.urls).toEqual(['https://example.org/', 'https://example.org/big', 'https://example.org/broken']);
+    expect(r.skipped).toEqual(['https://example.org/report']);
+  });
+
+  it('audits only the heaviest listed pages when limited', () => {
+    const r = pickLighthouseUrls(steps, steps.map((s) => s.step), 'measure', 1);
+    expect(r.urls).toEqual(['https://example.org/big']);
     expect(r.skipped).toEqual(['https://example.org/report']);
   });
 

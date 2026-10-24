@@ -68,15 +68,31 @@ and turn Low Power Mode off:
 
 **System Settings → Battery → Low Power Mode → Never**
 
+## Tell the workflow to use it
+
+GitHub's workflow token cannot list runners, so the repository says which machine
+measures energy. Set the repository variable **`ENERGY_RUNNER`** to the runner's
+labels, comma-separated:
+
+**Settings → Secrets and variables → Actions → Variables → New repository variable**
+
+```
+Name:  ENERGY_RUNNER
+Value: self-hosted,macOS,ARM64
+```
+
+Scans with "Where to run: Auto" (the default) then go to this machine and wait for it
+when it is busy or offline. Remove the variable to send everything to GitHub's cloud
+again. A Linux or Windows energy machine works the same way with its own labels; on
+Linux, set `kernel.perf_event_paranoid=0` on the machine itself
+([local-energy.md](local-energy.md)).
+
 ## Using it
 
-Pick **self-hosted — physical Apple Silicon, includes ENERGY** in the scan form or
-issue template.
-
-The workflow checks whether a runner is online *before* dispatching. If none is
-available it falls back to a hosted runner and says so in the issue comment, rather
-than queuing forever — a self-hosted job with no runner waits indefinitely by default,
-which is the failure mode this avoids.
+With `ENERGY_RUNNER` set, every request whose **Where to run** is *Auto* (the default)
+runs on this machine. A request can still choose *GitHub's cloud only*. If the machine
+is offline, scans wait in the queue until it comes back (GitHub gives up after 24
+hours); remove the variable to stop routing scans to it.
 
 ## Security
 

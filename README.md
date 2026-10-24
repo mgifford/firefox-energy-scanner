@@ -67,31 +67,43 @@ Only the energy questions need a Mac.
 
 **<https://mgifford.github.io/firefox-energy-scanner/>**
 
-Request a scan through the web form (or by opening a `SCAN:` issue) and a GitHub
-Action runs it, comments the results on the issue, and adds them to a single rolling
-**Scan results** pull request. Merging that pull request publishes them to the site.
+**Paste URLs — that is all a request needs.** Use the web form or open a `SCAN:` issue.
 
-Runner capability was measured, not assumed:
+- **One URL** crawls its site (www and non-www, http and https count as one site,
+  redirects are followed), up to 50 pages by default.
+- **Several URLs** scans exactly those pages, up to 200 — a
+  [Top Task Finder](https://mgifford.github.io/top-task-finder/) list works well.
+- **Lighthouse** runs by default on the 10 heaviest pages.
 
-| Runner | Architecture | Energy | Use for |
-|---|---|---|---|
-| `macos-latest` | arm64 **virtual** | **no** — VM has no power hardware | network + CO2e + timing |
-| `ubuntu-latest` | x86_64 | no counters | network + CO2e + timing |
-| self-hosted Apple Silicon | arm64 physical | **yes** | everything, including energy |
+A comment confirms the scan has started. The results are posted on the issue and added
+to a single rolling **Scan results** pull request; merging that publishes them to the
+site. Reopen the issue to scan again.
 
-GitHub's macOS runners are virtual machines, and Apple's Virtualization framework does
-not expose the SoC power-manager block to a guest — so Firefox's counters exist but
-never emit a sample. This is a hardware boundary, not a setting. Energy measurement
-needs a physical Apple Silicon machine; a self-hosted runner works well and is better
-than a laptop (mains power, stable thermals, no Low Power Mode).
+### GitHub's cloud cannot measure energy
 
-Results are labelled "no energy data" rather than quietly omitting the column, and
-`doctor` probes for real samples rather than trusting the platform.
+This was tested, not assumed. The [Energy probe](.github/workflows/energy-probe.yml)
+workflow ran Firefox with its power profiler on every GitHub-hosted machine type:
 
-To get energy in CI, register a physical Apple Silicon Mac as a self-hosted runner —
-see [docs/self-hosted-runner.md](docs/self-hosted-runner.md). The workflow checks
-whether one is online before dispatching and falls back to a hosted runner rather than
-queuing forever.
+| Runner | Virtual machine | Firefox power samples |
+|---|---|---|
+| `macos-latest` (Apple Silicon) | yes | 0 — the counter exists but never reports |
+| `macos-15-intel` | yes | 0 |
+| `ubuntu-latest` (x64), `ubuntu-24.04-arm` | yes (Azure) | 0 — no RAPL, even with `perf_event_paranoid=0` |
+| `windows-latest` (x64), `windows-11-arm` | yes (Azure) | 0 |
+
+Virtual machines do not pass power-measurement hardware through, so cloud scans visit
+each page once and report page weight, modelled CO2e, timing, page structure and
+Lighthouse. Their energy column reads **not measured**, which is an absence, not a zero.
+
+**Energy needs a physical machine**: an Apple Silicon Mac, a bare-metal Linux PC with an
+Intel or AMD CPU, or Windows 11. Check yours with one command:
+
+```bash
+npm ci && npm run energy-check
+```
+
+Run scans locally from there, or register the machine so issue scans use it — see
+[docs/local-energy.md](docs/local-energy.md).
 
 Only public `http(s)` URLs are accepted. Localhost and private address ranges are
 rejected, so the scanner cannot be pointed at internal networks.
@@ -121,12 +133,15 @@ to skip it if you only need the Firefox measurements.
 ## Check your environment first
 
 ```bash
-node dist/cli/index.js doctor
+npm run energy-check        # installs Firefox, builds, then runs doctor
+node dist/cli/index.js doctor --json   # the same verdict as data
 ```
 
-`doctor` verifies Node, Playwright, Firefox, and adapter availability, and warns about
-conditions that invalidate comparisons — most importantly running on **battery**, which
-changes power management behaviour.
+`doctor` verifies Node, Playwright and Firefox, then runs Firefox for a few seconds
+with the power profiler on and says plainly whether **this machine can measure
+energy** — with the energy it measured, or the reason it cannot and what would fix it.
+It also warns about conditions that invalidate comparisons, most importantly running
+on **battery**, which changes power management behaviour.
 
 ## Commands
 
