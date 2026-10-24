@@ -568,8 +568,10 @@ jobs:
                 '### Lighthouse',
                 '',
                 `Lighthouse ${lh.version} in ${lh.browser || 'Chromium'}, ${lh.formFactor} profile, ` +
-                  `${lh.throttling}. Median of ${lh.runsPerUrl} run${lh.runsPerUrl === 1 ? '' : 's'} per URL; ` +
-                  'range in brackets.',
+                  `${lh.throttling}. ` +
+                  (lh.runsPerUrl === 1
+                    ? 'One run per page, so a score can move a few points between scans.'
+                    : `Median of ${lh.runsPerUrl} runs per page; range in brackets.`),
                 '',
                 `| Page | Performance | LCP | TBT | CLS | Top recommendation |${catHead}`,
                 `| --- | ---: | ---: | ---: | ---: | --- |${catSep}`,
