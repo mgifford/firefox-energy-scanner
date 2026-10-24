@@ -1,0 +1,133 @@
+name: Energy probe
+
+# Can any GitHub-hosted machine measure Firefox energy? Rather than assume,
+# each job here runs Firefox for a few seconds with the profiler's power
+# feature on, counts real power samples, and records why it could or could
+# not. The results land in the run summary and in one comment on the pull
+# request that triggered it (updated in place on re-runs).
+#
+# Runs automatically when the probe itself changes, and on demand.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/energy-probe.yml'
+      - 'src/energy/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: energy-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest      # x64, Azure VM
+          - ubuntu-24.04-arm   # arm64, Azure VM
+          - windows-latest     # x64, Windows Server, Azure VM
+          - windows-11-arm     # arm64, Windows 11, Azure VM
+          - macos-latest       # Apple Silicon, Apple Virtualization guest
+          - macos-15-intel     # Intel Mac, virtualised
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci --omit=optional
+      - run: npx playwright install firefox
+      - run: npm run build
+
+      # Firefox reads Linux RAPL counters only with perf_event_paranoid <= 0.
+      # Set it, so a "no" on Linux means no hardware, not a blocked setting.
+      - name: Allow RAPL on Linux
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.perf_event_paranoid=0 || true
+
+      - name: Probe
+        shell: bash
+        env:
+          RUNNER_LABEL: ${{ matrix.runner }}
+        run: |
+          node dist/cli/index.js doctor --json > probe.json || echo '{"verdict":"untested","reason":"doctor failed"}' > probe.json
+          cat probe.json
+          mkdir -p probe-out
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+          const p = JSON.parse(readFileSync('probe.json', 'utf8'));
+          p.runner = process.env.RUNNER_LABEL;
+          writeFileSync(`probe-out/${p.runner}.json`, JSON.stringify(p, null, 2));
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            `### ${p.runner}: ${p.verdict}\n\n${p.reason}\n\n` +
+            '```json\n' + JSON.stringify(p, null, 2) + '\n```\n');
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-${{ matrix.runner }}
+          path: probe-out/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  report:
+    needs: probe
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: probe-*
+          path: probes
+          merge-multiple: true
+
+      - name: Summarise and comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const files = fs.existsSync('probes') ? fs.readdirSync('probes').filter((f) => f.endsWith('.json')) : [];
+            const rows = files.sort().map((f) => JSON.parse(fs.readFileSync(`probes/${f}`, 'utf8')));
+            const cell = (v) => String(v ?? '—').replace(/\|/g, '/');
+            const vm = (p) => (p.virtualised === true ? `yes (${p.hypervisor || 'hypervisor'})` : p.virtualised === false ? 'no' : 'unknown');
+            const ff = (p) => (p.firefox ? (p.firefox.error ? `did not run: ${p.firefox.error}` : `${p.firefox.samples} samples` +
+              (p.firefox.counters && p.firefox.counters.length ? ` (${p.firefox.counters.join(', ')})` : ', no power counters')) : '—');
+            const rapl = (p) => (p.linux ? (p.linux.pmu ? p.linux.events.join(', ') : 'none') + `, paranoid ${p.linux.paranoid ?? '?'}` : 'n/a');
+            const anyEnergy = rows.some((p) => p.verdict === 'energy');
+            const body = [
+              '<!-- energy-probe -->',
+              '## Energy probe: GitHub-hosted runners',
+              '',
+              anyEnergy
+                ? '**At least one hosted runner measured energy.** See the table.'
+                : '**No GitHub-hosted runner can measure Firefox energy.** Every one is a virtual machine, and none produced a power sample. Energy needs a physical machine: run locally, or register one as a self-hosted runner.',
+              '',
+              '| Runner | OS / arch | Virtual machine | Linux RAPL | Firefox power | Verdict |',
+              '| --- | --- | --- | --- | --- | --- |',
+              ...rows.map((p) => `| \`${cell(p.runner)}\` | ${cell(p.platform)}/${cell(p.arch)} | ${cell(vm(p))} | ${cell(rapl(p))} | ${cell(ff(p))} | **${cell(p.verdict)}** |`),
+              '',
+              rows.length < 6 ? `_${6 - rows.length} runner(s) produced no result; see the run log._` : null,
+              `[Run log and full JSON](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            ].filter((l) => l !== null).join('\n');
+            await core.summary.addRaw(body).write();
+
+            const pr = context.payload.pull_request;
+            if (!pr) return;
+            const { owner, repo } = context.repo;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number });
+            const mine = comments.find((c) => c.user.type === 'Bot' && c.body.includes('<!-- energy-probe -->'));
+            if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
