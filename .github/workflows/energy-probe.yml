@@ -3,13 +3,16 @@ name: Energy probe
 # Can any GitHub-hosted machine measure Firefox energy? Rather than assume,
 # each job here runs Firefox for a few seconds with the profiler's power
 # feature on, counts real power samples, and records why it could or could
-# not. The results land in the run summary and in one comment on the pull
-# request that triggered it (updated in place on re-runs).
+# not. The results land in the run summary (and, when run for a pull request,
+# in one comment on it, updated in place).
 #
-# Runs automatically when the probe itself changes, and on demand.
+# Runs on demand (Actions tab -> Energy probe -> Run workflow), and when the
+# probe changes on main. Not on every pull request push: a pull request's path
+# filter matches its whole diff, so it would re-run six machines per push.
 
 on:
-  pull_request:
+  push:
+    branches: [main]
     paths:
       - '.github/workflows/energy-probe.yml'
       - 'src/energy/**'
