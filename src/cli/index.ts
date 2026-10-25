@@ -32,6 +32,7 @@ import { buildIndex } from '../report/index-builder.js';
 import { interleavedOrderN } from '../core/stats.js';
 import { toCsv, groupByStep, failedSteps } from '../report/csv.js';
 import { readableFailure } from '../core/failures.js';
+import { friendlyError } from './errors.js';
 import { toHtml } from '../report/html.js';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
@@ -1364,7 +1365,7 @@ async function main(): Promise<number> {
     if (e.name === 'ZodError') {
       console.error('Configuration is invalid:\n' + formatConfigError(err));
     } else {
-      console.error(`Error: ${e.message}`);
+      console.error(`Error: ${friendlyError(e.message)}`);
     }
     return 1;
   }
