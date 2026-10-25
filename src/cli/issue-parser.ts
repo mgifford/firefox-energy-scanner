@@ -1,3 +1,6 @@
+import { isIP } from 'node:net';
+import { localHostReason } from '../core/addresses.js';
+
 /**
  * Parse a scan request from a GitHub issue body.
  *
@@ -161,40 +164,35 @@ export function clip(text: string, max = 200): string {
   return oneLine.length > max ? oneLine.slice(0, max - 1) + '…' : oneLine;
 }
 
-/** Reject non-public hosts. */
+/**
+ * Reject non-public hosts: private and reserved addresses in any notation
+ * (the URL parser normalises forms like http://2130706433/ to 127.0.0.1),
+ * and names that are local by design, such as DDEV's *.ddev.site. This is
+ * the early check; the network guard repeats it on every resolved address
+ * while the scan runs.
+ */
 export function isPublicHttpUrl(candidate: string): boolean {
+  return publicUrlProblem(candidate) === undefined;
+}
+
+/**
+ * Why a URL will not be scanned, in words the requester can act on, or
+ * undefined if it may be. Fixed wording that never echoes the host, since it
+ * is posted back into the issue.
+ */
+export function publicUrlProblem(candidate: string): string | undefined {
   let u: URL;
   try {
     u = new URL(candidate);
   } catch {
-    return false;
+    return 'not a public http(s) URL';
   }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
-
-  const host = u.hostname.toLowerCase();
-  if (!host || host === 'localhost' || host === '::1') return false;
-  if (host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return false;
-
-  if (host.startsWith('[')) {
-    const inner = host.slice(1, -1);
-    if (inner === '::1' || inner.startsWith('fe80:') || inner.startsWith('fc') || inner.startsWith('fd')) {
-      return false;
-    }
-  }
-
-  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    if (a === 0 || a === 127 || a === 10) return false;
-    if (a === 169 && b === 254) return false;
-    if (a === 192 && b === 168) return false;
-    if (a === 172 && b >= 16 && b <= 31) return false;
-    if (a >= 224) return false;
-  }
-
-  if (!v4 && !host.startsWith('[') && !host.includes('.')) return false;
-
-  return true;
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return 'not a public http(s) URL';
+  if (u.username || u.password) return 'contains a user name or password';
+  if (localHostReason(u.hostname) === undefined) return undefined;
+  return isIP(u.hostname.replace(/^\[|\]$/g, ''))
+    ? 'a private or reserved address; scans only reach public sites'
+    : 'a local or development name (such as localhost or *.ddev.site); scans only reach public sites';
 }
 
 /** Extract a section from a GitHub issue-forms body (`### Label` + value). */
@@ -306,10 +304,11 @@ export function parseScanRequest(body: string): ScanRequest {
   const urls: string[] = [];
   const notScanned: NotScanned[] = [];
   for (const c of candidates) {
-    if (isPublicHttpUrl(c)) {
+    const problem = publicUrlProblem(c);
+    if (!problem) {
       if (!urls.includes(c)) urls.push(c);
     } else {
-      notScanned.push({ url: clip(c), reason: 'not a public http(s) URL' });
+      notScanned.push({ url: clip(c), reason: problem });
     }
   }
 

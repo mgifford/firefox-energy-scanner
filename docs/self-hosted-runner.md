@@ -107,8 +107,9 @@ A malicious pull request can add a workflow that targets the runner and runs arb
 code on it. GitHub documents this directly, and it is the reason hosted runners are
 ephemeral. Set **Settings → Actions → General → Fork pull request workflows from
 outside collaborators → Require approval for all external contributors**, and read any
-workflow change before approving it. Also isolate the machine's network: see
-[LOCAL-RUNNER.md](../LOCAL-RUNNER.md#security-before-opening-it-to-the-public).
+workflow change before approving it. Hosted scans keep the browsers off private
+addresses (`--public-only`), and isolating the machine's network adds a second layer:
+see [LOCAL-RUNNER.md](../LOCAL-RUNNER.md#security-before-opening-it-to-the-public).
 
 This repository's scan workflow is triggered by *issues*, not pull requests, and the
 issue body is parsed and validated rather than executed — URLs are passed as argv, never

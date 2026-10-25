@@ -172,3 +172,23 @@ describe('workflow scripts take no inline expressions', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * Hosted scans run URLs that anyone can submit, possibly on a runner in
+ * someone's home. Every scan command must keep the browsers on the public
+ * internet, so a refactor cannot quietly drop the flag from one branch.
+ */
+describe('hosted scans only reach public addresses', () => {
+  const doc = parseYaml(readFileSync('.github/workflows/scan-request.yml', 'utf8')) as Workflow;
+  const scan = Object.values(doc.jobs)
+    .flatMap((j) => j.steps ?? [])
+    .find((s) => s.name === 'Run scan');
+
+  it('passes --public-only to both the measure and the crawl command', () => {
+    const body = scan?.run ?? '';
+    expect(body).toContain("const guard = ['--public-only'];");
+    const commands = body.split(/\n\s*[?:] \['dist\/cli\/index\.js', /).slice(1);
+    expect(commands.map((c) => c.split(' ')[0])).toEqual(["'crawl',", "'measure',"]);
+    for (const c of commands) expect(c.split("'--out', 'site/results']")[0]).toContain('...guard');
+  });
+});

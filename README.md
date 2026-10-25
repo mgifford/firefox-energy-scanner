@@ -107,8 +107,11 @@ Run scans locally from there, or register the machine so issue scans use it — 
 machine at home measures, follow [LOCAL-RUNNER.md](LOCAL-RUNNER.md): a runbook for a Mac
 mini or Linux box, with the security steps and a set-up prompt for an AI assistant.
 
-Only public `http(s)` URLs are accepted. Localhost and private address ranges are
-rejected, so the scanner cannot be pointed at internal networks.
+Only public `http(s)` URLs are accepted, and hosted scans run with `--public-only`: every
+connection the browsers make, including redirects and page resources, is checked at scan
+time, so a request cannot reach localhost, a home or office network, or a development
+site such as `*.ddev.site`. Locally, leave the flag off to measure your own development
+site.
 
 ## Requirements
 

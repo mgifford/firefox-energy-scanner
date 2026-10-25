@@ -275,12 +275,26 @@ that strangers choose. Four things matter.
    a pull request from adding its own workflow. **Require approval for all external
    contributors** (above) closes this: nothing from a fork runs until you approve it. Read
    any workflow change before approving.
-2. **Your home network.** The scanner refuses private addresses typed into a request
-   (`192.168.x.x`, `10.x.x.x`, `localhost` and so on). It does **not yet** stop a public
-   hostname that *resolves* to a private address, or a page that redirects to one. From
-   your home, that could reach your router's admin page or other devices. **Put the
-   machine on a guest network or VLAN with no access to the rest of your network**, at
-   least until runtime blocking is built ([Next steps](#next-steps)).
+2. **Your home network.** Every hosted scan runs with `--public-only`: both browsers
+   (Firefox, and Chrome for Lighthouse) connect only through a small guard that refuses
+   anything that is not a public internet address. It checks every connection, not just
+   the submitted URL, so it also stops:
+   - a public name that **resolves** to a private address (DDEV's `*.ddev.site` names
+     point at `127.0.0.1` by design; anyone can make a name point at `192.168.1.1`);
+   - a page that **redirects** to one, or loads images, scripts or WebSockets from one;
+   - a name that answers differently the second time it is looked up (DNS rebinding):
+     the guard looks each name up once and connects to exactly the address it checked.
+
+   Refused: loopback, `10.x`, `172.16–31.x`, `192.168.x`, link-local and cloud metadata
+   (`169.254.x`), carrier-grade NAT and Tailscale (`100.64–127.x`), IPv6 local, link-local
+   and IPv4-in-IPv6 forms, and local-development names (`*.ddev.site`, `*.lndo.site`,
+   `localhost`, `.local`, `.test`, `nip.io` and others). WebRTC and HTTP/3 are switched off,
+   because they use UDP, which the guard cannot inspect. A refused page is reported as
+   **blocked** in the issue comment and never measured.
+
+   The guard covers the browsers, which is where submitted URLs go. As a second layer,
+   a guest network or VLAN with no access to the rest of your network is still a good
+   idea: it also protects you from mistakes in this tool.
 3. **Nothing worth stealing.** A dedicated user, no personal accounts signed in, no saved
    passwords, no SSH keys or cloud credentials. Each job gets a short-lived GitHub token
    that expires when the job ends.
@@ -310,9 +324,10 @@ that strangers choose. Four things matter.
 Captured here so they can be built in order.
 
 - [ ] **Set up the machine** (this document), then open one test issue.
-- [ ] **Block private addresses at runtime.** Before navigation, and for every request the
-      page makes, resolve the hostname and refuse private, loopback and link-local
-      addresses, including after redirects. Required before inviting the public.
+- [x] **Block private addresses at runtime.** Every connection either browser makes goes
+      through the network guard, which refuses private, loopback, link-local and
+      local-development addresses, including after redirects and DNS rebinding
+      (`--public-only`, on for every hosted scan; see [Security](#security-before-opening-it-to-the-public)).
 - [ ] **Compare home and cloud for each request.** When an energy machine is set up, run the
       same request on it *and* on a GitHub-hosted runner, and show them side by side in one
       comment: energy from home; transfer, requests and timings from both. Transfer and
@@ -367,6 +382,7 @@ Steps:
    the service is running.
 7. Remind me of the repository settings: the ENERGY_RUNNER variable set to
    `self-hosted,energy-scanner`, "Require approval for all external contributors" for
-   fork pull requests, and putting this machine on an isolated guest network or VLAN.
+   fork pull requests, and (as a second layer behind the scanner's own private-address
+   blocking) putting this machine on an isolated guest network or VLAN.
 8. Finish with a short checklist of what is done and what is left for me.
 ```

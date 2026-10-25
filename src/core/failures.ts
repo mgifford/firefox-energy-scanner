@@ -5,6 +5,19 @@
 
 export const STEP_FAILED_PREFIX = 'Step failed: ';
 export const NOT_A_PAGE_PREFIX = 'Not a web page: ';
+export const BLOCKED_PREFIX = 'Blocked: ';
+
+/**
+ * The warning for a page the network guard refused to load: the URL, or a
+ * redirect from it, leads to a private or local address.
+ */
+export function describeBlocked(reason: string): string {
+  return (
+    BLOCKED_PREFIX +
+    `${reason}. Public scans only reach public internet addresses, so it was not measured. ` +
+    'To measure a local or development site, run the scanner on your own machine.'
+  );
+}
 
 /**
  * Turn a navigation error into a warning a reader can act on.
@@ -38,4 +51,9 @@ export function readableFailure(warning: string): string {
 /** True when a failure means the URL is a file, not a page. */
 export function isNotAPage(warning: string | undefined): boolean {
   return !!warning && readableFailure(warning).startsWith(NOT_A_PAGE_PREFIX);
+}
+
+/** True when the network guard refused the page itself. */
+export function isBlocked(warning: string | undefined): boolean {
+  return !!warning && warning.startsWith(BLOCKED_PREFIX);
 }

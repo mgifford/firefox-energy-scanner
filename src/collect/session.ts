@@ -3,6 +3,14 @@ import type { Config } from '../core/config.js';
 import type { NetworkSummary, ResourceEntry, TimingResult } from '../core/types.js';
 import { isThirdParty, hostOf } from './urls.js';
 import {
+  BLOCKED_HEADER,
+  BLOCKED_HEADER_VALUE,
+  firefoxGuardPrefs,
+  startNetworkGuard,
+  type BlockedRequest,
+  type NetworkGuard,
+} from './network-guard.js';
+import {
   FirefoxProfilerAdapter,
   profilerLaunchEnv,
   createProfileOutputPath,
@@ -33,6 +41,11 @@ export class BrowserSession {
   private generation = 0;
   private issuedIn = new WeakMap<Request, number>();
   private pending = new Set<Promise<void>>();
+  /** Present in public-only mode: every connection goes through it. */
+  private guard?: NetworkGuard;
+  private blockedMark = 0;
+  /** A main-frame document the guard refused during this step (plain HTTP). */
+  private blockedDocument?: string;
 
   constructor(private readonly options: SessionOptions) {}
 
@@ -87,9 +100,14 @@ export class BrowserSession {
         }
       : undefined;
 
+    if (config.network.public_only) this.guard = await startNetworkGuard();
+
     this.browser = await firefox.launch({
       headless: !config.browser.headed,
       ...(env ? { env } : {}),
+      ...(this.guard
+        ? { proxy: { server: this.guard.url }, firefoxUserPrefs: firefoxGuardPrefs() }
+        : {}),
     });
     this.context = await this.browser.newContext({ viewport: config.browser.viewport });
     this.page = await this.context.newPage();
@@ -118,6 +136,18 @@ export class BrowserSession {
         resourceType: req.resourceType(),
         transferBytes: 0,
       });
+    });
+    context.on('response', (res) => {
+      if (!this.guard || !this.collecting) return;
+      if (res.headers()[BLOCKED_HEADER] !== BLOCKED_HEADER_VALUE) return;
+      const req = res.request();
+      try {
+        if (req.isNavigationRequest() && req.frame() === this.page?.mainFrame()) {
+          this.blockedDocument = res.url();
+        }
+      } catch {
+        /* service-worker requests have no frame */
+      }
     });
   }
 
@@ -179,7 +209,32 @@ export class BrowserSession {
     this.generation++;
     this.entries = [];
     this.pageUrl = pageUrl || this.page?.url() || '';
+    this.blockedMark = this.guard?.blocked.length ?? 0;
+    this.blockedDocument = undefined;
     this.collecting = true;
+  }
+
+  /** Connections the network guard refused since the current step began. */
+  blockedInStep(): BlockedRequest[] {
+    return this.guard ? this.guard.blocked.slice(this.blockedMark) : [];
+  }
+
+  /**
+   * Why the page itself was refused, if it was. A plain-HTTP document gets the
+   * guard's 403 (seen by the response listener); an HTTPS one fails the
+   * navigation with a proxy error, passed in as `failure`.
+   */
+  documentBlockReason(failure?: string): string | undefined {
+    const blocked = this.blockedInStep();
+    if (blocked.length === 0) return undefined;
+    if (this.blockedDocument) {
+      const host = hostOf(this.blockedDocument);
+      return (blocked.find((b) => b.target.startsWith(`${host}:`)) ?? blocked[blocked.length - 1]!).reason;
+    }
+    if (failure && /NS_ERROR_PROXY|ERR_TUNNEL_CONNECTION_FAILED|ERR_PROXY/i.test(failure)) {
+      return blocked[blocked.length - 1]!.reason;
+    }
+    return undefined;
   }
 
   async endCollection(includeResources: boolean): Promise<NetworkSummary> {
@@ -238,6 +293,7 @@ export class BrowserSession {
   async close(): Promise<void> {
     await this.context?.close().catch(() => {});
     await this.browser?.close().catch(() => {});
+    await this.guard?.close().catch(() => {});
     // The profile is written during shutdown; give Firefox time to flush it.
     if (this.options.profilePath) {
       await new Promise((r) => setTimeout(r, 2500));

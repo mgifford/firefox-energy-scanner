@@ -209,8 +209,18 @@ describe('parseScanRequest: the easy default', () => {
     expect(r.urls).toEqual(['https://a.com']);
     expect(r.errors).toEqual([]);
     expect(r.notScanned).toEqual([
-      { url: 'http://127.0.0.1/', reason: 'not a public http(s) URL' },
-      { url: 'http://10.0.0.5/', reason: 'not a public http(s) URL' },
+      { url: 'http://127.0.0.1/', reason: 'a private or reserved address; scans only reach public sites' },
+      { url: 'http://10.0.0.5/', reason: 'a private or reserved address; scans only reach public sites' },
+    ]);
+  });
+
+  it('says why a DDEV or other local site is skipped', () => {
+    const r = parseScanRequest(form(['https://a.com', 'https://mysite.ddev.site/', 'ftp://a.com/', 'https://u:p@a.com/']));
+    expect(r.urls).toEqual(['https://a.com']);
+    expect(r.notScanned.map((n) => n.reason)).toEqual([
+      'a local or development name (such as localhost or *.ddev.site); scans only reach public sites',
+      'not a public http(s) URL',
+      'contains a user name or password',
     ]);
   });
 
