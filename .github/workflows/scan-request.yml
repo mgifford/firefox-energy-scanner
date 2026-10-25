@@ -317,16 +317,20 @@ jobs:
           // One cold visit per page in the cloud; repeated runs only where
           // energy can be measured, scaled to fit the budget.
           const plan = planRuns(urls.length, process.env.ENERGY_MACHINE === 'true', Number(process.env.SCAN_RUNS) || undefined);
+          // Anyone can submit a URL, so the browsers may only reach public
+          // addresses: never localhost, a home network or a DDEV site. On a
+          // runner at home this is what keeps a request out of the network.
+          const guard = ['--public-only'];
           const args = mode === 'crawl'
             ? ['dist/cli/index.js', 'crawl', urls[0],
                '--max-pages', process.env.SCAN_MAX_PAGES || '50',
                ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
-               ...viewport, ...lighthouse,
+               ...viewport, ...lighthouse, ...guard,
                '--headless', '--out', 'site/results']
             : ['dist/cli/index.js', 'measure', ...urls,
                '--runs', String(plan.runs),
                '--warmups', String(plan.warmups),
-               ...viewport, ...lighthouse,
+               ...viewport, ...lighthouse, ...guard,
                '--headless', '--out', 'site/results'];
 
           console.log('mode:', mode, '| targets:', urls.length, '| runs:', plan.runs, '| warmups:', plan.warmups);
@@ -502,7 +506,9 @@ jobs:
                     // A failed URL has no page behind it: show no numbers at
                     // all rather than ones that belong to another page.
                     if (s.failed) {
-                      const why = s.notAPage ? '_not a web page (file download)_' : '_failed_';
+                      const why = s.notAPage
+                        ? '_not a web page (file download)_'
+                        : s.blocked ? '_blocked: private or local address_' : '_failed_';
                       return `| ${name} | — | — | — | ${why} |`;
                     }
                     const kb = (s.transferBytes / 1024).toFixed(0) + ' KB';
@@ -664,10 +670,18 @@ jobs:
                 : '`not measured` means no energy reading was taken on this machine. It is an absence, not a zero.',
               failedRows.length
                 ? `\n${failedRows.length} URL${failedRows.length === 1 ? '' : 's'} could not be measured. ` +
-                  (failedRows.some((s) => s.notAPage)
-                    ? 'Rows marked _not a web page_ start a file download (usually a PDF) instead of rendering, so ' +
-                      'there is nothing for a browser to lay out or paint. Link to the HTML page that hosts the file instead.'
-                    : 'See the full results for the error.')
+                  [
+                    failedRows.some((s) => s.notAPage)
+                      ? 'Rows marked _not a web page_ start a file download (usually a PDF) instead of rendering, so ' +
+                        'there is nothing for a browser to lay out or paint. Link to the HTML page that hosts the file instead.'
+                      : null,
+                    failedRows.some((s) => s.blocked)
+                      ? 'Rows marked _blocked_ lead, directly or by redirect, to a private or local address ' +
+                        '(localhost, a home or office network, or a development name such as `*.ddev.site`). ' +
+                        'Public scans never connect to those. To measure a local site, run the scanner on your own machine.'
+                      : null,
+                    failedRows.some((s) => !s.notAPage && !s.blocked) ? 'See the full results for the error.' : null,
+                  ].filter(Boolean).join(' ')
                 : null,
               parserNotes ? '\n**Notes on this request:**\n' + parserNotes.split('\n').map(n => '- ' + n).join('\n') : null,
               '',

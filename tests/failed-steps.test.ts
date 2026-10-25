@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { describeStepFailure, isNotAPage, readableFailure } from '../src/core/failures.js';
+import { describeBlocked, describeStepFailure, isBlocked, isNotAPage, readableFailure } from '../src/core/failures.js';
+import { pickLighthouseUrls } from '../src/lighthouse/select.js';
+import type { StepResult } from '../src/core/types.js';
 import { failedSteps, groupByStep } from '../src/report/csv.js';
 import { toIndexEntry } from '../src/report/index-builder.js';
 import { toHtml } from '../src/report/html.js';
@@ -134,5 +136,45 @@ describe('index entry with Lighthouse', () => {
     expect(html).toContain('id="lh-h"');
     expect(html).toContain('needs improvement');
     expect(html).toContain('Reduce unused JavaScript');
+  });
+});
+
+describe('pages refused by the network guard', () => {
+  const blocked = describeBlocked('mysite.ddev.site is a local or development name (.ddev.site)');
+  const step = (name: string, valid: boolean, warnings: string[] = [], bytes = 0): StepResult => ({
+    scenario: 'measure',
+    step: name,
+    run: 0,
+    warmup: false,
+    startedAt: 0,
+    endedAt: 1,
+    timing: { durationMs: 1 },
+    network: { requests: 1, transferBytes: bytes, thirdPartyRequests: 0, thirdPartyBytes: 0, byType: {} },
+    valid,
+    warnings,
+  });
+  const steps = [step('https://a.com/', true, [], 5000), step('http://mysite.ddev.site/', false, [blocked])];
+
+  it('says what happened and what to do instead', () => {
+    expect(blocked).toMatch(/^Blocked: mysite\.ddev\.site/);
+    expect(blocked).toMatch(/run the scanner on your own machine/);
+    expect(isBlocked(blocked)).toBe(true);
+    expect(isBlocked('Step failed: timeout')).toBe(false);
+    expect(readableFailure(blocked)).toBe(blocked);
+  });
+
+  it('is flagged in the index with no numbers', () => {
+    const result = { ...issue6, scenarios: steps } as BenchmarkResult;
+    const row = toIndexEntry(result, 'x.json').scenarios.find((s) => s.step === 'http://mysite.ddev.site/')!;
+    expect(row.failed).toBe(true);
+    expect(row.blocked).toBe(true);
+    expect(row.notAPage).toBeUndefined();
+  });
+
+  it('is never handed to Lighthouse', () => {
+    const listed = pickLighthouseUrls(steps, ['https://a.com/', 'http://mysite.ddev.site/'], 'measure', undefined);
+    expect(listed).toEqual({ urls: ['https://a.com/'], skipped: [], blocked: ['http://mysite.ddev.site/'] });
+    const ranked = pickLighthouseUrls(steps, [], 'crawl', 10);
+    expect(ranked.urls).toEqual(['https://a.com/']);
   });
 });

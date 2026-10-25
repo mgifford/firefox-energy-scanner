@@ -13,7 +13,7 @@ import type { JourneyDefinition } from './journey.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
 import { buildFindings } from '../report/findings.js';
-import { describeStepFailure } from './failures.js';
+import { describeBlocked, describeStepFailure } from './failures.js';
 
 export interface StepRecord {
   label: string;
@@ -60,12 +60,32 @@ export class StepRunner {
     const startedAt = handle?.startedAt ?? Date.now();
 
     let valid = true;
+    let failure: string | undefined;
     try {
       await fn();
       await waitForStablePage(page, this.config.stability);
     } catch (err) {
       valid = false;
-      warnings.push(describeStepFailure((err as Error).message));
+      failure = (err as Error).message;
+    }
+    // In public-only mode the guard may have refused the page itself (the URL
+    // or a redirect leads to a private address), or only some of its parts.
+    const blockedDocument = this.session.documentBlockReason(failure);
+    if (blockedDocument) {
+      valid = false;
+      warnings.push(describeBlocked(blockedDocument));
+    } else if (failure !== undefined) {
+      warnings.push(describeStepFailure(failure));
+    } else {
+      const parts = this.session.blockedInStep();
+      if (parts.length > 0) {
+        const targets = [...new Set(parts.map((b) => b.target))];
+        warnings.push(
+          `Blocked ${parts.length} request${parts.length === 1 ? '' : 's'} to private or local addresses ` +
+            `(${targets.slice(0, 5).join(', ')}${targets.length > 5 ? ', …' : ''}). ` +
+            'The page was measured without them.',
+        );
+      }
     }
 
     const endedAt = Date.now();

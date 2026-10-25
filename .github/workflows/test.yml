@@ -37,7 +37,8 @@ jobs:
   # Real Firefox against a small local site served as site.test and
   # www.site.test, the first redirecting to the second. Covers what unit tests
   # cannot: that a crawl follows a www redirect and reaches every page once,
-  # and that a PDF in a list is reported as "not a web page".
+  # that a PDF in a list is reported as "not a web page", and that
+  # --public-only refuses local addresses in a real browser.
   e2e:
     runs-on: ubuntu-latest
     steps:
@@ -53,6 +54,8 @@ jobs:
       - run: npm run build
 
       - name: Map the test site's host names to this machine
-        run: echo "127.0.0.1 site.test www.site.test" | sudo tee -a /etc/hosts
+        # looks-public.example.com stands in for a public name that points at
+        # this machine, as DDEV's *.ddev.site names do.
+        run: echo "127.0.0.1 site.test www.site.test looks-public.example.com" | sudo tee -a /etc/hosts
 
       - run: node tests/e2e/crawl-e2e.mjs

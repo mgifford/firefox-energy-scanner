@@ -13,6 +13,7 @@ import {
   type Lhr,
 } from './summary.js';
 import { median } from '../core/stats.js';
+import { chromeGuardFlags, startNetworkGuard, type NetworkGuard } from '../collect/network-guard.js';
 
 /**
  * Run Lighthouse against a list of URLs.
@@ -33,6 +34,8 @@ export interface LighthouseOptions {
   formFactor: FormFactor;
   /** Write the median run's full HTML report here, for local inspection. */
   reportsDir?: string;
+  /** Send Chrome through the network guard, as the Firefox session is. */
+  publicOnly?: boolean;
   onProgress?: (message: string) => void;
 }
 
@@ -124,6 +127,9 @@ export async function runLighthouse(options: LighthouseOptions): Promise<Lightho
 
   if (options.reportsDir) await mkdir(options.reportsDir, { recursive: true });
 
+  const guard: NetworkGuard | undefined = options.publicOnly ? await startNetworkGuard() : undefined;
+  const flags = [...chromeFlags(), ...(guard ? chromeGuardFlags(guard.url) : [])];
+  try {
   for (const [u, url] of options.urls.entries()) {
     const runs: LighthouseRunSummary[] = [];
     const reports: string[] = [];
@@ -131,7 +137,7 @@ export async function runLighthouse(options: LighthouseOptions): Promise<Lightho
       options.onProgress?.(`Lighthouse ${u + 1}/${options.urls.length}, run ${i + 1}/${options.runs}`);
       // A fresh browser per run, as the Lighthouse CLI does, so one run's
       // caches and service workers cannot speed up the next.
-      const chrome = await launcher.launch({ chromePath, chromeFlags: chromeFlags() });
+      const chrome = await launcher.launch({ chromePath, chromeFlags: flags });
       try {
         const result = await lh.default(
           url,
@@ -178,6 +184,9 @@ export async function runLighthouse(options: LighthouseOptions): Promise<Lightho
       const name = `${String(u + 1).padStart(2, '0')}-${slug(url)}.html`;
       await writeFile(join(options.reportsDir, name), chosen.html);
     }
+  }
+  } finally {
+    await guard?.close();
   }
 
   return {

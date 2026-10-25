@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 /**
  * End-to-end check with real Firefox: does a crawl follow a www redirect and
- * cover the site, and is a PDF in a list reported as "not a web page"?
+ * cover the site, is a PDF in a list reported as "not a web page", and does
+ * --public-only keep the browser away from local addresses?
  *
  * Serves a small site under two host names, site.test and www.site.test
  * (CI maps both to 127.0.0.1 in /etc/hosts). site.test redirects to
  * www.site.test, as france.fr does to www.france.fr. Pages link to each other
  * in every spelling a real site uses: relative, absolute www, bare-domain,
  * plus an external link and a PDF.
+ *
+ * CI also maps looks-public.example.com to 127.0.0.1, the way DDEV's public
+ * *.ddev.site names point at the local machine: --public-only must refuse it
+ * after resolving it, without the site ever seeing a request.
  *
  * Usage: node tests/e2e/crawl-e2e.mjs   (after npm run build and
  * npx playwright install firefox)
@@ -34,8 +39,10 @@ const PAGES = {
   '/fr/': page('Accueil', ['/en/']),
 };
 
+const hostsSeen = new Set();
 const server = http.createServer((req, res) => {
   const host = (req.headers.host || '').split(':')[0];
+  hostsSeen.add(host);
   const path = req.url.split('?')[0];
   // The bare domain always redirects to www, keeping the path.
   if (host === 'site.test') {
@@ -124,6 +131,30 @@ try {
   check(!!pdf && pdf.valid === false && /^Not a web page/.test(pdf.warnings[0] ?? ''), 'a listed PDF is reported as not a web page');
   const home = (list?.scenarios ?? []).find((s) => s.step === `${WWW}/en/`);
   check(!!home && home.valid && home.network.transferBytes > 0, 'the page next to it was measured normally');
+
+  // 3. Public-only mode, as hosted scans run: local names and addresses are
+  // refused, by name or after resolving, and a public site still works.
+  hostsSeen.clear();
+  const local = [
+    `${WWW}/en/`, // .test: refused by name
+    `http://looks-public.example.com:${PORT}/en/`, // resolves to 127.0.0.1
+    `http://mysite.ddev.site:${PORT}/`, // DDEV
+    'https://mysite.ddev.site/', // DDEV over HTTPS: refused at CONNECT
+    `http://127.0.0.1:${PORT}/en/`,
+    `http://[::1]:${PORT}/en/`,
+  ];
+  const guarded = await run(['measure', ...local, 'https://example.com/', '--runs', '1', '--warmups', '0', '--public-only'],
+    mkdtempSync(join(tmpdir(), 'guard-')));
+  check(guarded?.configuration?.network?.public_only === true, 'the result records that the guard was on');
+  for (const url of local) {
+    const s = (guarded?.scenarios ?? []).find((x) => x.step === url);
+    check(!!s && s.valid === false && /^Blocked: /.test(s.warnings[0] ?? ''),
+      `public-only refused ${url} (${s?.warnings[0] ?? 'no step'})`);
+  }
+  check(hostsSeen.size === 0, `the local site received no request in public-only mode (saw: ${[...hostsSeen].join(', ') || 'none'})`);
+  const pub = (guarded?.scenarios ?? []).find((x) => x.step === 'https://example.com/');
+  check(!!pub && pub.valid && pub.network.transferBytes > 0,
+    `public-only still measured a public HTTPS site (${pub?.warnings[0] ?? (pub ? 'ok' : 'no step')})`);
 } finally {
   server.close();
 }

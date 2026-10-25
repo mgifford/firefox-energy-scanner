@@ -3,7 +3,7 @@ import { join, basename } from 'node:path';
 import type { BenchmarkResult, StepResult } from '../core/types.js';
 import { summarize, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
-import { isNotAPage, readableFailure } from '../core/failures.js';
+import { isBlocked, isNotAPage, readableFailure } from '../core/failures.js';
 import {
   sitewideRecommendations,
   type FormFactor,
@@ -57,6 +57,8 @@ export interface IndexScenario {
   failed?: boolean;
   /** The URL served a file download (e.g. a PDF) rather than a page. */
   notAPage?: boolean;
+  /** The URL, or a redirect from it, leads to a private or local address. */
+  blocked?: boolean;
   failureNote?: string;
   /** Lighthouse lab result for this URL, when one was run. */
   lighthouse?: LighthouseIndexSummary;
@@ -150,6 +152,7 @@ function summarizeScenarios(steps: StepResult[]): IndexScenario[] {
         resolved: false,
         failed: true,
         ...(isNotAPage(all[0]?.warnings[0]) ? { notAPage: true } : {}),
+        ...(isBlocked(all[0]?.warnings[0]) ? { blocked: true } : {}),
         failureNote: readableFailure(all[0]?.warnings[0] ?? 'Every measured run failed.'),
       });
       continue;

@@ -81,3 +81,53 @@ describe('per-step network attribution', () => {
     expect(net.transferBytes).toBe(3000);
   });
 });
+
+describe('public-only mode: pages the network guard refused', () => {
+  const MAIN = { name: 'main frame' };
+
+  function guarded() {
+    const { session, context } = harness();
+    const blocked: { target: string; reason: string; at: number }[] = [];
+    Object.assign(session as unknown as Record<string, unknown>, {
+      guard: { blocked },
+      page: { mainFrame: () => MAIN, url: () => '' },
+    });
+    return { session, context, blocked };
+  }
+
+  const refusedResponse = (url: string, navigation: boolean) => ({
+    url: () => url,
+    headers: () => ({ 'x-blocked-by': 'firefox-energy-scanner' }),
+    request: () => ({ isNavigationRequest: () => navigation, frame: () => MAIN }),
+  });
+
+  it('names the reason when the page itself got the guard’s refusal (plain HTTP)', () => {
+    const { session, context, blocked } = guarded();
+    session.beginCollection('');
+    blocked.push({ target: 'mysite.ddev.site:80', reason: 'mysite.ddev.site is a local or development name (.ddev.site)', at: 0 });
+    context.emit('response', refusedResponse('http://mysite.ddev.site/', true));
+    expect(session.documentBlockReason()).toMatch(/\.ddev\.site/);
+  });
+
+  it('blames the guard for a failed HTTPS navigation only when it refused something', () => {
+    const { session, blocked } = guarded();
+    session.beginCollection('');
+    expect(session.documentBlockReason('page.goto: NS_ERROR_PROXY_FORBIDDEN')).toBeUndefined();
+    blocked.push({ target: 'intranet.example.com:443', reason: 'intranet.example.com resolves to 10.0.0.2, a private or reserved address', at: 0 });
+    expect(session.documentBlockReason('page.goto: NS_ERROR_PROXY_FORBIDDEN')).toMatch(/10\.0\.0\.2/);
+    // An unrelated failure is not turned into a block.
+    expect(session.documentBlockReason('page.goto: Timeout 30000ms exceeded')).toBeUndefined();
+  });
+
+  it('counts only refusals from the current step, and not a refused subresource as the page', () => {
+    const { session, context, blocked } = guarded();
+    session.beginCollection('');
+    blocked.push({ target: '127.0.0.1:80', reason: 'old', at: 0 });
+    session.beginCollection('');
+    expect(session.blockedInStep()).toEqual([]);
+    blocked.push({ target: 'localhost:3000', reason: 'localhost is a local or development name', at: 1 });
+    context.emit('response', refusedResponse('http://localhost:3000/app.js', false));
+    expect(session.blockedInStep()).toHaveLength(1);
+    expect(session.documentBlockReason()).toBeUndefined();
+  });
+});

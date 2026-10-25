@@ -136,8 +136,18 @@ self-hosted Apple Silicon runner would serve that purpose.
 Issue bodies are untrusted public input, so:
 
 - **Only public `http(s)` URLs are accepted.** Localhost, RFC1918 ranges, link-local,
-  multicast, `0.0.0.0`, `.local`/`.internal`, and dotless hostnames are all rejected.
-  The scanner cannot be used to probe internal networks. 24 tests cover this guard.
+  carrier-grade NAT, multicast, `0.0.0.0`, IPv6 local ranges, local-development names
+  (`*.ddev.site`, `*.lndo.site`, `.local`, `.test`, `nip.io` …) and dotless hostnames are
+  rejected when the request is read, so the requester hears about it straight away.
+- **And only public addresses are reached while the scan runs.** Checking the URL is not
+  enough: a public name can resolve to a private address, a page can redirect to one or
+  load resources from one, and a name can change its answer between lookups. So scans run
+  with `--public-only`: every connection Firefox and Lighthouse's Chrome make goes through
+  a guard ([`src/collect/network-guard.ts`](../src/collect/network-guard.ts)) that looks
+  the name up once, refuses it if any address is private, and connects to the address it
+  checked. WebRTC and HTTP/3 (UDP) are off. Refused pages are reported as _blocked_ and
+  never measured; refused resources are listed in the step's warnings. This is what makes
+  a runner on a home network safe to open to the public.
 - **Least privilege.** The parsing job can read contents and comment on issues; write
   access to contents is granted only to the scan job, which needs it to commit results.
 - **Issue text is data, never code.** Nothing from the issue is pasted into a script

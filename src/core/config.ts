@@ -102,6 +102,19 @@ const co2Schema = z
   .strict()
   .prefault({});
 
+/**
+ * public_only routes every browser connection through the network guard
+ * (src/collect/network-guard.ts), which refuses private and local addresses.
+ * Hosted scans always turn it on; local runs against a development site leave
+ * it off.
+ */
+const networkSchema = z
+  .object({
+    public_only: z.boolean().default(false),
+  })
+  .strict()
+  .prefault({});
+
 const outputSchema = z
   .object({
     directory: z.string().default('results'),
@@ -123,6 +136,7 @@ export const configSchema = z
     crawl: crawlSchema,
     energy: energySchema,
     co2: co2Schema,
+    network: networkSchema,
     sitespeed: z.object({ enabled: z.boolean().default(false) }).strict().prefault({}),
     output: outputSchema,
   })

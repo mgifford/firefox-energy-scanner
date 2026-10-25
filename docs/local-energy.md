@@ -90,6 +90,14 @@ window. See [lighthouse.md](lighthouse.md).
 For reliable numbers: mains power, Low Power Mode off (macOS), other applications
 closed, at least 10 runs. `doctor` warns about battery and Low Power Mode.
 
+**URLs from someone else?** Add `--public-only` (hosted scans always do). The browsers
+then connect only through a guard that refuses private and local addresses — your router,
+other machines on your network, `localhost` and development names such as `*.ddev.site` —
+including after redirects. Leave it off to measure your own development site. The guard
+is a small proxy in the scanner's Node process: on a Mac it is outside Firefox's
+per-process energy; on Linux its small share is inside the whole-package figure. Results
+record whether it was on (`configuration.network.public_only`), so compare like with like.
+
 ## 4. Publish local results
 
 Local results go through the same review as hosted ones: the `scan-results` branch and

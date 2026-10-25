@@ -80,6 +80,10 @@ Options:
   --authenticated        Use Drupal auth from environment variables
   --seed <string>        Seed for interleaved A/B ordering
   --no-energy            Disable energy measurement
+  --public-only          Refuse private and local addresses (localhost, LAN,
+                         DDEV and similar) for every connection the browser
+                         makes, including redirects and page resources. Use it
+                         whenever the URLs come from someone else.
 
 Lighthouse (optional; runs in Chromium after the Firefox session has closed):
   --lighthouse                  Also run Lighthouse on measure/crawl targets
@@ -101,7 +105,8 @@ interface Args {
  * would read the URL as the flag's value and drop it from the targets.
  */
 const BOOLEAN_FLAGS = new Set([
-  'authenticated', 'headed', 'headless', 'help', 'lighthouse', 'no-energy', 'triage-only',
+  'authenticated', 'headed', 'headless', 'help', 'lighthouse', 'no-energy', 'public-only',
+  'triage-only',
 ]);
 
 function parseArgs(argv: string[]): Args {
@@ -167,6 +172,10 @@ async function buildConfig(args: Args): Promise<Config> {
       ...(one(args, 'max-depth') ? { max_depth: Number.parseInt(one(args, 'max-depth')!, 10) } : {}),
       ...(args.flags.get('include') ? { include: args.flags.get('include')! } : {}),
       ...(args.flags.get('exclude') ? { exclude: args.flags.get('exclude')! } : {}),
+    },
+    network: {
+      ...config.network,
+      ...(has(args, 'public-only') ? { public_only: true } : {}),
     },
     output: { ...config.output, ...(out ? { directory: out } : {}) },
     ...(has(args, 'authenticated')
@@ -640,10 +649,15 @@ async function attachLighthouse(
 ): Promise<void> {
   if (!has(args, 'lighthouse')) return;
   const opts = lighthouseArgs(args, config, mode);
-  const { urls, skipped } = pickLighthouseUrls(result.scenarios, requested, mode, opts.top);
+  const { urls, skipped, blocked } = pickLighthouseUrls(result.scenarios, requested, mode, opts.top);
   if (skipped.length) {
     result.warnings.push(
       `Lighthouse skipped ${skipped.length} URL(s) that are file downloads rather than pages.`,
+    );
+  }
+  if (blocked.length) {
+    result.warnings.push(
+      `Lighthouse skipped ${blocked.length} URL(s) that lead to private or local addresses.`,
     );
   }
   if (urls.length === 0) return;
@@ -654,6 +668,7 @@ async function attachLighthouse(
       categories: opts.categories,
       formFactor: opts.formFactor,
       ...(opts.reportsDir ? { reportsDir: opts.reportsDir } : {}),
+      publicOnly: config.network.public_only,
       onProgress: (m) => process.stderr.write(`\r${m.padEnd(60)}`),
     });
     process.stderr.write('\n');
@@ -721,6 +736,7 @@ async function cmdLighthouse(args: Args): Promise<number> {
     categories: opts.categories,
     formFactor: opts.formFactor,
     ...(opts.reportsDir ? { reportsDir: opts.reportsDir } : {}),
+    publicOnly: config.network.public_only,
     onProgress: (m) => process.stderr.write(`\r${m.padEnd(60)}`),
   });
   process.stderr.write('\n');
