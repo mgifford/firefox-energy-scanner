@@ -20,20 +20,26 @@ other container platforms run on rented virtual machines as well, so they will a
 certainly say the same (not tested; `npm run energy-check` would settle it). See
 [docs/hosted-scanning.md](docs/hosted-scanning.md#github-hosted-runners-cannot-measure-energy).
 
-**A physical machine can, and the numbers repeat.** On an Apple Silicon MacBook, two runs
-of the same three france.fr pages, a day apart:
+**A physical machine can, and the numbers repeat.** On an Apple Silicon MacBook, three
+separate sessions measuring the same three france.fr pages (10 runs each, mWh per page
+load):
 
-| Page | Transfer | Run 1 | Run 2 |
-|---|---:|---:|---:|
-| Côte d'Azur article | 10.8–11.2 MB | 1.779 mWh | 1.772 mWh |
-| Biarritz destination | 1.3–1.4 MB | 0.539 mWh | 0.459 mWh |
-| `/de` home page | 2.5 MB | 0.337 mWh | 0.327 mWh |
+| Page | Transfer | Session 1 | Session 2 | Session 3 | Spread |
+|---|---:|---:|---:|---:|---:|
+| Côte d'Azur article | 10.8–11.2 MB | 1.779 | 1.772 | 1.656 | ±4% |
+| Biarritz destination | 1.3–1.4 MB | 0.539 | 0.459 | 0.503 | ±8% |
+| `/de` home page | 2.5 MB | 0.337 | 0.327 | 0.356 | ±4% |
 
-The heaviest page repeated within 0.5%, and every result was **resolved** — bigger than
-its own run-to-run noise. The same run showed why this is worth measuring: the article
-transfers 8.5× the bytes of the Biarritz page but costs 3.3× the energy, and `/de`
-transfers twice as much as Biarritz yet costs less. A bytes-based CO2 estimate ranks
-these pages wrongly. Lighthouse called all three "good" (94–98).
+Every result was **resolved** (bigger than its own run-to-run noise), and the ranking was
+the same in all three sessions. Between sessions the numbers drift by a few percent
+(temperature, background activity, the site and its CDN), which is far less than the
+differences between pages. To compare two versions of a page, measure both in the same
+session: `compare` interleaves them for exactly this reason.
+
+The sessions also show why this is worth measuring. The article transfers about 8× the
+bytes of the Biarritz page but costs about 3.5× the energy, and `/de` transfers almost
+twice as much as Biarritz yet consistently costs *less*. A bytes-based CO2 estimate
+ranks these pages wrongly. Lighthouse called all three "good" (94–98).
 
 **Why not just use your laptop?** You can, for your own scans (`npm run energy-check`,
 then `measure`). For a queue that other people feed, a dedicated machine is better:
