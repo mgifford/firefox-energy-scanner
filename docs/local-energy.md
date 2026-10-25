@@ -114,7 +114,8 @@ than one.
 
 ## 5. Or let issues use your machine
 
-To have scans requested through issues run on your machine:
+The full runbook, including security and a set-up prompt, is
+[LOCAL-RUNNER.md](../LOCAL-RUNNER.md). In short:
 
 1. Register it as a self-hosted runner ([self-hosted-runner.md](self-hosted-runner.md)).
 2. Set the repository variable **`ENERGY_RUNNER`** to its labels, e.g.
