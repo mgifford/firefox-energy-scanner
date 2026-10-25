@@ -103,7 +103,9 @@ npm ci && npm run energy-check
 ```
 
 Run scans locally from there, or register the machine so issue scans use it — see
-[docs/local-energy.md](docs/local-energy.md).
+[docs/local-energy.md](docs/local-energy.md). To have people submit domains that a
+machine at home measures, follow [LOCAL-RUNNER.md](LOCAL-RUNNER.md): a runbook for a Mac
+mini or Linux box, with the security steps and a set-up prompt for an AI assistant.
 
 Only public `http(s)` URLs are accepted. Localhost and private address ranges are
 rejected, so the scanner cannot be pointed at internal networks.
