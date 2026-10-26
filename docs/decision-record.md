@@ -418,3 +418,72 @@ and the terminal `Resolved` column still reads `yes` for them.
   available through `measure`.
 
 **Use instead.** `measure <url…> --runs 10` repeats each URL and produces a genuine IQR.
+
+## TDR-011: CrUX field data is a fourth indicator, queried directly, and it does not replace Lighthouse
+
+**Decision:** Add an opt-in fourth indicator — Chrome UX Report field data — printed
+beside the Firefox measurements and the Lighthouse lab results, with its own scope,
+window and boundary statement. Nothing converts between the four.
+
+**Why field data at all.** Observed energy says what one page costs one machine.
+Lighthouse says what one synthetic load does under throttling. Neither says what real
+people on real devices experience. CrUX does, and it is the only external source in this
+project that reports the live site rather than a reproduction of it.
+
+**Why Lighthouse stays.** They answer different questions, and the interval matters:
+
+| | CrUX field data | Lighthouse lab |
+|---|---|---|
+| Population | real Chrome users | one synthetic Chromium load |
+| Device | whatever users have | a fixed, throttled profile |
+| Window | trailing 28 days | the moment it ran |
+| Can show a fix made today | **no** | **yes** |
+| Covers a preview or authenticated URL | **no** | **yes** |
+
+A 28-day aggregation cannot verify a change. Removing Lighthouse in favour of field data
+would remove the only indicator that responds to an edit, and would remove coverage of
+every URL that has no CrUX record — which includes most URLs during development.
+
+**Why not PageSpeed Insights.** PSI returns CrUX *and* a cloud Lighthouse run in one
+call. The lab half would duplicate work this tool already does locally, in a browser
+whose version it pins and records, without sending the page to Google. It also hides
+which half failed. The CrUX API is a single `POST` to
+`/v1/records:queryRecord` with no new dependency, so it is integrated directly.
+
+**No data is a first-class outcome.** CrUX only holds records for origins, URLs and form
+factors with enough traffic. A 404 becomes `status: 'no-data'` with an explanation, not
+an error and not an empty table. Only a refused request or an unreachable API is an
+error, and only that makes the standalone command exit non-zero.
+
+**One request per run.** Origin scope by default, `--crux-url` to ask about the URL
+itself. Deliberately no per-page fan-out: a crawl would spend a request per page to
+learn that most pages have no record.
+
+**Privacy rule.** The query leaves the machine and carries the target to Google, so
+`cruxTarget()` refuses local, private and development hosts via the same
+`localHostReason()` guard the scan itself uses, before any request is sent. The API key
+comes from `CRUX_API_KEY` or `--crux-key`, is resolved before Firefox launches, is never
+written into a result file, and is never echoed in an error — `apiMessage()` returns
+only the API's own message, never the request URL that carries `?key=`.
+
+**Bands are copied, not computed.** CrUX returns the histogram already bucketed and
+already ordered good / needs improvement / poor. Those densities are reported as given.
+Applying our own thresholds to the p75 would risk drifting from Google's definitions.
+
+**Field against lab, under a strict condition.** The comparison table renders only when
+exactly one URL was audited, because an origin-level record cannot be paired with
+per-page lab rows. It compares LCP, FCP and CLS only. INP has no lab counterpart here:
+Lighthouse reports Total Blocking Time, which is a different metric, and TBT is
+therefore not shown in the INP row.
+
+**Scope deferred, not rejected.** CrUX is wired into `measure`, `crawl` and its own
+`crux` command. It is not queried by `journey`, `compare`, `matrix` or `report`; `report`
+re-renders a saved `crux` block but asks Google nothing. It is not published into the
+site index either: that would need a per-entry field record and a rendering decision
+first, and an origin-level record is a poor fit for a per-step table.
+
+**Outstanding verification.** The client is tested against a recorded-shape fixture; the
+first live call needs an API key supplied by the maintainer. The checklist is in
+[docs/crux.md](crux.md#verification-status). Deferred until then: nothing in the design
+depends on the outcome, but the window and p75 values have not been eyeballed against a
+real response.

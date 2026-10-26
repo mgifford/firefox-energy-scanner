@@ -256,5 +256,11 @@ export interface BenchmarkResult {
    * measurements and never combined with them.
    */
   lighthouse?: import('../lighthouse/summary.js').LighthouseSummary;
+  /**
+   * CrUX field data, when requested. Real-user percentiles from a trailing
+   * 28-day window: a different population from the Lighthouse lab run, reported
+   * beside it and never combined with it, with energy, or with CO2.js.
+   */
+  crux?: import('../core/crux.js').CruxResult;
   warnings: string[];
 }
