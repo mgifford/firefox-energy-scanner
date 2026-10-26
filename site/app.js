@@ -189,6 +189,17 @@
     return typeof v === 'number' && isFinite(v) ? v.toFixed(3) + ' mWh' : null;
   }
 
+  // Class C values are small. Never round a non-zero value down to a bare
+  // zero: zero is a measurement in this project.
+  function fmtUg(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return null;
+    var abs = Math.abs(v);
+    if (abs === 0) return '0 µg';
+    if (abs >= 1) return v.toFixed(1) + ' µg';
+    if (abs >= 0.01) return v.toFixed(2) + ' µg';
+    return (v > 0 ? '<0.01' : '>−0.01') + ' µg';
+  }
+
   function scenarioSortValue(entry, key) {
     const vals = entry.scenarios.map(function (s) {
       if (key === 'energy') return typeof s.energyMwh === 'number' ? s.energyMwh : -Infinity;
@@ -247,7 +258,10 @@
 
     const thead = make('thead');
     const hr = make('tr');
-    ['Scenario', 'Runs', 'Transfer', 'Requests', '3rd party', 'Duration', 'CO2.js', 'Observed energy']
+    const headings = ['Scenario', 'Runs', 'Transfer', 'Requests', '3rd party', 'Duration', 'CO2.js', 'Observed energy'];
+    // Class C only exists when the session declared a grid intensity.
+    if (entry.gridIntensity) headings.push('Energy CO2e');
+    headings
       .forEach(function (label) {
         const th = make('th');
         th.setAttribute('scope', 'col');
@@ -270,7 +284,7 @@
       // that describe some other page.
       if (s.failed) {
         const td = make('td', 'unresolved failed-note');
-        td.colSpan = 7;
+        td.colSpan = entry.gridIntensity ? 8 : 7;
         text(td, s.notAPage
           ? 'Not a web page — the URL starts a file download (usually a PDF), so there was nothing to measure.'
           : (s.failureNote || 'Every measured run failed.'));
@@ -307,6 +321,21 @@
         if (s.resolutionNote) energyCell.title = s.resolutionNote;
       }
       tr.appendChild(energyCell);
+
+      if (entry.gridIntensity) {
+        const carbonCell = make('td');
+        const ug = fmtUg(s.energyCo2Micrograms);
+        if (ug !== null && s.resolved) {
+          text(carbonCell, ug);
+          carbonCell.title =
+            'Derived from observed energy at ' + entry.gridIntensity.gramsPerKwh +
+            ' gCO2e/kWh. Not a CO2.js figure.';
+        } else {
+          carbonCell.className = 'unresolved';
+          text(carbonCell, '—');
+        }
+        tr.appendChild(carbonCell);
+      }
 
       tbody.appendChild(tr);
     });

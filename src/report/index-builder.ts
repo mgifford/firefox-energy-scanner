@@ -3,6 +3,7 @@ import { join, basename } from 'node:path';
 import type { BenchmarkResult, StepResult } from '../core/types.js';
 import { summarize, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
+import { energyCarbon, type GridIntensity } from '../core/carbon.js';
 import { isBlocked, isNotAPage, readableFailure } from '../core/failures.js';
 import {
   sitewideRecommendations,
@@ -47,6 +48,12 @@ export interface IndexScenario {
   durationMs: number;
   energyMwh?: number;
   energyIqrMwh?: number;
+  /**
+   * Class C: carbon derived from the incremental energy above, at the session's
+   * declared grid intensity. Only present alongside a resolved energy value,
+   * and never derived from `co2Grams`.
+   */
+  energyCo2Micrograms?: number;
   /** False when the measurement is below the resolution of the setup. */
   resolved: boolean;
   resolutionNote?: string;
@@ -105,6 +112,11 @@ export interface IndexEntry {
   runnerNote?: string;
   /** Why energy was or was not measured, and the options when it was not. */
   energyCheck?: NonNullable<BenchmarkResult['capabilities']>['energyCheck'];
+  /**
+   * The grid assumption behind each scenario's `energyCo2Micrograms`. Absent
+   * when no intensity was declared, in which case no Class C values exist.
+   */
+  gridIntensity?: GridIntensity;
   scenarios: IndexScenario[];
   /** Run-level Lighthouse context; per-URL results sit on each scenario. */
   lighthouse?: {
@@ -129,7 +141,7 @@ export interface SiteIndex {
   entries: IndexEntry[];
 }
 
-function summarizeScenarios(steps: StepResult[]): IndexScenario[] {
+function summarizeScenarios(steps: StepResult[], grid?: GridIntensity): IndexScenario[] {
   const byStep = new Map<string, StepResult[]>();
   for (const s of steps) {
     if (s.warmup) continue;
@@ -211,6 +223,14 @@ function summarizeScenarios(steps: StepResult[]): IndexScenario[] {
         ? {
             energyMwh: joulesToMilliwattHours(energy.median),
             energyIqrMwh: joulesToMilliwattHours(energy.iqr),
+            ...(grid
+              ? {
+                  energyCo2Micrograms: energyCarbon(
+                    joulesToMilliwattHours(energy.median),
+                    grid,
+                  ).micrograms,
+                }
+              : {}),
           }
         : {}),
       resolved: res.resolved,
@@ -222,7 +242,7 @@ function summarizeScenarios(steps: StepResult[]): IndexScenario[] {
 
 export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry {
   const env = result.environment;
-  const scenarios = summarizeScenarios(result.scenarios);
+  const scenarios = summarizeScenarios(result.scenarios, result.gridIntensity);
   const energyAvailable = result.scenarios.some(
     (s) => s.energy?.raw.totalJoules !== undefined,
   );
@@ -250,6 +270,7 @@ export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry 
         }
       : {}),
     ...(result.capabilities?.energyCheck ? { energyCheck: result.capabilities.energyCheck } : {}),
+    ...(result.gridIntensity ? { gridIntensity: result.gridIntensity } : {}),
     scenarios,
     ...(result.lighthouse ? { lighthouse: lighthouseEntry(result.lighthouse, scenarios) } : {}),
     warnings: result.warnings,

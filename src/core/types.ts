@@ -1,11 +1,17 @@
+import type { GridIntensity } from './carbon.js';
+
 /**
  * Canonical data model.
  *
- * Two sustainability indicator classes are represented here and they are
+ * Three sustainability indicator classes are represented here and they are
  * deliberately never merged:
  *
- *   - `Co2Result`    modelled emissions estimated from transferred bytes.
- *   - `EnergyResult` observed energy drawn on the client device.
+ *   - `Co2Result`     modelled emissions estimated from transferred bytes.
+ *   - `EnergyResult`  observed energy drawn on the client device.
+ *   - `gridIntensity` the declared grid assumption behind Class C, the carbon
+ *                     derived from that observed energy. Only the assumption
+ *                     is stored; the derived figure is computed at report
+ *                     time so the raw measurements stay the source of truth.
  *
  * They have different system boundaries and different units. See
  * docs/methodology.md.
@@ -240,9 +246,14 @@ export interface BenchmarkResult {
     adapterId: string;
   };
   /**
-   * Lighthouse lab results, when requested. A third indicator class with its
-   * own boundary — Chromium under simulated throttling — kept beside the
-   * Firefox measurements and never combined with them.
+   * The grid assumption used to derive Class C carbon from observed energy.
+   * Absent means no intensity was declared, so no derived figure is reported.
+   */
+  gridIntensity?: GridIntensity;
+  /**
+   * Lighthouse lab results, when requested. A separate indicator with its own
+   * boundary — Chromium under simulated throttling — kept beside the Firefox
+   * measurements and never combined with them.
    */
   lighthouse?: import('../lighthouse/summary.js').LighthouseSummary;
   warnings: string[];

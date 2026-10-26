@@ -28,17 +28,19 @@
 
 <main id="main">
 
-  <section class="boundary" aria-labelledby="two-metrics">
-    <h2 id="two-metrics">Two metrics, two boundaries</h2>
+  <section class="boundary" aria-labelledby="three-classes">
+    <h2 id="three-classes">Three classes, three boundaries</h2>
     <p>
-      This tool reports two different classes of sustainability indicator. They are
-      never added together, and neither validates the other.
+      This tool reports three different classes of sustainability indicator. They are
+      never added together, and none validates another. CO<sub>2</sub>e from CO2.js is
+      never converted into anything.
     </p>
     <dl>
       <dt>Modelled CO<sub>2</sub>e</dt>
       <dd>
         Estimated by CO2.js from transferred bytes. Covers data centre, network and a
-        generic device. It is a model output, not a measurement.
+        generic device. It is a model output, not a measurement, and it is already the
+        hosting-side figure — there is no separate server carbon number.
       </dd>
       <dt>Observed client energy</dt>
       <dd>
@@ -46,6 +48,14 @@
         Profiler's power counters and measured on the machine running the test. On
         Apple Silicon it covers Firefox's own processes; on Linux and Windows it covers
         the whole CPU package, with the idle baseline subtracted.
+      </dd>
+      <dt>Grid-derived carbon <span class="note">(opt-in)</span></dt>
+      <dd>
+        The carbon implied by that observed energy at a grid intensity you declare,
+        in micrograms of CO<sub>2</sub>e. It is derived from the energy, not from
+        CO2.js, and the intensity, zone and year are printed beside it. Lightweight
+        pages are usually below the resolution of the setup, and are reported as blank
+        rather than as a number.
       </dd>
     </dl>
     <p class="note">
@@ -239,7 +249,7 @@
       own run-to-run spread. Neither is a zero.
     </p>
 
-    <h3>Lighthouse is a third, separate indicator</h3>
+    <h3>Lighthouse is a separate indicator</h3>
     <p>
       Lighthouse scores come from <strong>Chromium</strong> under Lighthouse's simulated
       device and network throttling, using its standard mobile or desktop profile (chosen

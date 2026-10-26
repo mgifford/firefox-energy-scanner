@@ -39,6 +39,34 @@ included. Every result records `attribution: "time-window"`.
 The counters cover Firefox's processes. Screen brightness — often the single largest
 consumer on a laptop — is outside the boundary, as are other applications and the OS.
 
+### Energy spread needs more than one visit
+
+`crawl` loads each page once. One sample has no interquartile range: the value is 0 by
+construction, not a sign of stability. The HTML report therefore prints `—` and says the
+spread was not estimated, and with a single visit the resolution check has nothing to
+compare against — so a published crawl figure is indicative, not resolved. Repeat the page
+with `measure <url> --runs 10` to get a real spread.
+
+### Grid-derived carbon is an assumption, not a measurement
+
+Class C multiplies observed energy by a grid intensity you declare. Each part of that is
+contestable, and the report prints the assumption next to the number for that reason.
+
+- **Location is declared, never detected.** The tool does not geolocate the client. On a
+  VPN, or with the wrong country selected, the figure is simply wrong.
+- **An annual average is not a marginal intensity.** A national average smooths
+  subnational grids and time of day. Alberta and Ontario differ by roughly an order of
+  magnitude; so do night and peak demand.
+- **The bundled table is country-level.** `--grid-zone` refuses subnational codes rather
+  than quietly substituting a national average. Pass `--grid-intensity` for a local grid.
+- **Transmission and distribution losses** are included only if the intensity figure you
+  supply already accounts for them.
+- **Below-resolution energy is suppressed.** A figure derived from noise would be a
+  negative or meaningless emission, so the HTML and terminal reports print `—`. The CSV
+  still exports the signed per-run value so the suppression rule can be audited.
+- **It is not additive with CO2.js.** The model's device segment and the observed client
+  energy describe the same device from opposite directions.
+
 ### Server-side changes will look like nothing
 
 The boundary is the client. A patch that speeds up PHP or database work may move TTFB

@@ -24,12 +24,13 @@ Across the scan, it lists the **recommendations shared by several pages**. Pages
 site share a theme, so a failure on most pages usually means one fix in a template or a
 shared asset.
 
-## A third indicator, with its own boundary
+## A separate indicator, with its own boundary
 
 | | Engine | What it is |
 |---|---|---|
 | CO2.js | none | modelled emissions from transferred bytes |
 | Observed energy | Firefox | power counters on the client machine |
+| Grid-derived carbon | none | observed energy × a declared grid intensity |
 | **Lighthouse** | **Chromium** | lab load performance under simulated throttling |
 
 Lighthouse numbers are not Firefox numbers and not energy. They are reported beside the

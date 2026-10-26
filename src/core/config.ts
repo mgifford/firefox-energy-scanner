@@ -115,6 +115,22 @@ const networkSchema = z
   .strict()
   .prefault({});
 
+/**
+ * Class C inputs. Absent means no derived carbon is reported; this is opt-in
+ * because the intensity is an assumption about the client's grid, not
+ * something the tool can observe.
+ */
+const carbonSchema = z
+  .object({
+    grid_intensity_g_per_kwh: z.number().positive().optional(),
+    grid_zone: z.string().min(1).optional(),
+    grid_kind: z.enum(['average', 'marginal']).default('average'),
+    grid_source: z.string().min(1).optional(),
+    grid_year: z.number().int().min(1990).max(2100).optional(),
+  })
+  .strict()
+  .prefault({});
+
 const outputSchema = z
   .object({
     directory: z.string().default('results'),
@@ -136,6 +152,7 @@ export const configSchema = z
     crawl: crawlSchema,
     energy: energySchema,
     co2: co2Schema,
+    carbon: carbonSchema,
     network: networkSchema,
     sitespeed: z.object({ enabled: z.boolean().default(false) }).strict().prefault({}),
     output: outputSchema,

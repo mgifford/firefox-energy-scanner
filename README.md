@@ -19,18 +19,29 @@ A bytes-based model rates these as near-equivalent. The browser spends roughly *
 orders of magnitude** more energy on one of them. Transferred bytes are not a proxy for
 client energy, which is the whole premise of the project.
 
-## Two metrics, two boundaries, never merged
+## Three metrics, three boundaries, never merged
 
-This tool deliberately reports two different classes of indicator and never adds them
-together or converts one into the other:
+This tool deliberately reports three different classes of indicator and never adds them
+together. CO2.js is never converted into anything.
 
 - **Modelled CO2e** — CO2.js, estimated from transferred bytes and model assumptions.
-  Covers datacentre, network, and device segments. Not a measurement.
+  Covers datacentre, network, and device segments. Not a measurement. This is already
+  the hosting-side figure; there is no separate server carbon number.
 - **Observed client energy** — Firefox's power counters, in joules/mWh. Covers the
   energy drawn by Firefox's processes on the machine running the test.
+- **Grid-derived carbon** *(opt-in)* — the carbon implied by that observed energy at a
+  grid intensity you declare, in µg CO2e. It is derived from the energy, **not** from
+  CO2.js, and it carries its intensity, zone, kind and year wherever it appears.
+
+```
+web-energy measure https://example.com --grid-zone CA
+web-energy measure https://example.com --grid-intensity 30 --grid-source "IESO 2025"
+```
 
 The measurement boundary is the **client machine**. Results say nothing about server,
-PHP, database, or data-centre energy, and are not a total carbon figure for a site.
+PHP, database, or data-centre energy, and are not a total carbon figure for a site. Do
+not add the modelled and derived carbon figures: the model's device segment and the
+observed client energy describe the same device from opposite directions.
 
 ## Two tiers: local and hosted
 
@@ -50,6 +61,7 @@ figure is never read as a measured zero.
 | **observed energy (joules / mWh)** | no | **yes** |
 | **idle baseline subtraction** | no | **yes** |
 | **resolution check** | no | **yes** |
+| **grid-derived carbon (µg CO₂e, when an intensity is declared)** | no | **yes** |
 | **energy by work category** | no | **yes** |
 | **A/B energy regression** | no | **yes** |
 | Lighthouse score, lab metrics, recommendations (optional, Chromium) | yes | yes |
@@ -167,7 +179,7 @@ web-energy lighthouse <url...>
 Add `--lighthouse` to `measure` or `crawl` to run Google Lighthouse afterwards, in
 Chromium. It reports the Performance score (median of 3 runs, with the range), lab
 Core Web Vitals, main-thread work, and the failing performance recommendations with
-estimated savings, plus the recommendations shared across pages. It is a third
+estimated savings, plus the recommendations shared across pages. It is a separate
 indicator with its own boundary and is never combined with the Firefox results. See
 [docs/lighthouse.md](docs/lighthouse.md).
 
@@ -183,6 +195,27 @@ Measure one or more URLs directly.
 ```bash
 node dist/cli/index.js measure https://example.com --runs 10 --warmups 3
 ```
+
+### Grid-derived carbon (optional)
+
+Pass a grid carbon intensity to also report the carbon implied by the observed client
+energy, in µg CO₂e. It is derived from the energy, never from the CO2.js estimate, and
+the assumption behind it (intensity, zone, kind, year, source) is printed beside the
+number.
+
+```bash
+node dist/cli/index.js measure https://example.com --grid-zone CA
+node dist/cli/index.js measure https://example.com \
+  --grid-intensity 30 --grid-zone CA-ON \
+  --grid-source "IESO 2025 annual average" --grid-year 2025
+node dist/cli/index.js compare --a <url> --b <url> --journey <file> --grid-intensity 30
+```
+
+Values are suppressed for steps whose incremental energy is below its own run-to-run
+spread, because a negative or noise-derived emission is not a result. `--grid-zone`
+accepts ISO country codes from a bundled national annual-average table; subnational
+grids (Ontario, Alberta, California) need an explicit `--grid-intensity`. See
+[docs/methodology.md](docs/methodology.md) and [docs/limitations.md](docs/limitations.md).
 
 ### journey — the mode to use for regressions
 

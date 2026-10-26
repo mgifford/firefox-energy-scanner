@@ -348,3 +348,73 @@ or the network.
   `pmgr` entry, instead of treating "sudo works" as availability.
 - Energy fields are omitted entirely when no samples exist, so a virtualised run can
   never publish `0 J` as though it were a measurement.
+
+---
+
+## TDR-009: Grid-derived carbon is a third class, derived from energy, never from CO2.js
+
+**Decision:** Add an opt-in Class C — the carbon implied by observed client energy at a
+declared grid intensity. TDR-005 still stands: CO2.js remains a separate, unconvertible
+metric.
+
+**Why CO2.js is still not converted.** It models datacentre + network + a generic device
+from bytes. Turning its grams into energy, or energy into its grams, would invent a
+relationship the model does not assert. Class C runs the other way: it starts from the
+energy that was actually observed.
+
+**Formula.** `µg CO2e = mWh × gCO2e/kWh`. Unit check: `1 mWh = 1e-6 kWh` and
+`1 g = 1e6 µg`, so the two factors of one million cancel. Verified against a real run:
+`0.0626 mWh × 400 = 25.04 µg`.
+
+**Inputs are declared, not detected.** The intensity is an assumption about the client's
+grid, so there is no IP geolocation and no inference from the target URL. Value, zone,
+kind (average or marginal), year and source are stored in the result and printed next to
+every derived number.
+
+**Resolution gate.** Class C is published only where the energy it derives from resolves
+(`median > 0` and `|median| ≥ IQR`). Measured example: incremental energy −0.042 mWh
+against an IQR of 0.023 mWh, so no carbon figure is published even though the gross
+energy implies about 25 µg. The CSV exports the signed per-run value regardless, so the
+suppression rule stays auditable rather than being baked into storage.
+
+**Scale, measured.** Same run: CO2.js 18.748 mg versus about 25 µg from gross energy at
+400 gCO2e/kWh — roughly 750× apart. That gap is the model-versus-observation difference
+the project exists to show, and it is why the two are never summed.
+
+**Double counting.** CO2.js's `consumerDeviceCO2e` and Class C both concern the client
+device. Adding them counts that device twice. They stay in separate columns with separate
+provenance, and both docs say so explicitly.
+
+**Bundled table provenance.** `src/core/grid-zones.ts` is generated from Ember data via
+Our World in Data: national annual averages, reference year 2024 where available, older
+years recorded per entry. Country level only. Subnational codes such as `CA-ON` are
+rejected with an actionable error rather than approximated from a national average.
+
+## TDR-010: Report the energy IQR only when a step was measured more than once
+
+**Decision:** The HTML report shows the energy IQR as `—` when a step has a single sample
+and says why, instead of printing `0.000`. Resolution semantics are unchanged for now:
+Class C still publishes wherever the median is positive.
+
+**Why.** `crawl` visits each page once (`src/collect/crawler.ts`), so the reported IQR was
+the interquartile range of one observation — 0 by construction, not a measurement of
+stability. A real crawl of `w3.org` printed `0.000` on all 34 steps and published seven
+Client-energy CO2e figures; the other 27 were blank only because their medians were
+negative, not because their evidence was weaker.
+
+**Consequence, recorded rather than fixed.** With a single sample, `|median| / IQR` is
+infinite, so `resolution()` returns `resolved: true` for any positive median. Those seven
+figures rest on one visit and no measured spread. The report now says so beside the table,
+and the terminal `Resolved` column still reads `yes` for them.
+
+**Alternatives considered.**
+
+- *Require `n ≥ 2` inside `resolution()`.* The principled option: a single visit cannot
+  establish a spread, so nothing derived from it should be called resolved. Deferred, not
+  rejected — it blanks the Class C column on every crawl until the next option lands, and
+  it changes the terminal `Resolved` column too.
+- *Make `crawl` honour `--runs` per page.* Real spread for a whole site at N× the crawl
+  cost. Deferred: crawl is the cheap discovery pass, and repeated URLs are already
+  available through `measure`.
+
+**Use instead.** `measure <url…> --runs 10` repeats each URL and produces a genuine IQR.
