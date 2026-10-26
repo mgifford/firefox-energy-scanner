@@ -39,6 +39,14 @@ included. Every result records `attribution: "time-window"`.
 The counters cover Firefox's processes. Screen brightness — often the single largest
 consumer on a laptop — is outside the boundary, as are other applications and the OS.
 
+### Energy spread needs more than one visit
+
+`crawl` loads each page once. One sample has no interquartile range: the value is 0 by
+construction, not a sign of stability. The HTML report therefore prints `—` and says the
+spread was not estimated, and with a single visit the resolution check has nothing to
+compare against — so a published crawl figure is indicative, not resolved. Repeat the page
+with `measure <url> --runs 10` to get a real spread.
+
 ### Grid-derived carbon is an assumption, not a measurement
 
 Class C multiplies observed energy by a grid intensity you declare. Each part of that is

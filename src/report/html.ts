@@ -52,6 +52,11 @@ export function toHtml(result: BenchmarkResult): string {
     return { step, runs, energy, raw, duration, bytes, co2, carbon };
   });
 
+  // One sample has no spread: its IQR is 0 by construction, which reads as
+  // "perfectly stable" when it means "not estimated". crawl visits each page
+  // once, so this is the common case there.
+  const singleVisit = stepRows.some((r) => r.energy.count === 1);
+
   const energyValues = result.scenarios
     .filter((s) => !s.warmup && s.valid && s.energy?.incrementalJoules !== undefined)
     .map((s) => ({
@@ -152,6 +157,11 @@ ${
         ? 'Client-energy CO2e is derived from that incremental energy at the declared grid intensity, and is left blank where the energy is below the resolution of this setup.'
         : ''
     }
+    ${
+      singleVisit
+        ? 'Where a page was visited once, its spread cannot be estimated, so the IQR is shown as — rather than 0. With a single visit the resolution check has no spread to compare against, so treat that energy, and any carbon derived from it, as indicative: repeat the page with measure --runs before quoting either.'
+        : ''
+    }
   </p>
   <div class="scroll">
   <table>
@@ -177,7 +187,7 @@ ${
         <td>${num(r.bytes.median / 1024, 1)}</td>
         <td>${num(r.co2.median * 1000, 3)}</td>
         <td>${r.energy.count ? num(joulesToMilliwattHours(r.energy.median), 3) : '—'}</td>
-        <td>${r.energy.count ? num(joulesToMilliwattHours(r.energy.iqr), 3) : '—'}</td>
+        <td>${r.energy.count > 1 ? num(joulesToMilliwattHours(r.energy.iqr), 3) : '—'}</td>
         ${grid ? `<td>${formatMicrograms(r.carbon)}</td>` : ''}
       </tr>`,
         )

@@ -259,3 +259,30 @@ describe('report gating for derived carbon', () => {
     expect(toIndexEntry(resultFor(RESOLVED, false), 'c.json').gridIntensity).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Energy spread: one sample has no IQR, and 0.000 reads as "perfectly stable".
+// ---------------------------------------------------------------------------
+
+describe('energy spread when a step was visited once', () => {
+  it('renders the IQR as — rather than 0 for a single visit', () => {
+    const html = toHtml(resultFor([2.0]));
+    // 2.0 J = 0.556 mWh; the next cell is the IQR, which is not estimable here.
+    expect(html).toMatch(/<td>0\.556<\/td>\s*<td>—<\/td>/);
+    expect(html).toContain('its spread cannot be estimated');
+  });
+
+  it('still publishes the energy and the derived carbon for that visit', () => {
+    // Deliberate: this is a reporting change. The resolution rule itself is
+    // untouched until the single-visit question is settled.
+    const html = toHtml(resultFor([2.0]));
+    expect(html).toContain('222.2');
+  });
+
+  it('keeps the numeric IQR and drops the note when the step was repeated', () => {
+    const html = toHtml(resultFor(RESOLVED));
+    // 2.225 J = 0.618 mWh, then a real IQR to three decimals.
+    expect(html).toMatch(/<td>0\.618<\/td>\s*<td>\d+\.\d{3}<\/td>/);
+    expect(html).not.toContain('its spread cannot be estimated');
+  });
+});

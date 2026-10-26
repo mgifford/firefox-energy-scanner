@@ -203,5 +203,9 @@ Median is the headline statistic; count, mean, min, max, standard deviation, p25
 p95, and IQR are all reported. Comparisons below 10 runs per side are explicitly
 qualified as indicative, and no significance is claimed from small samples.
 
+The IQR is reported only when a step has more than one sample. A single visit has no
+interquartile range — it is 0 by construction, which would read as perfect stability — so
+the HTML report prints `—` instead and says the spread was not estimated.
+
 Correlation uses **Spearman's rank coefficient**, because the relationships of interest
 are monotonic rather than necessarily linear and the data is not assumed normal.

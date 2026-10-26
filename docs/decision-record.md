@@ -389,3 +389,32 @@ provenance, and both docs say so explicitly.
 Our World in Data: national annual averages, reference year 2024 where available, older
 years recorded per entry. Country level only. Subnational codes such as `CA-ON` are
 rejected with an actionable error rather than approximated from a national average.
+
+## TDR-010: Report the energy IQR only when a step was measured more than once
+
+**Decision:** The HTML report shows the energy IQR as `—` when a step has a single sample
+and says why, instead of printing `0.000`. Resolution semantics are unchanged for now:
+Class C still publishes wherever the median is positive.
+
+**Why.** `crawl` visits each page once (`src/collect/crawler.ts`), so the reported IQR was
+the interquartile range of one observation — 0 by construction, not a measurement of
+stability. A real crawl of `w3.org` printed `0.000` on all 34 steps and published seven
+Client-energy CO2e figures; the other 27 were blank only because their medians were
+negative, not because their evidence was weaker.
+
+**Consequence, recorded rather than fixed.** With a single sample, `|median| / IQR` is
+infinite, so `resolution()` returns `resolved: true` for any positive median. Those seven
+figures rest on one visit and no measured spread. The report now says so beside the table,
+and the terminal `Resolved` column still reads `yes` for them.
+
+**Alternatives considered.**
+
+- *Require `n ≥ 2` inside `resolution()`.* The principled option: a single visit cannot
+  establish a spread, so nothing derived from it should be called resolved. Deferred, not
+  rejected — it blanks the Class C column on every crawl until the next option lands, and
+  it changes the terminal `Resolved` column too.
+- *Make `crawl` honour `--runs` per page.* Real spread for a whole site at N× the crawl
+  cost. Deferred: crawl is the cheap discovery pass, and repeated URLs are already
+  available through `measure`.
+
+**Use instead.** `measure <url…> --runs 10` repeats each URL and produces a genuine IQR.
