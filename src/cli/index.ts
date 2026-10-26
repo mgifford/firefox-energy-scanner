@@ -50,6 +50,20 @@ import { collectHostFacts, judgeEnergy, type EnergyProbe, type FirefoxProbe } fr
 import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run.js';
 import { pickLighthouseUrls } from '../lighthouse/select.js';
 import {
+  cruxApiKey,
+  cruxTarget,
+  describeCrux,
+  fetchCrux,
+  formatCruxShare,
+  formatCruxValue,
+  CRUX_LABELS,
+  CRUX_METRICS,
+  type CruxFormFactorFilter,
+  type CruxRequest,
+  type CruxResult,
+  type CruxScope,
+} from '../core/crux.js';
+import {
   scoreRating,
   sitewideRecommendations,
   type FormFactor,
@@ -71,6 +85,7 @@ Usage:
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
   web-energy diagnose <url> [--runs <n>]
   web-energy lighthouse <url...>       [--lighthouse-* options]
+  web-energy crux <url>                [--crux-* options]
 
 Options:
   --config <file>        YAML configuration file
@@ -107,6 +122,15 @@ Lighthouse (optional; runs in Chromium after the Firefox session has closed):
   --lighthouse-top <n|all>      Audit only the n heaviest pages (crawl default 10;
                                 lists default all)
   --lighthouse-reports <dir>    Also write each URL's full HTML report here
+
+Field data (CrUX; optional, read-only, needs a Chrome UX Report API key):
+  --crux                        Query the Chrome UX Report and report real-user p75
+                                metrics beside the lab results
+  --crux-url                    Ask about the URL instead of its whole origin
+  --crux-form-factor <f>        all (default) | phone | desktop | tablet
+  --crux-key <key>              API key; prefer the CRUX_API_KEY environment variable
+
+  \`crux <url>\` queries the field data on its own, without launching a browser.
 `;
 
 interface Args {
@@ -567,6 +591,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   const config = await buildConfig(args);
   // Fail on a bad grid declaration before spending a session measuring.
   const grid = gridFromConfig(config);
+  const crux = cruxFromArgs(args, urls[0]!);
   const outcome = await runBenchmark({
     config,
     baseUrl: urls[0]!,
@@ -596,9 +621,11 @@ async function cmdMeasure(args: Args): Promise<number> {
   };
 
   await attachLighthouse(args, config, result, urls, 'measure');
+  await attachCrux(result, crux);
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
+  if (result.crux) printCrux(result.crux);
   for (const w of result.warnings) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
@@ -662,6 +689,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   }
   const config = await buildConfig(args);
   const grid = gridFromConfig(config);
+  const crux = cruxFromArgs(args, start);
   const outcome = await crawl({
     config,
     startUrl: start,
@@ -692,9 +720,11 @@ async function cmdCrawl(args: Args): Promise<number> {
   };
 
   await attachLighthouse(args, config, result, [start], 'crawl');
+  await attachCrux(result, crux);
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
+  if (result.crux) printCrux(result.crux);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
 }
@@ -841,6 +871,92 @@ async function cmdLighthouse(args: Args): Promise<number> {
   printLighthouse(summary);
   console.log(`\nWrote ${file}`);
   return summary.results.some((r) => r.runs > 0) ? 0 : 1;
+}
+
+/**
+ * Resolve the CrUX options for a command, or undefined when not requested.
+ *
+ * Called before Firefox starts, so a missing key or a non-public target fails in
+ * a second rather than after a ten-minute run.
+ */
+function cruxFromArgs(args: Args, target: string): CruxRequest | undefined {
+  if (!has(args, 'crux')) return undefined;
+  const apiKey = cruxApiKey(one(args, 'crux-key'));
+  // Refuses private, local and development targets before anything is launched:
+  // the query carries the URL to Google.
+  cruxTarget(target);
+  return {
+    target,
+    scope: has(args, 'crux-url') ? 'url' : 'origin',
+    formFactor: parseCruxFormFactor(one(args, 'crux-form-factor')),
+    apiKey,
+  };
+}
+
+function parseCruxFormFactor(value: string | undefined): CruxFormFactorFilter {
+  switch ((value ?? 'all').toLowerCase()) {
+    case 'all':
+      return 'ALL';
+    case 'phone':
+      return 'PHONE';
+    case 'desktop':
+      return 'DESKTOP';
+    case 'tablet':
+      return 'TABLET';
+    default:
+      throw new Error(`--crux-form-factor must be all, phone, desktop or tablet (got ${value})`);
+  }
+}
+
+async function attachCrux(
+  result: BenchmarkResult,
+  request: CruxRequest | undefined,
+): Promise<void> {
+  if (!request) return;
+  result.crux = await fetchCrux(request);
+}
+
+function printCrux(crux: CruxResult): void {
+  console.log('\nField data (CrUX)');
+  console.log(describeCrux(crux));
+  if (crux.status !== 'ok' || !crux.record) {
+    console.log(
+      `  ${crux.status === 'no-data' ? 'No data' : 'Unavailable'}: ${crux.detail ?? 'no record returned'}`,
+    );
+    return;
+  }
+  for (const name of CRUX_METRICS) {
+    const metric = crux.record.metrics[name];
+    if (!metric) continue;
+    console.log(
+      `  ${CRUX_LABELS[name].padEnd(26)}${formatCruxValue(name, metric.p75).padStart(8)}   ` +
+        `good ${formatCruxShare(metric.band.good).padStart(4)}  ` +
+        `needs improvement ${formatCruxShare(metric.band.needsImprovement).padStart(4)}  ` +
+        `poor ${formatCruxShare(metric.band.poor).padStart(4)}`,
+    );
+  }
+  console.log(
+    '\nField data is real Chrome users over 28 days. It describes the live site, not a\n' +
+      'change made today, and it is not a Lighthouse score; the two are never combined.',
+  );
+}
+
+/** CrUX field data on its own, with no browser and no measurement. */
+async function cmdCrux(args: Args): Promise<number> {
+  const target = args._[1];
+  if (!target) {
+    console.error('crux requires a URL');
+    return 1;
+  }
+  const crux = await fetchCrux({
+    target,
+    scope: has(args, 'crux-url') ? 'url' : 'origin',
+    formFactor: parseCruxFormFactor(one(args, 'crux-form-factor')),
+    apiKey: cruxApiKey(one(args, 'crux-key')),
+  });
+  printCrux(crux);
+  // No record is a real answer about a low-traffic URL, not a failed command.
+  return crux.status === 'error' ? 1 : 0;
 }
 
 async function cmdBaseline(args: Args): Promise<number> {
@@ -1489,6 +1605,7 @@ async function main(): Promise<number> {
       case 'parse-issue': return await cmdParseIssue(args);
       case 'build-index': return await cmdBuildIndex(args);
       case 'lighthouse': return await cmdLighthouse(args);
+      case 'crux': return await cmdCrux(args);
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);

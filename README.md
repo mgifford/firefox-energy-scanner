@@ -172,6 +172,7 @@ web-energy compare --a <url> --b <url> --journey <file>
 web-energy report results/<file>.json
 web-energy profile --journey <file>
 web-energy lighthouse <url...>
+web-energy crux <url>
 ```
 
 ### Lighthouse (optional)
@@ -187,6 +188,26 @@ indicator with its own boundary and is never combined with the Firefox results. 
 node dist/cli/index.js measure https://example.com/ --lighthouse
 node dist/cli/index.js lighthouse https://example.com/ --lighthouse-categories all
 ```
+
+### Field data (CrUX, optional)
+
+Add `--crux` to `measure` or `crawl`, or run `crux <url>` on its own, to report Chrome
+UX Report field data: the 75th percentile and band shares that **real Chrome users**
+experienced over a trailing 28-day window. It is a fourth indicator with its own
+boundary — a different population from both the lab and the measurement — and it is
+never combined with anything else.
+
+It does not replace Lighthouse. A 28-day window cannot show that a fix made today
+helped, and CrUX has no record for previews, staging or low-traffic pages.
+
+```bash
+export CRUX_API_KEY='…'
+node dist/cli/index.js crux https://example.com/
+node dist/cli/index.js measure https://example.com/ --lighthouse --crux
+```
+
+The query carries the URL to Google, so local and private targets are refused before
+anything is sent. See [docs/crux.md](docs/crux.md).
 
 ### measure
 
@@ -289,6 +310,7 @@ canvas charts) are generated alongside.
 - [docs/what-costs-energy.md](docs/what-costs-energy.md) — which parts of a page cost most
 - [docs/comparisons.md](docs/comparisons.md) — comparing patches without confounding
 - [docs/lighthouse.md](docs/lighthouse.md) — optional Lighthouse scores and recommendations
+- [docs/crux.md](docs/crux.md) — optional CrUX field data from real Chrome users
 
 ## Licence
 

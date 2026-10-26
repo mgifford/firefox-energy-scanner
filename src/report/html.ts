@@ -5,6 +5,7 @@ import { energyCarbon, formatMicrograms, type GridIntensity } from '../core/carb
 import { groupByStep, failedSteps } from './csv.js';
 import { readableFailure } from '../core/failures.js';
 import { lighthouseSection } from './lighthouse-html.js';
+import { cruxSection } from './crux-html.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -333,6 +334,8 @@ ${
   </table>
   </div>
 </section>
+
+${cruxSection(result.crux, result.lighthouse)}
 
 ${lighthouseSection(result.lighthouse)}
 

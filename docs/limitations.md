@@ -149,6 +149,24 @@ Comparisons with fewer than 10 runs per side are flagged as indicative only. The
 does not perform significance testing, and no significance is claimed. Small median
 differences on noisy data should not be reported as regressions or improvements.
 
+## Field data (CrUX) limits
+
+CrUX is the only optional indicator that describes the live site, and it has the
+narrowest coverage of any of them:
+
+- **The window is 28 days.** A change deployed today cannot show up in it. Field data
+  describes the site as it was, not the build under test, so it cannot confirm a fix.
+- **It covers Chrome only**, and only origins and URLs above Google's traffic
+  threshold. Previews, staging sites, authenticated pages and low-traffic pages usually
+  return no record. That is reported as `no data`, not as an error.
+- **An origin record spans the whole site**, including pages this run never visited, so
+  it cannot be attributed to one template, one asset or one step.
+- **The distribution is Google's**, not ours. Only the p75 and three band shares are
+  published, so the shape of the distribution cannot be inspected.
+- **It is not comparable with Lighthouse by construction.** Different population,
+  device mix and window. The report shows them side by side and labels the difference;
+  it never averages the two or treats one as validation of the other.
+
 ## Explicit non-goals for version 1
 
 Deliberately excluded, because they would blur the measurement boundary:
@@ -158,4 +176,5 @@ Deliberately excluded, because they would blur the measurement boundary:
 - server energy estimated from bytes
 - data-centre or whole-Internet energy modelling
 - Lighthouse-derived sustainability scoring
+- field data (CrUX) used as a regression signal, which its 28-day window cannot support
 - CI comparisons on uncontrolled shared runners
