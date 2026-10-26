@@ -15,11 +15,14 @@ It does **not** measure, and must not be described as measuring:
 - total website energy
 - total carbon emissions
 
-## Two indicator classes
+## Three indicator classes
 
-This project maintains two separate sustainability measurements with different system
-boundaries. They are reported side by side, in their own units, and are never summed,
-averaged together, or converted into one another.
+This project maintains three separate sustainability indicators with different system
+boundaries. They are reported side by side, in their own units, and are never summed or
+averaged together.
+
+Class A is never converted into anything. Class C is derived from Class B, the observed
+energy, and carries its own declared assumption. Nothing is ever derived from Class A.
 
 ### A. Modelled sustainability estimate (CO2.js)
 
@@ -34,12 +37,72 @@ Derived from network/resource activity and model assumptions. Recorded per run:
 This is a **model output**, not an observation. Its boundary spans datacentre, network,
 and a generic consumer device — none of which is the specific machine under test.
 
+It already covers the hosting side. There is no separate "server carbon" figure: the
+datacentre and network segments are that figure, as the model states them.
+
 ### B. Observed browser/client energy (Firefox power counters)
 
 Energy drawn by Firefox's processes on the machine running the test, in joules and
 milliwatt-hours. Its boundary is the browser's processes on one client machine.
 
-### Why they are not interchangeable
+### C. Grid-derived carbon for observed energy
+
+Optional and off by default. When a grid carbon intensity is declared, the incremental
+client energy from Class B is multiplied by it:
+
+```
+µg CO2e = incremental energy (mWh) × grid intensity (gCO2e/kWh)
+```
+
+The unit conversion is not missing. `1 mWh = 1e-6 kWh` and `1 g = 1e6 µg`, so the two
+factors of one million cancel and one multiplication is the whole formula.
+
+**What this class is:**
+
+- a carbon estimate for the electricity one browser actually drew
+- conditional on a declared intensity, zone, kind (average or marginal) and year, all of
+  which travel into the report
+- published only where the energy it derives from is resolvable against its own spread
+
+**What this class is not:**
+
+- a conversion of the CO2.js estimate
+- a server, network, data-centre or whole-site figure
+- a real-time grid signal
+- something to add to Class A
+
+The intensity comes from `--grid-intensity` (or the `carbon.grid_intensity_g_per_kwh`
+config key), recorded with its source and year, or from the bundled national
+annual-average table via `--grid-zone`. The bundled table is **country-level only**.
+Subnational grids differ sharply — Ontario and Alberta are roughly an order of magnitude
+apart — so pass a local figure explicitly where that matters. The table refuses
+subnational zone codes rather than silently substituting a national average.
+
+Bundled table provenance: extracted once from Our World in Data's
+`carbon-intensity-electricity.csv?v=1&csvType=full&useColumnShortNames=true` (Ember),
+keeping the latest year at or before 2024 for each ISO 3166-1 alpha-3 code, joining alpha-3
+to alpha-2, and rounding to whole gCO2e/kWh. The per-entry year records when a country
+had no 2024 figure. It lives in `src/core/grid-zones.ts` and is generated data, not
+hand-maintained.
+
+#### Why A and C differ, and why they must not be added
+
+A measured run of `https://www.thegreenwebfoundation.org/` transferred 123.5 KB and
+produced a CO2.js estimate of **18.748 mg**. Its incremental energy was **−0.042 mWh**,
+below the resolution of the setup. Its gross energy, 0.063 mWh, implies about **25 µg**
+at 400 gCO2e/kWh — roughly 750× smaller than the CO2.js figure, and the incremental
+figure is not publishable at all.
+
+That gap is the point of the project, not a defect in either number. CO2.js models a
+generic device's share of a byte transfer; Class C reports what one browser on one
+machine was measured to draw. They are not two estimates of the same quantity.
+
+Adding them would also double count. CO2.js's `consumerDeviceGrams` segment already
+models device energy; Class C observes device energy. Summing A and C would count the
+client device twice. This is the same reasoning by which the Firefox Profiler zeroes its
+device grid intensity when pairing its power track with CO2.js.
+
+### Why A and B are not interchangeable
 
 A page can transfer very few bytes and still burn substantial CPU. Measured on this
 machine, two pages of near-identical size (436 B vs 678 B) differed by roughly 134× in
@@ -48,8 +111,8 @@ miss that entirely.
 
 Notably, the Firefox Profiler itself pairs its power track with CO2.js and explicitly
 zeroes the device grid intensity so as not to double-count energy the power track
-already attributes to the device. This tool follows the same reasoning by keeping the
-device segment visible but separate.
+already attributes to the device. This tool follows the same reasoning: the device
+segment of the model is kept visible but separate, and Class C is opt-in.
 
 ## Measurement boundary
 

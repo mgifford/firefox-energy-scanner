@@ -1,6 +1,7 @@
 import type { BenchmarkResult, StepResult } from '../core/types.js';
-import { summarize, spearman, type Summary } from '../core/stats.js';
+import { summarize, spearman, resolution, type Summary } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
+import { energyCarbon, formatMicrograms, type GridIntensity } from '../core/carbon.js';
 import { groupByStep, failedSteps } from './csv.js';
 import { readableFailure } from '../core/failures.js';
 import { lighthouseSection } from './lighthouse-html.js';
@@ -26,6 +27,7 @@ export function toHtml(result: BenchmarkResult): string {
   const byStep = groupByStep(result.scenarios);
   const failed = failedSteps(result.scenarios);
   const env = result.environment;
+  const grid: GridIntensity | undefined = result.gridIntensity;
 
   const stepRows = [...byStep.entries()].map(([step, runs]) => {
     const energy = summarize(
@@ -37,7 +39,17 @@ export function toHtml(result: BenchmarkResult): string {
     const duration = summarize(runs.map((r) => r.timing.durationMs));
     const bytes = summarize(runs.map((r) => r.network?.transferBytes ?? Number.NaN));
     const co2 = summarize(runs.map((r) => r.co2?.estimatedGrams ?? Number.NaN));
-    return { step, runs, energy, raw, duration, bytes, co2 };
+    // Class C inherits the resolution of the energy it derives from. A step
+    // below its own spread gets no carbon figure, because the medians there
+    // are noise and are frequently negative.
+    const resolvedEnergy = resolution(
+      runs.map((r) => r.energy?.incrementalJoules).filter((v): v is number => v !== undefined),
+    );
+    const carbon =
+      grid && energy.count > 0 && resolvedEnergy.resolved
+        ? energyCarbon(joulesToMilliwattHours(energy.median), grid).micrograms
+        : undefined;
+    return { step, runs, energy, raw, duration, bytes, co2, carbon };
   });
 
   const energyValues = result.scenarios
@@ -95,16 +107,24 @@ export function toHtml(result: BenchmarkResult): string {
 <section class="boundary" aria-labelledby="boundary-h">
   <h2 id="boundary-h">What these numbers mean</h2>
   <p>
-    This report contains <strong>two different classes of sustainability indicator</strong>.
+    This report contains <strong>three different classes of sustainability indicator</strong>.
     They have different system boundaries and different units, and they are not interchangeable.
+    The first two are always present. The third appears only when a grid intensity was declared.
   </p>
   <dl>
-    <dt><strong>Modelled CO2e (CO2.js)</strong></dt>
+    <dt><strong>A. Modelled CO2e (CO2.js)</strong></dt>
     <dd>Estimated emissions derived from transferred bytes and model assumptions. Not a measurement.</dd>
-    <dt><strong>Observed client energy (Firefox power counters)</strong></dt>
+    <dt><strong>B. Observed client energy (Firefox power counters)</strong></dt>
     <dd>
       Energy drawn by Firefox processes on this client machine during the workload.
       Scope is the browser's processes — not the display, not the server, and not the network.
+    </dd>
+    <dt><strong>C. Grid-derived carbon (from B, not from A)</strong></dt>
+    <dd>
+      Carbon implied by the electricity measured in B, at a grid intensity declared by the
+      operator. It is derived from observed energy and carries that assumption with it.
+      It is <strong>not</strong> a conversion of the CO2.js estimate, and the CO2.js estimate is
+      never converted into it.
     </dd>
   </dl>
   <p>
@@ -127,6 +147,11 @@ ${
   <p class="note">
     Median is the headline statistic. Warmup runs are excluded.
     ${hasEnergy ? 'Energy is incremental: measured energy minus the idle baseline estimate.' : 'No energy values were captured in this session.'}
+    ${
+      grid
+        ? 'Client-energy CO2e is derived from that incremental energy at the declared grid intensity, and is left blank where the energy is below the resolution of this setup.'
+        : ''
+    }
   </p>
   <div class="scroll">
   <table>
@@ -139,6 +164,7 @@ ${
         <th scope="col">CO2.js median (mg)</th>
         <th scope="col">Incremental energy median (mWh)</th>
         <th scope="col">Energy IQR (mWh)</th>
+        ${grid ? '<th scope="col">Client-energy CO2e (µg)</th>' : ''}
       </tr>
     </thead>
     <tbody>
@@ -152,6 +178,7 @@ ${
         <td>${num(r.co2.median * 1000, 3)}</td>
         <td>${r.energy.count ? num(joulesToMilliwattHours(r.energy.median), 3) : '—'}</td>
         <td>${r.energy.count ? num(joulesToMilliwattHours(r.energy.iqr), 3) : '—'}</td>
+        ${grid ? `<td>${formatMicrograms(r.carbon)}</td>` : ''}
       </tr>`,
         )
         .join('')}
@@ -228,6 +255,46 @@ ${
   }
 </section>
 
+${
+  grid
+    ? `<section aria-labelledby="class-c-h">
+  <h2 id="class-c-h">Carbon derived from observed energy</h2>
+  <p>
+    The <strong>Client-energy CO2e</strong> column is Class C. It multiplies the incremental
+    client energy in this session by a declared grid carbon intensity, and by nothing else.
+  </p>
+  <p><code>µg CO2e = incremental energy (mWh) × grid intensity (gCO2e/kWh)</code></p>
+  <p class="note">
+    The two factors of one million cancel: a milliwatt-hour is one millionth of a
+    kilowatt-hour, and a gram is one million micrograms. The conversion is a single
+    multiplication, not a missing unit step.
+  </p>
+  <dl class="meta">
+    <dt>Grid intensity</dt><dd>${esc(grid.gramsPerKwh)} gCO2e/kWh</dd>
+    ${grid.zone ? `<dt>Zone</dt><dd>${esc(grid.zoneName ? `${grid.zoneName} (${grid.zone})` : grid.zone)}</dd>` : ''}
+    <dt>Intensity kind</dt><dd>${esc(grid.kind)}</dd>
+    ${grid.year !== undefined ? `<dt>Reference year</dt><dd>${esc(grid.year)}</dd>` : ''}
+    <dt>Source</dt><dd>${esc(grid.source)}</dd>
+  </dl>
+  <div class="warning">
+    <p>
+      This figure is <strong>not comparable</strong> with the CO2.js column and does not replace
+      it. CO2.js models datacentre, network and a generic device from transferred bytes. Class C
+      derives carbon from the electricity one browser actually drew. They answer different
+      questions and commonly differ by orders of magnitude.
+    </p>
+    <p>
+      Steps whose incremental energy is smaller than its own run-to-run spread are shown as
+      <code>—</code>. At that point the energy is indistinguishable from noise, and the median can
+      be negative, which would produce a negative emission. A grid intensity is an assumption
+      about where the machine was plugged in, not an observation, and an annual average is
+      neither a marginal nor a real-time figure.
+    </p>
+  </div>
+</section>`
+    : ''
+}
+
 <section aria-labelledby="dist-h">
   <h2 id="dist-h">Distributions</h2>
   <p class="note">Full descriptive statistics, given as a table rather than a chart image.</p>
@@ -299,6 +366,11 @@ ${lighthouseSection(result.lighthouse)}
     Baseline correction retains all three values — raw measured energy, the estimated idle
     energy, and the incremental difference. Negative incremental values are reported as-is
     and flagged as noisy rather than clamped to zero.
+  </p>
+  <p>
+    Class C is opt-in. It is omitted entirely unless a grid intensity was declared for the
+    session, and it is derived from Class B only — the CO2.js estimate is never converted,
+    summed or averaged with anything. See <code>docs/methodology.md</code>.
   </p>
 </section>
 </body>

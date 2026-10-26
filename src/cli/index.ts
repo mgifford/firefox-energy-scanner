@@ -36,6 +36,13 @@ import { friendlyError } from './errors.js';
 import { toHtml } from '../report/html.js';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
+import {
+  describeGrid,
+  energyCarbon,
+  formatMicrograms,
+  resolveGridIntensity,
+  type GridIntensity,
+} from '../core/carbon.js';
 import { SCHEMA_VERSION, type BenchmarkResult, type StepResult } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
 import { describeCapabilities } from '../core/capability.js';
@@ -84,6 +91,13 @@ Options:
                          DDEV and similar) for every connection the browser
                          makes, including redirects and page resources. Use it
                          whenever the URLs come from someone else.
+
+Grid-derived carbon (Class C; optional, never derived from the CO2.js estimate):
+  --grid-intensity <n>   gCO2e per kWh for the client's grid
+  --grid-zone <code>     ISO country code for a bundled annual average (e.g. CA, GBR)
+  --grid-kind <k>        average (default) or marginal
+  --grid-source <text>   Provenance recorded alongside the figure
+  --grid-year <n>        Reference year for --grid-intensity
 
 Lighthouse (optional; runs in Chromium after the Firefox session has closed):
   --lighthouse                  Also run Lighthouse on measure/crawl targets
@@ -142,12 +156,54 @@ function parseViewportFlag(raw: string): { width: number; height: number } {
   return { width: Number(m[1]), height: Number(m[2]) };
 }
 
+function parseNumberFlag(name: string, raw: string): number {
+  const n = Number(raw.trim());
+  if (!Number.isFinite(n)) throw new Error(`${name} must be a number (got "${raw}")`);
+  return n;
+}
+
+function parseIntegerFlag(name: string, raw: string): number {
+  const n = Number(raw.trim());
+  if (!Number.isInteger(n)) throw new Error(`${name} must be a whole number (got "${raw}")`);
+  return n;
+}
+
+function parseGridKind(raw: string): 'average' | 'marginal' {
+  const value = raw.trim();
+  if (value !== 'average' && value !== 'marginal') {
+    throw new Error(`--grid-kind must be "average" or "marginal" (got "${raw}")`);
+  }
+  return value;
+}
+
+/**
+ * Class C input. Undefined when nothing was declared, which means no derived
+ * carbon is reported anywhere. Throws on an unknown zone so a typo cannot
+ * silently drop a column the operator asked for.
+ */
+function gridFromConfig(config: Config): GridIntensity | undefined {
+  return resolveGridIntensity({
+    ...(config.carbon.grid_intensity_g_per_kwh !== undefined
+      ? { gramsPerKwh: config.carbon.grid_intensity_g_per_kwh }
+      : {}),
+    ...(config.carbon.grid_zone ? { zone: config.carbon.grid_zone } : {}),
+    kind: config.carbon.grid_kind,
+    ...(config.carbon.grid_source ? { source: config.carbon.grid_source } : {}),
+    ...(config.carbon.grid_year !== undefined ? { year: config.carbon.grid_year } : {}),
+  });
+}
+
 async function buildConfig(args: Args): Promise<Config> {
   let config = one(args, 'config') ? await loadConfigFile(one(args, 'config')!) : defaultConfig();
 
   const runs = one(args, 'runs');
   const warmups = one(args, 'warmups');
   const out = one(args, 'out');
+  const gridIntensity = one(args, 'grid-intensity');
+  const gridZone = one(args, 'grid-zone');
+  const gridKind = one(args, 'grid-kind');
+  const gridSource = one(args, 'grid-source');
+  const gridYear = one(args, 'grid-year');
 
   config = {
     ...config,
@@ -178,6 +234,16 @@ async function buildConfig(args: Args): Promise<Config> {
       ...(has(args, 'public-only') ? { public_only: true } : {}),
     },
     output: { ...config.output, ...(out ? { directory: out } : {}) },
+    carbon: {
+      ...config.carbon,
+      ...(gridIntensity
+        ? { grid_intensity_g_per_kwh: parseNumberFlag('--grid-intensity', gridIntensity) }
+        : {}),
+      ...(gridZone ? { grid_zone: gridZone } : {}),
+      ...(gridKind ? { grid_kind: parseGridKind(gridKind) } : {}),
+      ...(gridSource ? { grid_source: gridSource } : {}),
+      ...(gridYear ? { grid_year: parseIntegerFlag('--grid-year', gridYear) } : {}),
+    },
     ...(has(args, 'authenticated')
       ? {
           auth: config.auth ?? {
@@ -421,7 +487,7 @@ async function writeOutputs(result: BenchmarkResult, config: Config): Promise<st
   return base;
 }
 
-function printSummary(steps: StepResult[]): void {
+function printSummary(steps: StepResult[], grid?: GridIntensity): void {
   const byStep = groupByStep(steps);
   const failed = failedSteps(steps);
   if (failed.length > 0) {
@@ -432,8 +498,9 @@ function printSummary(steps: StepResult[]): void {
     console.log('\nNo measured runs recorded.');
     return;
   }
-  console.log('\nScenario                         Transfer     CO2.js       Energy  Resolved');
-  console.log('-----------------------------------------------------------------------------');
+  const carbonHead = grid ? '  Energy CO2e' : '';
+  console.log(`\nScenario                         Transfer     CO2.js       Energy${carbonHead}  Resolved`);
+  console.log('-'.repeat(grid ? 90 : 77));
   let unresolved = 0;
   for (const [step, runs] of byStep) {
     const bytes = summarize(runs.map((r) => r.network?.transferBytes ?? Number.NaN));
@@ -452,9 +519,17 @@ function printSummary(steps: StepResult[]): void {
     const mwh = energy.count
       ? `${joulesToMilliwattHours(energy.median).toFixed(3)} mWh`.padStart(12)
       : '           —';
+    // Class C inherits the resolution of the energy it derives from. Printing a
+    // figure for an unresolved step would turn measurement noise into a
+    // carbon claim, and the median can be negative.
+    const carbon = grid
+      ? (energy.count > 0 && res.resolved
+          ? `${formatMicrograms(energyCarbon(joulesToMilliwattHours(energy.median), grid).micrograms)} µg`.padStart(13)
+          : `${'—'}`.padStart(13))
+      : '';
     const flag = energy.count === 0 ? '    —' : res.resolved ? '  yes' : '   NO';
     if (energy.count > 0 && !res.resolved) unresolved++;
-    console.log(`${name}${kb}${mg}${mwh}${flag}`);
+    console.log(`${name}${kb}${mg}${mwh}${carbon}${flag}`);
   }
 
   if (unresolved > 0) {
@@ -469,6 +544,18 @@ function printSummary(steps: StepResult[]): void {
   console.log(
     '\nCO2.js is a modelled estimate from transferred bytes. Energy is observed on this client.\nThey have different system boundaries and are not interchangeable.',
   );
+
+  if (grid) {
+    const where =
+      grid.zoneName && grid.zone ? `${grid.zoneName} (${grid.zone})` : (grid.zone ?? 'zone unspecified');
+    console.log(
+      '\n"Energy CO2e" is derived from incremental client energy, not from the CO2.js estimate.\n' +
+        `Grid: ${grid.gramsPerKwh} gCO2e/kWh, ${where}, ${grid.kind} intensity` +
+        `${grid.year !== undefined ? `, ${grid.year}` : ''}.\n` +
+        `Source: ${grid.source}.\n` +
+        'It is blank where the energy it would derive from is below the resolution of this setup.',
+    );
+  }
 }
 
 async function cmdMeasure(args: Args): Promise<number> {
@@ -478,6 +565,8 @@ async function cmdMeasure(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  // Fail on a bad grid declaration before spending a session measuring.
+  const grid = gridFromConfig(config);
   const outcome = await runBenchmark({
     config,
     baseUrl: urls[0]!,
@@ -502,12 +591,13 @@ async function cmdMeasure(args: Args): Promise<number> {
     configuration: config,
     scenarios: outcome.steps,
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
+    ...(grid ? { gridIntensity: grid } : {}),
     warnings: outcome.warnings,
   };
 
   await attachLighthouse(args, config, result, urls, 'measure');
   const base = await writeOutputs(result, config);
-  printSummary(outcome.steps);
+  printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
   for (const w of result.warnings) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
@@ -521,6 +611,7 @@ async function cmdJourney(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  const grid = gridFromConfig(config);
   const journey = await loadJourney(resolve(file));
   const baseUrl = one(args, 'url') ?? config.target?.url ?? process.env.DRUPAL_BASE_URL;
   if (!baseUrl) {
@@ -552,11 +643,12 @@ async function cmdJourney(args: Args): Promise<number> {
     configuration: config,
     scenarios: outcome.steps,
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
+    ...(grid ? { gridIntensity: grid } : {}),
     warnings: outcome.warnings,
   };
 
   const base = await writeOutputs(result, config);
-  printSummary(outcome.steps);
+  printSummary(outcome.steps, grid);
   for (const w of outcome.warnings) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
@@ -569,6 +661,7 @@ async function cmdCrawl(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  const grid = gridFromConfig(config);
   const outcome = await crawl({
     config,
     startUrl: start,
@@ -591,6 +684,7 @@ async function cmdCrawl(args: Args): Promise<number> {
     configuration: config,
     scenarios: outcome.steps,
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
+    ...(grid ? { gridIntensity: grid } : {}),
     warnings: [
       ...outcome.warnings,
       'Crawl mode is for discovery and broad assessment. It is not a controlled regression workload; use journey mode for A/B comparisons.',
@@ -599,7 +693,7 @@ async function cmdCrawl(args: Args): Promise<number> {
 
   await attachLighthouse(args, config, result, [start], 'crawl');
   const base = await writeOutputs(result, config);
-  printSummary(outcome.steps);
+  printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
@@ -780,6 +874,7 @@ async function cmdCompare(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  const grid = gridFromConfig(config);
   const journey = await loadJourney(resolve(journeyFile));
   const seed = one(args, 'seed') ?? newSessionId();
   const labelA = one(args, 'label-a') ?? 'a';
@@ -846,13 +941,16 @@ async function cmdCompare(args: Args): Promise<number> {
     ],
     configuration: config,
     scenarios: [...perTarget.a, ...perTarget.b],
+    ...(grid ? { gridIntensity: grid } : {}),
     warnings: [...new Set(warnings)],
   };
 
   const base = await writeOutputs(result, config);
 
-  console.log(`\nScenario                    ${labelA.padEnd(12)}${labelB.padEnd(12)}Change`);
-  console.log('-----------------------------------------------------------------');
+  console.log(
+    `\nScenario                    ${labelA.padEnd(12)}${labelB.padEnd(12)}Change${grid ? '   Δ CO2e' : ''}`,
+  );
+  console.log('-'.repeat(grid ? 69 : 53));
   const stepsA = groupByStep(perTarget.a);
   const stepsB = groupByStep(perTarget.b);
   for (const [step, runsA] of stepsA) {
@@ -861,11 +959,29 @@ async function cmdCompare(args: Args): Promise<number> {
     const energyB = runsB.map((r) => r.energy?.incrementalJoules).filter((v): v is number => v !== undefined);
     if (energyA.length === 0 || energyB.length === 0) continue;
     const cmp = compare(energyA, energyB);
-    const mA = joulesToMilliwattHours(cmp.a.median).toFixed(3);
-    const mB = joulesToMilliwattHours(cmp.b.median).toFixed(3);
+    const mwhA = joulesToMilliwattHours(cmp.a.median);
+    const mwhB = joulesToMilliwattHours(cmp.b.median);
+    const mA = mwhA.toFixed(3);
+    const mB = mwhB.toFixed(3);
     const pct = Number.isFinite(cmp.percentDifference) ? `${cmp.percentDifference.toFixed(1)}%` : '—';
-    console.log(`${step.slice(0, 26).padEnd(28)}${`${mA} mWh`.padEnd(12)}${`${mB} mWh`.padEnd(12)}${pct}`);
+    // Class C: the useful A/B figure is the change in derived carbon, and it is
+    // only meaningful when BOTH sides resolve against their own spread.
+    const carbon = grid
+      ? (resolution(energyA).resolved && resolution(energyB).resolved
+          ? `${formatMicrograms(energyCarbon(mwhB - mwhA, grid).micrograms)} µg`.padStart(12)
+          : `${'—'}`.padStart(12))
+      : '';
+    console.log(
+      `${step.slice(0, 26).padEnd(28)}${`${mA} mWh`.padEnd(12)}${`${mB} mWh`.padEnd(12)}${pct}${carbon}`,
+    );
     if (cmp.qualification) console.log(`   note: ${cmp.qualification}`);
+  }
+  if (grid) {
+    console.log(
+      '\nΔ CO2e is the change in carbon derived from incremental energy, not a CO2.js figure.\n' +
+        `Grid: ${describeGrid(grid)}\n` +
+        'It is blank where either side is below the resolution of this setup.',
+    );
   }
   for (const w of new Set(warnings)) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
@@ -985,6 +1101,7 @@ async function cmdMatrix(args: Args): Promise<number> {
   }
   const journey = await loadJourney(resolve(journeyFile));
   const config = await buildConfig(args);
+  const grid = gridFromConfig(config);
   const seed = one(args, 'seed') ?? newSessionId();
   const labels = measurable.map((r) => r.target.label);
   const order = interleavedOrderN(labels, config.benchmark.runs, seed);
@@ -1035,6 +1152,7 @@ async function cmdMatrix(args: Args): Promise<number> {
     })),
     configuration: config,
     scenarios: [...byLabel.values()].flat(),
+    ...(grid ? { gridIntensity: grid } : {}),
     warnings: [...new Set(warnings)],
   };
 
@@ -1304,7 +1422,7 @@ async function cmdReport(args: Args): Promise<number> {
   await writeFile(outPath, toHtml(result));
   await writeFile(resolve(file).replace(/\.json$/, '') + '.csv', toCsv(result));
   console.log(`Regenerated ${outPath}`);
-  printSummary(result.scenarios);
+  printSummary(result.scenarios, result.gridIntensity);
   return 0;
 }
 

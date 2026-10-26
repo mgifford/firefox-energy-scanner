@@ -1,4 +1,6 @@
 import type { BenchmarkResult, StepResult } from '../core/types.js';
+import { joulesToMilliwattHours } from '../core/baseline.js';
+import { energyCarbon } from '../core/carbon.js';
 
 const COLUMNS = [
   'session_id', 'target', 'scenario', 'step', 'run', 'warmup', 'url',
@@ -6,6 +8,8 @@ const COLUMNS = [
   'requests', 'transfer_bytes', 'third_party_requests', 'third_party_bytes',
   'co2_model', 'co2_g', 'co2_device_g',
   'raw_joules', 'baseline_watts', 'estimated_idle_joules', 'incremental_joules',
+  'grid_intensity_g_per_kwh', 'grid_kind', 'grid_zone', 'grid_intensity_year', 'grid_source',
+  'energy_co2_ug',
   'energy_scope', 'energy_type', 'energy_adapter', 'energy_samples',
   'firefox_version', 'playwright_version', 'co2js_version',
   'os', 'architecture', 'headed', 'cache_mode', 'on_battery', 'low_power_mode', 'valid',
@@ -47,6 +51,12 @@ export function toCsv(result: BenchmarkResult): string {
       baseline_watts: round(s.energy?.baselineWatts, 6),
       estimated_idle_joules: round(s.energy?.estimatedIdleJoules, 6),
       incremental_joules: round(s.energy?.incrementalJoules, 6),
+      grid_intensity_g_per_kwh: result.gridIntensity?.gramsPerKwh,
+      grid_kind: result.gridIntensity?.kind,
+      grid_zone: result.gridIntensity?.zone,
+      grid_intensity_year: result.gridIntensity?.year,
+      grid_source: result.gridIntensity?.source,
+      energy_co2_ug: deriveCo2Micrograms(s, result),
       energy_scope: s.energy?.raw.measurementScope,
       energy_type: s.energy?.raw.measurementType,
       energy_adapter: s.energy?.raw.adapterId,
@@ -71,6 +81,18 @@ function round(v: number | undefined, digits = 3): number | undefined {
   if (v === undefined || !Number.isFinite(v)) return undefined;
   const f = 10 ** digits;
   return Math.round(v * f) / f;
+}
+
+/**
+ * Class C per run, exported for reanalysis. Signed like the incremental energy
+ * it derives from: the report suppresses unresolved values, but the raw export
+ * keeps them so the suppression rule can be audited or changed later.
+ */
+function deriveCo2Micrograms(step: StepResult, result: BenchmarkResult): number | undefined {
+  const grid = result.gridIntensity;
+  const joules = step.energy?.incrementalJoules;
+  if (!grid || joules === undefined) return undefined;
+  return round(energyCarbon(joulesToMilliwattHours(joules), grid).micrograms, 3);
 }
 
 /**

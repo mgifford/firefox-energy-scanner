@@ -348,3 +348,44 @@ or the network.
   `pmgr` entry, instead of treating "sudo works" as availability.
 - Energy fields are omitted entirely when no samples exist, so a virtualised run can
   never publish `0 J` as though it were a measurement.
+
+---
+
+## TDR-009: Grid-derived carbon is a third class, derived from energy, never from CO2.js
+
+**Decision:** Add an opt-in Class C — the carbon implied by observed client energy at a
+declared grid intensity. TDR-005 still stands: CO2.js remains a separate, unconvertible
+metric.
+
+**Why CO2.js is still not converted.** It models datacentre + network + a generic device
+from bytes. Turning its grams into energy, or energy into its grams, would invent a
+relationship the model does not assert. Class C runs the other way: it starts from the
+energy that was actually observed.
+
+**Formula.** `µg CO2e = mWh × gCO2e/kWh`. Unit check: `1 mWh = 1e-6 kWh` and
+`1 g = 1e6 µg`, so the two factors of one million cancel. Verified against a real run:
+`0.0626 mWh × 400 = 25.04 µg`.
+
+**Inputs are declared, not detected.** The intensity is an assumption about the client's
+grid, so there is no IP geolocation and no inference from the target URL. Value, zone,
+kind (average or marginal), year and source are stored in the result and printed next to
+every derived number.
+
+**Resolution gate.** Class C is published only where the energy it derives from resolves
+(`median > 0` and `|median| ≥ IQR`). Measured example: incremental energy −0.042 mWh
+against an IQR of 0.023 mWh, so no carbon figure is published even though the gross
+energy implies about 25 µg. The CSV exports the signed per-run value regardless, so the
+suppression rule stays auditable rather than being baked into storage.
+
+**Scale, measured.** Same run: CO2.js 18.748 mg versus about 25 µg from gross energy at
+400 gCO2e/kWh — roughly 750× apart. That gap is the model-versus-observation difference
+the project exists to show, and it is why the two are never summed.
+
+**Double counting.** CO2.js's `consumerDeviceCO2e` and Class C both concern the client
+device. Adding them counts that device twice. They stay in separate columns with separate
+provenance, and both docs say so explicitly.
+
+**Bundled table provenance.** `src/core/grid-zones.ts` is generated from Ember data via
+Our World in Data: national annual averages, reference year 2024 where available, older
+years recorded per entry. Country level only. Subnational codes such as `CA-ON` are
+rejected with an actionable error rather than approximated from a national average.

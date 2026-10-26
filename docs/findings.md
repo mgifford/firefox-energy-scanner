@@ -71,7 +71,7 @@ Spearman's rank coefficient:
 
 Transferred bytes (and therefore CO2.js, which is derived from them) explain only about
 10% of the rank variance in measured client energy on these pages. This is the empirical
-basis for the project's rule that the two indicator classes are reported separately and
+basis for the project's rule that the indicator classes are reported separately and
 never substituted for one another.
 
 ## 4. The client boundary correctly excludes server-side work

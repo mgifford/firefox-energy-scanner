@@ -56,6 +56,16 @@ co2:
   # The library's identifier is "swd", not "sustainable-web-design".
   model: swd
 
+# Class C, optional and off by default: carbon derived from observed client
+# energy at a grid intensity you declare. This is NOT a conversion of the CO2.js
+# estimate above, and the two must never be added together.
+# carbon:
+#   grid_intensity_g_per_kwh: 30   # gCO2e/kWh; wins over grid_zone
+#   grid_zone: CA                  # ISO country code for a bundled annual average
+#   grid_kind: average             # average | marginal
+#   grid_source: "IESO 2025 annual average"
+#   grid_year: 2025
+
 sitespeed:
   enabled: false
 
