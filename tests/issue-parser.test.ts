@@ -388,3 +388,36 @@ describe('crawl requests', () => {
     expect(parseScanRequest(crawlForm('20', '[unclosed')).errors.join(' ')).toMatch(/not a valid regular expression/);
   });
 });
+
+describe('requests opened without the form', () => {
+  it('takes the URL from a "SCAN:" title when the body is empty (issue #21, #22)', () => {
+    const ottawa = parseScanRequest('', 'SCAN: Ottawa.ca');
+    expect(ottawa.errors).toEqual([]);
+    expect(ottawa.urls).toEqual(['https://Ottawa.ca']);
+    expect(ottawa.notes.join(' ')).toMatch(/taken from the title/);
+    expect(parseScanRequest('', 'SCAN: https://Canada.ca').urls).toEqual(['https://Canada.ca']);
+  });
+
+  it('reads several addresses from a title, and ignores other words', () => {
+    expect(parseScanRequest('', 'SCAN: ottawa.ca, www.canada.ca/en please').urls).toEqual([
+      'https://ottawa.ca',
+      'https://www.canada.ca/en',
+    ]);
+  });
+
+  it('reads full URLs from free text, but not words that only look like domains', () => {
+    const r = parseScanRequest('Please check https://a.org/x and https://b.org (built with Node.js).', 'SCAN: a few pages');
+    expect(r.urls).toEqual(['https://a.org/x', 'https://b.org']);
+  });
+
+  it('prefers the form field, and accepts a bare domain typed there', () => {
+    const body = '### URLs\n\nottawa.ca\n\n### What to scan\n\nOnly the listed URLs';
+    expect(parseScanRequest(body, 'SCAN: canada.ca').urls).toEqual(['https://ottawa.ca']);
+  });
+
+  it('still refuses local addresses written as bare names', () => {
+    const r = parseScanRequest('', 'SCAN: mysite.ddev.site');
+    expect(r.urls).toEqual([]);
+    expect(r.errors[0]).toMatch(/Put the address in the title/);
+  });
+});

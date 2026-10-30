@@ -45,6 +45,11 @@ export interface IndexScenario {
   thirdPartyRequests: number;
   co2Grams?: number;
   co2Model?: string;
+  /**
+   * Share of bytes (0 to 1) from domains the Green Web Foundation lists as
+   * green-hosted, when every run was checked per domain.
+   */
+  co2GreenShare?: number;
   durationMs: number;
   energyMwh?: number;
   energyIqrMwh?: number;
@@ -137,6 +142,18 @@ export interface IndexEntry {
   warnings: string[];
 }
 
+/** Median green-hosted share of bytes, only when every run was checked per domain. */
+function greenShare(runs: StepResult[]): { co2GreenShare?: number } {
+  const shares = runs.map((r) =>
+    r.co2?.greenHostingChecked && r.co2.greenBytes !== undefined && r.co2.inputBytes > 0
+      ? r.co2.greenBytes / r.co2.inputBytes
+      : Number.NaN,
+  );
+  if (shares.length === 0 || shares.some((v) => !Number.isFinite(v))) return {};
+  const m = summarize(shares).median;
+  return Number.isFinite(m) ? { co2GreenShare: Math.round(m * 1000) / 1000 } : {};
+}
+
 export interface SiteIndex {
   generatedAt: string;
   schemaVersion: number;
@@ -218,6 +235,7 @@ function summarizeScenarios(steps: StepResult[], grid?: GridIntensity): IndexSce
       thirdPartyRequests: Math.round(third.median || 0),
       ...(Number.isFinite(co2.median) ? { co2Grams: co2.median } : {}),
       ...(runs[0]?.co2?.model ? { co2Model: runs[0].co2.model } : {}),
+      ...greenShare(runs),
       durationMs: Math.round(dur.median || 0),
       // Energy is only published when it is resolvable; an unresolved value is
       // noise and would be read as a measurement.

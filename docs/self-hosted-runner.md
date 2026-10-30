@@ -98,6 +98,10 @@ runs on this machine. A request can still choose *GitHub's cloud only*. If the m
 is offline, scans wait in the queue until it comes back (GitHub gives up after 24
 hours); remove the variable to stop routing scans to it.
 
+The workflows use actions that run on Node.js 24, which needs runner version 2.327.1 or
+later. A registered runner updates itself; one that has been offline for a long time
+updates when it next connects.
+
 ## Security
 
 A self-hosted runner executes workflow code on your machine.

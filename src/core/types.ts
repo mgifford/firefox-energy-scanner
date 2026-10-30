@@ -106,8 +106,15 @@ export interface Co2Result {
   library: string;
   libraryVersion: string;
   model: string;
+  /** True when every byte came from a domain listed as green-hosted. */
   greenHosting: boolean;
   greenHostingChecked: boolean;
+  /**
+   * Bytes from domains the Green Web Foundation lists as green-hosted, when
+   * checked per domain. The model zeroes data-centre operational emissions
+   * for these; the rest, unknown domains included, count as grid-powered.
+   */
+  greenBytes?: number;
   inputBytes: number;
   estimatedGrams: number;
   /**

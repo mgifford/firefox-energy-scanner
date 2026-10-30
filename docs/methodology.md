@@ -32,7 +32,16 @@ Derived from network/resource activity and model assumptions. Recorded per run:
 - first-party vs third-party breakdown
 - CO2.js library version and model identifier
 - estimated CO2e, including datacentre / network / device segments
-- green-hosting status when checked
+- green-hosting status when checked, and the bytes from green-hosted domains
+
+**Green hosting is checked per domain** (`--green-hosting`; on in hosted scans). After
+Firefox has closed, each domain a page loaded from is looked up once in the Green Web
+Foundation's Greencheck API, and each step's bytes are split: bytes from green-hosted
+domains get the model's green factor, the rest do not. The model is linear in bytes, so
+the split is exact, and it is fairer than one flag per page, since third-party scripts,
+fonts and images are often hosted elsewhere. A domain the API does not answer for counts
+as not green, which is the model's default, and a warning says how many there were.
+Local and private hosts are never sent.
 
 This is a **model output**, not an observation. Its boundary spans datacentre, network,
 and a generic consumer device — none of which is the specific machine under test.

@@ -526,6 +526,7 @@ and adds a follow-up comment, so the energy runner is free for the next scan.
 result is public. Local, private and development hosts are refused with
 `localHostReason()` before anything is sent, as for CrUX.
 
-**Outstanding verification.** The client is tested against fixtures in the shapes GMT's
-API code returns; this session could not reach green-coding.io. The live round trip runs
-in the **webNRG live check** workflow (label `webnrg-live-check`).
+**Verified live, 2026-10-30.** The **webNRG live check** workflow (run 41142999195)
+requested a measurement of this project's site through the gateway and read it back:
+job 110654, 4.69 mWh, 3.11 W, 58 kB, grades A+/A+. The 30-day reuse lookup was not
+exercised then; the check now looks up the page it just measured and expects a reuse.

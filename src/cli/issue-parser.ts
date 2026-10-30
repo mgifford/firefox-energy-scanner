@@ -195,6 +195,34 @@ export function publicUrlProblem(candidate: string): string | undefined {
     : 'a local or development name (such as localhost or *.ddev.site); scans only reach public sites';
 }
 
+/** A bare domain, with an optional port and path: ottawa.ca, www.canada.ca/en. */
+const BARE_DOMAIN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#]\S*)?$/i;
+
+/**
+ * Spell a candidate as a URL. People type addresses the way they read them,
+ * so a bare domain gets https:// in front. Anything with a scheme is kept as
+ * typed, and still has to pass the public-URL check.
+ */
+export function withScheme(candidate: string): string {
+  return !/^[a-z][a-z0-9+.-]*:/i.test(candidate) && BARE_DOMAIN.test(candidate) ? `https://${candidate}` : candidate;
+}
+
+/**
+ * URL-like words in free text. Bare domains only where asked: in prose,
+ * words such as Node.js look like domains.
+ */
+function urlWords(text: string, bareDomains: boolean): string[] {
+  return text
+    .split(/[\s,]+/)
+    .map((w) => w.replace(/^[<(]+|[>),.;]+$/g, ''))
+    .filter((w) => /^https?:\/\//i.test(w) || (bareDomains && BARE_DOMAIN.test(w)));
+}
+
+/** URLs named in a "SCAN: …" title, for requests opened without the form. */
+export function urlsFromTitle(title: string): string[] {
+  return urlWords(title.replace(/^\s*SCAN:\s*/i, ''), true);
+}
+
 /** Extract a section from a GitHub issue-forms body (`### Label` + value). */
 export function extractSection(body: string, label: string): string | undefined {
   const lines = body.split(/\r?\n/);
@@ -291,15 +319,23 @@ function chooseRunner(body: string): RunnerChoice {
   return legacy ? 'cloud' : 'auto';
 }
 
-export function parseScanRequest(body: string): ScanRequest {
+export function parseScanRequest(body: string, title = ''): ScanRequest {
   const errors: string[] = [];
   const notes: string[] = [];
 
-  const urlBlock = extractSection(body, 'URLs') ?? '';
-  const candidates = urlBlock
+  // The form's URLs field first. An issue opened without the form may list
+  // URLs in its text, or only in its title ("SCAN: ottawa.ca").
+  const urlBlock = extractSection(body, 'URLs');
+  let candidates = (urlBlock ?? '')
     .split(/[\r\n,]+/)
     .map((l) => l.trim().replace(/^[-*]\s*/, ''))
     .filter(Boolean);
+  if (urlBlock === undefined && candidates.length === 0) candidates = urlWords(body, false);
+  if (candidates.length === 0) {
+    candidates = urlsFromTitle(title);
+    if (candidates.length) notes.push('The request had no URLs in its text, so the URL was taken from the title.');
+  }
+  candidates = candidates.map(withScheme);
 
   const urls: string[] = [];
   const notScanned: NotScanned[] = [];
@@ -316,7 +352,8 @@ export function parseScanRequest(body: string): ScanRequest {
   // rest. Only a request with nothing scannable is rejected.
   if (urls.length === 0) {
     errors.push(
-      'No valid public http(s) URLs were found in the request.' +
+      'No valid public http(s) URLs were found in the request. Put the address in the title ' +
+        '(for example "SCAN: example.org") or in the URLs field of the scan form.' +
         (notScanned.length
           ? ` Not usable: ${notScanned.slice(0, 5).map((n) => n.url).join(', ')}`
           : ''),

@@ -107,6 +107,10 @@ Options:
   --authenticated        Use Drupal auth from environment variables
   --seed <string>        Seed for interleaved A/B ordering
   --no-energy            Disable energy measurement
+  --green-hosting        Ask the Green Web Foundation which domains each page
+                         loaded from are green-hosted, and model those bytes
+                         as such (CO2.js). Sends the domain names, after the
+                         browser has closed.
   --public-only          Refuse private and local addresses (localhost, LAN,
                          DDEV and similar) for every connection the browser
                          makes, including redirects and page resources. Use it
@@ -228,6 +232,10 @@ async function buildConfig(args: Args): Promise<Config> {
       ...(one(args, 'max-depth') ? { max_depth: Number.parseInt(one(args, 'max-depth')!, 10) } : {}),
       ...(args.flags.get('include') ? { include: args.flags.get('include')! } : {}),
       ...(args.flags.get('exclude') ? { exclude: args.flags.get('exclude')! } : {}),
+    },
+    co2: {
+      ...config.co2,
+      ...(has(args, 'green-hosting') ? { check_green_hosting: true } : {}),
     },
     network: {
       ...config.network,
@@ -1450,7 +1458,9 @@ async function cmdParseIssue(args: Args): Promise<number> {
   }
   const { readFile } = await import('node:fs/promises');
   const body = await readFile(resolve(file), 'utf8');
-  const request = parseScanRequest(body);
+  const titleFile = one(args, 'title-file');
+  const title = titleFile ? await readFile(resolve(titleFile), 'utf8') : '';
+  const request = parseScanRequest(body, title);
   // Machine-readable on stdout so the workflow can consume it.
   console.log(JSON.stringify(request, null, 2));
   return request.urls.length > 0 ? 0 : 1;

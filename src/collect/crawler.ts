@@ -2,7 +2,7 @@ import type { Config } from '../core/config.js';
 import type { StepResult, EnergyResult } from '../core/types.js';
 import { BrowserSession, waitForStablePage, readTimings } from './session.js';
 import { normalizeUrl, matchesRules, pageKey, siteOf, sortUrls } from './urls.js';
-import { StepRunner, buildStepResults, type StepRecord } from '../core/runner.js';
+import { StepRunner, buildStepResults, greenHostingFor, type StepRecord } from '../core/runner.js';
 import { deriveBaseline, type Baseline } from '../core/baseline.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 
@@ -148,7 +148,8 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     const baselineEnergy = energyByLabel.get('__baseline__');
     if (baselineEnergy) baseline = deriveBaseline(baselineEnergy);
 
-    steps.push(...buildStepResults(records, energyByLabel, baseline, config, 'crawl'));
+    const green = await greenHostingFor(records, config, warnings);
+    steps.push(...buildStepResults(records, energyByLabel, baseline, config, 'crawl', green));
   } finally {
     if (!closed) await session.close().catch(() => {});
   }

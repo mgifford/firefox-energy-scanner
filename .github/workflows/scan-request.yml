@@ -76,9 +76,9 @@ jobs:
       notes: ${{ steps.parse.outputs.notes }}
       not_scanned: ${{ steps.parse.outputs.not_scanned }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -89,7 +89,7 @@ jobs:
 
       - name: Read issue body
         id: body
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const number = context.eventName === 'workflow_dispatch'
@@ -104,6 +104,9 @@ jobs:
             // Write to a file rather than an output to avoid any shell
             // interpolation of user-controlled text.
             fs.writeFileSync('issue-body.txt', data.body || '', 'utf8');
+            // The title too: an issue opened without the form may name its
+            // URL only there ("SCAN: ottawa.ca").
+            fs.writeFileSync('issue-title.txt', data.title || '', 'utf8');
             core.setOutput('number', String(number));
 
             // Clear the label so it can be added again for the next rescan.
@@ -123,7 +126,7 @@ jobs:
           ENERGY_RUNNER: ${{ vars.ENERGY_RUNNER }}
         run: |
           set +e
-          node dist/cli/index.js parse-issue --file issue-body.txt > request.json
+          node dist/cli/index.js parse-issue --file issue-body.txt --title-file issue-title.txt > request.json
           set -e
           cat request.json
           # Emitting outputs from Node avoids quoting user-controlled text in shell.
@@ -176,7 +179,7 @@ jobs:
       # rather than only when results arrive.
       - name: Acknowledge the request
         if: steps.parse.outputs.valid == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.parse.outputs.issue }}
           ESTIMATE: ${{ steps.parse.outputs.estimate }}
@@ -237,9 +240,21 @@ jobs:
       # To open or update the one rolling results pull request.
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      # What this scan job itself uses, estimated by Eco CI from CPU use with a
+      # model of GitHub's runners. Only on those runners: on a self-hosted
+      # machine the model does not apply. send-data is off, so nothing goes to
+      # Green Coding. Pinned to a commit, as for any third-party action.
+      - name: Start estimating this job's energy
+        if: runner.environment == 'github-hosted'
+        uses: green-coding-solutions/eco-ci-energy-estimation@782dd4a31bc426a6ae26a7b08d89af454b10ffc0 # v5.3.0
+        with:
+          task: start-measurement
+          send-data: false
+          json-output: true
+
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -328,6 +343,9 @@ jobs:
           // addresses: never localhost, a home network or a DDEV site. On a
           // runner at home this is what keeps a request out of the network.
           const guard = ['--public-only'];
+          // CO2.js counts bytes from green-hosted domains as such. The domain
+          // names go to the Green Web Foundation after Firefox has closed.
+          const greenHosting = ['--green-hosting'];
           // A lab figure from webNRG (Green Coding's Green Metrics Tool
           // cluster) for up to three pages: reused if measured in the last
           // 30 days, otherwise requested. Never waits; a later job collects.
@@ -338,12 +356,12 @@ jobs:
             ? ['dist/cli/index.js', 'crawl', urls[0],
                '--max-pages', process.env.SCAN_MAX_PAGES || '50',
                ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
-               ...viewport, ...lighthouse, ...guard, ...webnrg,
+               ...viewport, ...lighthouse, ...guard, ...webnrg, ...greenHosting,
                '--headless', '--out', 'site/results']
             : ['dist/cli/index.js', 'measure', ...urls,
                '--runs', String(plan.runs),
                '--warmups', String(plan.warmups),
-               ...viewport, ...lighthouse, ...guard, ...webnrg,
+               ...viewport, ...lighthouse, ...guard, ...webnrg, ...greenHosting,
                '--headless', '--out', 'site/results'];
 
           console.log('mode:', mode, '| targets:', urls.length, '| runs:', plan.runs, '| warmups:', plan.warmups);
@@ -378,7 +396,7 @@ jobs:
       - name: Upload full Lighthouse reports
         id: lh-artifact
         if: needs.prepare.outputs.lighthouse != 'none'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lighthouse-reports-issue-${{ needs.prepare.outputs.issue }}
           path: lighthouse-reports/
@@ -446,7 +464,7 @@ jobs:
       - name: Open or update the results pull request
         id: results-pr
         if: steps.commit.outputs.pushed == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
           RESULT_FILE: ${{ steps.scan.outputs.result }}
@@ -490,10 +508,19 @@ jobs:
 
       # Only report success when the scan actually produced results. A failure
       # is handled by the step below, so the issue never sits open in silence.
+      - name: Estimate this job's energy so far
+        id: eco-ci
+        if: success() && runner.environment == 'github-hosted'
+        uses: green-coding-solutions/eco-ci-energy-estimation@782dd4a31bc426a6ae26a7b08d89af454b10ffc0 # v5.3.0
+        with:
+          task: get-measurement
+          label: scan
+
       - name: Comment on the issue
         if: success()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
+          ECO_CI_LAP: ${{ steps.eco-ci.outputs.data-lap-json }}
           ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
           REQUESTED_RUNNER: ${{ needs.prepare.outputs.runner }}
           ENERGY_MACHINE: ${{ needs.prepare.outputs.energy_machine }}
@@ -543,7 +570,10 @@ jobs:
                       return `| ${name} | — | — | — | ${why} |`;
                     }
                     const kb = (s.transferBytes / 1024).toFixed(0) + ' KB';
-                    const co2 = s.co2Grams != null ? (s.co2Grams * 1000).toFixed(3) + ' mg' : '—';
+                    const co2 = s.co2Grams != null
+                      ? (s.co2Grams * 1000).toFixed(3) + ' mg' +
+                        (s.co2GreenShare != null ? ` (${Math.round(s.co2GreenShare * 100)}% green-hosted)` : '')
+                      : '—';
                     // "Not measured" (no power hardware) and "not resolved"
                     // (measured, but below the noise floor) are different
                     // statements; conflating them misreports the host.
@@ -569,6 +599,18 @@ jobs:
             // Written by the scan step from the result file (src/webnrg/markdown.ts).
             let webnrgBlock = '';
             try { webnrgBlock = '\n\n' + fs.readFileSync('webnrg-comment.md', 'utf8').trim(); } catch (e) { webnrgBlock = ''; }
+
+            // The scan job's own footprint (Eco CI), on GitHub's runners only.
+            let footprintBlock = '';
+            try {
+              const steps = (JSON.parse(process.env.ECO_CI_LAP || '{}').steps || []);
+              const joules = steps.reduce((t, s) => t + Number(s.energy_joules || 0), 0);
+              const seconds = steps.reduce((t, s) => t + Number(s.time || 0), 0);
+              if (joules > 0) {
+                footprintBlock = `\n\n**This scan's own footprint:** about ${(joules / 3600).toFixed(2)} Wh over ` +
+                  `${Math.round(seconds / 60)} min on GitHub's runner. An Eco CI estimate from CPU use, not a measurement.`;
+              }
+            } catch (e) { footprintBlock = ''; }
 
             let lighthouseBlock = '';
             const lh = entry && entry.lighthouse;
@@ -733,7 +775,7 @@ jobs:
             // Conditionals yield null when omitted; '' entries are deliberate
             // blank lines. filter(Boolean) dropped both, which collapsed every
             // paragraph break in the comment.
-            ].filter((line) => line !== null).join('\n') + findingsBlock + lighthouseBlock + webnrgBlock +
+            ].filter((line) => line !== null).join('\n') + findingsBlock + lighthouseBlock + webnrgBlock + footprintBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
               'scan again** — edit the request body first if you want different settings._';
 
@@ -755,12 +797,20 @@ jobs:
               state_reason: 'completed',
             });
 
+      # Eco CI's table of this job's estimated energy, in the run summary.
+      - name: Show this job's energy estimate
+        if: always() && runner.environment == 'github-hosted'
+        uses: green-coding-solutions/eco-ci-energy-estimation@782dd4a31bc426a6ae26a7b08d89af454b10ffc0 # v5.3.0
+        with:
+          task: display-results
+          display-badge: false
+
       # If any earlier step failed the success comment is skipped, which would
       # otherwise leave the request open with no explanation. Say what happened
       # and leave the issue OPEN, since it has not been serviced.
       - name: Report a failed scan
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
         with:
@@ -794,8 +844,8 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: npm ci --omit=optional
@@ -810,7 +860,7 @@ jobs:
 
       - name: Add them to the issue
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
         with:
@@ -835,7 +885,7 @@ jobs:
       issues: write
     steps:
       - name: Explain why the request was rejected
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
           PARSER_ERRORS: ${{ needs.prepare.outputs.errors }}
@@ -853,8 +903,9 @@ jobs:
                 '',
                 errors || 'No valid public http(s) URLs were found in this request.',
                 '',
-                'Only public web URLs can be scanned. Localhost and private addresses are rejected',
-                'because a hosted runner cannot reach them.',
+                'The quickest request is an issue titled `SCAN:` followed by the address, for example',
+                '`SCAN: example.org`. Only public web addresses can be scanned: localhost, private',
+                'networks and development sites are refused.',
                 '',
                 '**Edit this issue to fix the request.** Saving the edit runs it again automatically.',
               ].join('\n'),

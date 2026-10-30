@@ -11,11 +11,16 @@ results published back to the static site. The pattern follows
 Use the web form (it pre-fills a GitHub issue that you review and submit), or open an
 issue titled `SCAN: <description>` with the *Scan request* template.
 
+**Quickest:** an issue titled `SCAN:` and the address, with nothing else, for example
+`SCAN: ottawa.ca`. A bare domain gets `https://`, several addresses can be separated by
+commas, and everything else takes its default. The comment notes that the URL came from
+the title.
+
 **Only the URLs are required.** Everything else has a default:
 
 | Field | Default | |
 |---|---|---|
-| URLs | — | One URL crawls its site; several URLs scan exactly those (up to 200). Comma-separated works too. |
+| URLs | — | One URL crawls its site; several URLs scan exactly those (up to 200). Comma-separated works too, and `ottawa.ca` means `https://ottawa.ca`. |
 | Lighthouse | Performance, the 10 heaviest pages | Or every page, all four categories, or off. One run per page. See [lighthouse.md](lighthouse.md). |
 | Viewport | Desktop, 1280×800 | Desktop-width viewports use Lighthouse's desktop profile; narrower ones its mobile profile. |
 | What to scan | Auto | Force a list scan of a single URL, or a crawl from the first of several. |
