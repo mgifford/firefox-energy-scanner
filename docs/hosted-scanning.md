@@ -183,6 +183,12 @@ The index is not tracked in git, because concurrent scans each rewrote it. Build
 locally with
 `node dist/cli/index.js build-index --dir site/results --out site/results/index.json`.
 
+**One third party.** Unless the repository variable `WEBNRG` is `off`, each scan sends up
+to three of its page URLs to Green Coding's [webNRG](https://website-tester.green-coding.io/)
+for a lab energy figure, and webNRG publishes every result on metrics.green-coding.io. A
+page webNRG measured in the last 30 days is reused instead. See
+[webnrg.md](webnrg.md).
+
 Published results contain no credentials, cookies, session tokens, or hostnames.
 Authentication is configured by environment *variable name* only — a result file records
 `password_env: DRUPAL_PASSWORD`, never the value. Hostname collection is off by default.

@@ -1,0 +1,34 @@
+name: webNRG live check
+
+# The real webNRG round trip (tests/e2e/webnrg-live.mjs): read an existing
+# result, then look up or request a measurement of this project's own site and
+# wait for it. A request uses time on Green Coding's free cluster, so this runs
+# only when asked: add the "webnrg-live-check" label to a pull request, or run
+# it from the Actions tab.
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: webnrg-live-check
+  cancel-in-progress: false
+
+jobs:
+  live:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'webnrg-live-check'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=optional
+      - run: npm run build
+      - run: node tests/e2e/webnrg-live.mjs
