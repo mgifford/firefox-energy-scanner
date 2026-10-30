@@ -113,8 +113,8 @@
         <label for="urls" id="urls-label">URLs to scan</label>
         <p class="hint" id="urls-hint">
           One public <code>http://</code> or <code>https://</code> URL per line, or
-          comma-separated. <strong>One URL</strong> crawls its site (www and non-www,
-          http and https count as one site). <strong>Several URLs</strong> scans just
+          comma-separated. <strong>One URL</strong> scans a sample of its site, from its
+          sitemap when it has one (www and non-www, http and https count as one site). <strong>Several URLs</strong> scans just
           those, up to 200 — a list from
           <a href="https://mgifford.github.io/top-task-finder/">Top Task Finder</a> works well.
         </p>
@@ -159,7 +159,7 @@
         <div class="field">
           <label for="what">What to scan</label>
           <select id="what" name="what">
-            <option value="auto">Auto — one URL crawls its site; several URLs scan just those</option>
+            <option value="auto">Auto — one URL samples its site; several URLs scan just those</option>
             <option value="only">Only the listed URLs</option>
             <option value="crawl">Crawl the site from the first URL</option>
           </select>
@@ -167,8 +167,8 @@
 
         <div class="field">
           <label for="max-pages">Maximum pages to crawl</label>
-          <p class="hint" id="pages-hint">Used only when crawling. Up to 200; 50 pages takes about 5 minutes.</p>
-          <input type="number" id="max-pages" name="max-pages" value="50" min="1" max="200"
+          <p class="hint" id="pages-hint">Used when one URL is given. Up to 200; 20 pages takes about 2 minutes.</p>
+          <input type="number" id="max-pages" name="max-pages" value="20" min="1" max="200"
             aria-describedby="pages-hint">
         </div>
 

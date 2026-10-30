@@ -13,7 +13,7 @@ export interface Args {
  */
 export const BOOLEAN_FLAGS = new Set([
   'authenticated', 'crux', 'crux-url', 'green-hosting', 'headed', 'headless', 'help', 'json',
-  'lighthouse', 'lookup-only', 'no-energy', 'public-only', 'triage-only', 'webnrg',
+  'lighthouse', 'lookup-only', 'no-energy', 'public-only', 'sample', 'triage-only', 'webnrg',
   'webnrg-lookup-only',
 ]);
 

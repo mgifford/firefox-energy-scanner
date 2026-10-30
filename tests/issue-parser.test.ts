@@ -126,11 +126,11 @@ describe('parseScanRequest: the easy default', () => {
     expect(r.urls).toEqual(['https://a.com/', 'https://a.com/about']);
   });
 
-  it('crawls the site when given a single URL', () => {
+  it('samples the site when given a single URL, 20 pages by default as open-scans does', () => {
     const r = parseScanRequest(form(['https://france.fr/']));
     expect(r.mode).toBe('crawl');
-    expect(r.maxPages).toBe(50);
-    expect(r.notes[0]).toMatch(/Crawling https:\/\/france\.fr\/ .* up to 50 pages/);
+    expect(r.maxPages).toBe(20);
+    expect(r.notes[0]).toMatch(/Sampling up to 20 pages of https:\/\/france\.fr\/.*sitemap/);
   });
 
   it('scans a list as a list', () => {
@@ -419,5 +419,43 @@ describe('requests opened without the form', () => {
     const r = parseScanRequest('', 'SCAN: mysite.ddev.site');
     expect(r.urls).toEqual([]);
     expect(r.errors[0]).toMatch(/Put the address in the title/);
+  });
+});
+
+describe('open-scans instructions', () => {
+  it('reads PAGES: and VIEWPORT: from the title, as open-scans does', () => {
+    const r = parseScanRequest('', 'SCAN: https://canada.ca PAGES:8 VIEWPORT:mobile');
+    expect(r.urls).toEqual(['https://canada.ca']);
+    expect(r.mode).toBe('crawl');
+    expect(r.maxPages).toBe(8);
+    expect(r.viewport).toEqual({ width: 390, height: 844 });
+  });
+
+  it('reads them from the text too, and a WIDTHxHEIGHT viewport', () => {
+    const r = parseScanRequest('Pages: 30\nViewport: 1024x768\nhttps://canada.ca', 'SCAN: Canada');
+    expect(r.maxPages).toBe(30);
+    expect(r.viewport).toEqual({ width: 1024, height: 768 });
+  });
+
+  it('prefers the form fields over keywords', () => {
+    const body = '### URLs\n\nhttps://a.org\n\n### Maximum pages to crawl\n\n12';
+    expect(parseScanRequest(body, 'SCAN: a PAGES:40').maxPages).toBe(12);
+  });
+
+  it('reads URLs inside markdown links and href attributes, and unwraps Google links', () => {
+    const body =
+      'See [the home page](https://a.org/) and <a href="https://a.org/about">about</a>, ' +
+      'and https://www.google.com/url?q=https://a.org/news&sa=D';
+    expect(parseScanRequest(body, 'SCAN: a few pages').urls).toEqual([
+      'https://a.org/',
+      'https://a.org/about',
+      'https://a.org/news',
+    ]);
+  });
+
+  it('ignores instructions that mean nothing to an energy scan', () => {
+    const r = parseScanRequest('', 'SCAN: AXE ALFA TIME:5 BROWSER:webkit https://canada.ca');
+    expect(r.urls).toEqual(['https://canada.ca']);
+    expect(r.errors).toEqual([]);
   });
 });

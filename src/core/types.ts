@@ -220,6 +220,17 @@ export interface SessionInfo {
   orderings?: string[];
 }
 
+/** How a crawl chose its pages, so a reader knows what the sample stands for. */
+export interface CrawlSampling {
+  method: 'sitemap' | 'links';
+  /** The sitemap the pages came from. */
+  source?: string;
+  /** Scannable pages the sitemap listed. */
+  listed?: number;
+  /** Pages chosen, the start page included. */
+  picked: number;
+}
+
 export interface BenchmarkResult {
   schemaVersion: number;
   session: SessionInfo;
@@ -275,5 +286,7 @@ export interface BenchmarkResult {
    * beside the scan's own figures and never combined with them.
    */
   webnrg?: import('../webnrg/run.js').WebnrgSummary;
+  /** Crawls only: how the pages were chosen. */
+  sampling?: CrawlSampling;
   warnings: string[];
 }

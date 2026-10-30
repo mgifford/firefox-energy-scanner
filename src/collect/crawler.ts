@@ -1,9 +1,10 @@
 import type { Config } from '../core/config.js';
-import type { StepResult, EnergyResult } from '../core/types.js';
+import type { CrawlSampling, StepResult, EnergyResult } from '../core/types.js';
 import { BrowserSession, waitForStablePage, readTimings } from './session.js';
 import { normalizeUrl, matchesRules, pageKey, siteOf, sortUrls } from './urls.js';
 import { StepRunner, buildStepResults, greenHostingFor, type StepRecord } from '../core/runner.js';
 import { deriveBaseline, type Baseline } from '../core/baseline.js';
+import { parseRobotsSitemaps, sampleFromSitemaps, type Getter } from './sitemap.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 
 export interface CrawlOptions {
@@ -20,6 +21,7 @@ export interface CrawlOutcome {
   discovered: string[];
   /** True only when power counters produced real samples. */
   energyAvailable: boolean;
+  sampling: CrawlSampling;
 }
 
 interface QueueItem {
@@ -51,6 +53,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
   let closed = false;
   let energyAvailable = false;
   const steps: StepResult[] = [];
+  let sampledFrom: { source: string; listed: number } | undefined;
 
   try {
     if (config.auth?.type === 'drupal') {
@@ -71,8 +74,37 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
       }
     }
 
-    if (config.crawl.respect_robots) {
-      robotsDisallow = await fetchRobotsDisallow(session, startUrl);
+    // robots.txt names the sitemaps as well as the rules, so a sample reads it
+    // even when the rules are not applied.
+    const sampleFromSitemap = config.crawl.strategy === 'sitemap';
+    let robotsSitemaps: string[] = [];
+    if (config.crawl.respect_robots || sampleFromSitemap) {
+      const robots = await fetchRobots(session, startUrl);
+      if (config.crawl.respect_robots) robotsDisallow = robots.disallow;
+      robotsSitemaps = robots.sitemaps;
+    }
+
+    // Choose the pages before the idle baseline, so no sitemap fetch falls
+    // inside an energy window.
+    const keyOpts = { queryStrategy: config.crawl.query_strategy };
+    let queue: QueueItem[] = [{ url: normalizeUrl(startUrl, keyOpts), depth: 0 }];
+    if (sampleFromSitemap) {
+      options.onProgress?.('Reading the sitemap');
+      const sample = await sampleFromSitemaps(startUrl, {
+        get: requestGetter(session),
+        robotsSitemaps,
+        maxPages: config.crawl.max_pages,
+        siteOf,
+        pageKey: (u) => pageKey(u, keyOpts),
+        select: (locs, sites) => selectCrawlLinks(locs, startUrl, sites, config.crawl, robotsDisallow),
+      });
+      if (sample) {
+        // Sampled pages are measured as listed; no links are followed.
+        queue = sample.urls.map((u) => ({ url: normalizeUrl(u, keyOpts), depth: config.crawl.max_depth }));
+        sampledFrom = { source: sample.source, listed: sample.listed };
+      } else {
+        warnings.push('No usable sitemap was found, so pages were chosen by following links from the start page.');
+      }
     }
 
     if (config.energy.baseline && useEnergy) {
@@ -87,8 +119,6 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
       });
     }
 
-    const keyOpts = { queryStrategy: config.crawl.query_strategy };
-    const queue: QueueItem[] = [{ url: normalizeUrl(startUrl, keyOpts), depth: 0 }];
     // The sites in scope: the start URL's, plus wherever it redirects to
     // (france.fr -> www.france.fr/en/), so following the redirect, as a
     // browser does, never empties the crawl.
@@ -161,6 +191,21 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     firefoxVersion,
     discovered: sortUrls(discovered),
     energyAvailable,
+    sampling: sampledFrom
+      ? { method: 'sitemap', ...sampledFrom, picked: discovered.length }
+      : { method: 'links', picked: discovered.length },
+  };
+}
+
+/** The browser context's request client, which the network guard covers. */
+function requestGetter(session: BrowserSession): Getter {
+  return async (url) => {
+    try {
+      const res = await session.getContext().request.get(url, { timeout: 15000, maxRedirects: 5 });
+      return { ok: res.ok(), url: res.url(), text: res.ok() ? await res.text() : '' };
+    } catch {
+      return undefined;
+    }
   };
 }
 
@@ -181,6 +226,21 @@ async function extractLinks(
   }
   return selectCrawlLinks(hrefs, pageUrl, sites, config.crawl, robotsDisallow);
 }
+
+/** Paths that name a file rather than a page. */
+const FILE_EXTENSION = new RegExp(
+  '\\.(' +
+    [
+      'pdf', 'docx?', 'xlsx?', 'pptx?', 'odt', 'ods', 'odp', 'rtf', 'epub',
+      'zip', 'gz', 'tgz', 'rar', '7z', 'exe', 'dmg', 'apk', 'iso',
+      'csv', 'json', 'xml', 'rss', 'atom', 'txt', 'ics',
+      'css', 'js', 'mjs', 'map', 'woff2?', 'ttf', 'otf', 'eot', 'ico',
+      'jpe?g', 'png', 'gif', 'svg', 'webp', 'avif', 'bmp', 'tiff?',
+      'mp3', 'm4a', 'wav', 'ogg', 'mp4', 'm4v', 'webm', 'mov', 'avi',
+    ].join('|') +
+    ')$',
+  'i',
+);
 
 /**
  * The links worth crawling from one page. Pure, so it is tested directly.
@@ -206,8 +266,9 @@ export function selectCrawlLinks(
     }
     if (!/^https?:/i.test(abs)) continue;
     if (crawl.same_origin && !sites.has(siteOf(abs))) continue;
-    // A file, not a page: a browser downloads it and there is nothing to measure.
-    if (/\.(pdf|docx?|xlsx?|pptx?|zip|csv|mp3|mp4|mov|jpe?g|png|gif|svg|webp)$/i.test(new URL(abs).pathname)) continue;
+    // A file, not a page: a browser downloads it or shows it raw, and there is
+    // no page to lay out. Sitemaps and <link href> lists contain these too.
+    if (FILE_EXTENSION.test(new URL(abs).pathname)) continue;
 
     const normalized = normalizeUrl(abs, { queryStrategy: crawl.query_strategy });
     if (!matchesRules(normalized, crawl.include, crawl.exclude)) continue;
@@ -219,19 +280,25 @@ export function selectCrawlLinks(
   return sortUrls([...out.values()]);
 }
 
-/** Minimal robots.txt handling: User-agent: * Disallow prefixes. */
-export async function fetchRobotsDisallow(
+/** robots.txt: the `User-agent: *` Disallow prefixes, and any sitemaps it names. */
+export async function fetchRobots(
   session: BrowserSession,
   startUrl: string,
-): Promise<string[]> {
+): Promise<{ disallow: string[]; sitemaps: string[] }> {
   try {
     const robotsUrl = new URL('/robots.txt', startUrl).toString();
     const res = await session.getContext().request.get(robotsUrl, { timeout: 8000 });
-    if (!res.ok()) return [];
-    return parseRobots(await res.text());
+    if (!res.ok()) return { disallow: [], sitemaps: [] };
+    const text = await res.text();
+    return { disallow: parseRobots(text), sitemaps: parseRobotsSitemaps(text) };
   } catch {
-    return [];
+    return { disallow: [], sitemaps: [] };
   }
+}
+
+/** Minimal robots.txt handling: User-agent: * Disallow prefixes. */
+export async function fetchRobotsDisallow(session: BrowserSession, startUrl: string): Promise<string[]> {
+  return (await fetchRobots(session, startUrl)).disallow;
 }
 
 /** Parse Disallow rules under `User-agent: *`. Exported for testing. */

@@ -354,7 +354,10 @@ jobs:
             : ['--webnrg', '--webnrg-top', '3'];
           const args = mode === 'crawl'
             ? ['dist/cli/index.js', 'crawl', urls[0],
-               '--max-pages', process.env.SCAN_MAX_PAGES || '50',
+               '--max-pages', process.env.SCAN_MAX_PAGES || '20',
+               // A sample of the pages the sitemap lists, as open-scans takes;
+               // following links only when there is no usable sitemap.
+               '--sample',
                ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
                ...viewport, ...lighthouse, ...guard, ...webnrg, ...greenHosting,
                '--headless', '--out', 'site/results']
@@ -712,9 +715,15 @@ jobs:
                     : null,
                 ].filter((line) => line !== null).join('\n') + '\n'
               : '';
+            const sampling = entry && entry.sampling;
             const coverage = notScanned.length && !isCrawl
               ? `\nScanned **${scannedCount}** of ${scannedCount + notScanned.length} listed URLs; the rest are listed under _Not scanned_ below.\n`
-              : '';
+              : sampling && sampling.method === 'sitemap'
+                ? `\n**Pages:** the start page and a sample of ${sampling.picked - 1} of the ${sampling.listed} pages its ` +
+                  `sitemap lists. The same site gives the same sample, so a re-scan compares like with like.\n`
+                : sampling
+                  ? `\n**Pages:** ${sampling.picked}, found by following links from the start page (no usable sitemap).\n`
+                  : '';
 
             const notes = [
               '',

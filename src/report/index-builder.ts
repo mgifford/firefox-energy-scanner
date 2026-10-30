@@ -123,6 +123,8 @@ export interface IndexEntry {
    */
   gridIntensity?: GridIntensity;
   scenarios: IndexScenario[];
+  /** Crawls: how the pages were chosen. */
+  sampling?: import('../core/types.js').CrawlSampling;
   /** webNRG lab figures for a few of the scan's pages, as recorded. */
   webnrg?: import('../webnrg/run.js').WebnrgSummary;
   /** Run-level Lighthouse context; per-URL results sit on each scenario. */
@@ -294,6 +296,7 @@ export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry 
     scenarios,
     ...(result.lighthouse ? { lighthouse: lighthouseEntry(result.lighthouse, scenarios) } : {}),
     ...(result.webnrg ? { webnrg: result.webnrg } : {}),
+    ...(result.sampling ? { sampling: result.sampling } : {}),
     warnings: result.warnings,
   };
 }

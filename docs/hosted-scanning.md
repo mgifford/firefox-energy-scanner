@@ -12,22 +12,41 @@ Use the web form (it pre-fills a GitHub issue that you review and submit), or op
 issue titled `SCAN: <description>` with the *Scan request* template.
 
 **Quickest:** an issue titled `SCAN:` and the address, with nothing else, for example
-`SCAN: ottawa.ca`. A bare domain gets `https://`, several addresses can be separated by
-commas, and everything else takes its default. The comment notes that the URL came from
-the title.
+`SCAN: canada.ca`. A bare domain gets `https://`, several addresses can be separated by
+commas, and everything else takes its default. The same short instructions as
+[open-scans](https://github.com/mgifford/open-scans) work, in the title or the text:
+
+| Instruction | Effect |
+|---|---|
+| `SCAN: canada.ca` | A sample of 20 pages of the site |
+| `SCAN: canada.ca PAGES:8` | A sample of 8 pages (up to 200) |
+| `SCAN: canada.ca VIEWPORT:mobile` | `desktop` (default), `mobile`, `tablet`, `mobile-landscape`, `tablet-landscape`, or `1024x768` |
+| URLs in the text | Scanned as a list: one per line, comma-separated, or inside markdown links; Google result links are unwrapped |
+
+open-scans' engine names, `TIME:`, `BROWSER:` and `COLORSCHEME:` mean nothing to an
+energy scan and are ignored.
+
+**How one URL becomes a sample.** As open-scans does, the scanner reads the site's
+sitemap (those named in `robots.txt` first, then `/sitemap.xml`) and takes the start page
+plus a sample of the pages it lists. Two differences: stylesheets, scripts, feeds and other
+files are never counted as pages, and `canada.ca` and `www.canada.ca` count as one site,
+so a redirect to www does not empty the sample. The sample is seeded by the site's name,
+so a re-scan of the same site measures the same pages while its sitemap is unchanged,
+which keeps energy figures comparable. Without a usable sitemap, it follows links from the
+start page instead. The comment says which happened.
 
 **Only the URLs are required.** Everything else has a default:
 
 | Field | Default | |
 |---|---|---|
-| URLs | — | One URL crawls its site; several URLs scan exactly those (up to 200). Comma-separated works too, and `ottawa.ca` means `https://ottawa.ca`. |
+| URLs | — | One URL samples its site; several URLs scan exactly those (up to 200). Comma-separated works too, and `ottawa.ca` means `https://ottawa.ca`. |
 | Lighthouse | Performance, the 10 heaviest pages | Or every page, all four categories, or off. One run per page. See [lighthouse.md](lighthouse.md). |
 | Viewport | Desktop, 1280×800 | Desktop-width viewports use Lighthouse's desktop profile; narrower ones its mobile profile. |
 | What to scan | Auto | Force a list scan of a single URL, or a crawl from the first of several. |
-| Maximum pages to crawl | 50 | Crawls only; up to 200. |
+| Maximum pages to crawl | 20 | One-URL requests only; up to 200. `PAGES:N` in the title does the same. |
 | Where to run | Auto | The repository's energy-measuring machine if one is set up, otherwise GitHub's cloud. |
 
-**Crawling** follows links on the same site. A leading `www.` and the scheme do not
+**Following links** (when a site has no usable sitemap) stays on the same site. A leading `www.` and the scheme do not
 matter, and redirects are followed as a browser follows them: a crawl of `france.fr`
 covers `www.france.fr`, and each page is visited once whichever spelling links to it.
 Links to files (PDF, Office documents, images, media) are skipped.

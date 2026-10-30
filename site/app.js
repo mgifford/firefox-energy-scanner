@@ -22,7 +22,7 @@
       none: 'No',
     },
     what: {
-      auto: 'Auto — one URL crawls its site; several URLs scan just those',
+      auto: 'Auto — one URL samples its site; several URLs scan just those',
       only: 'Only the listed URLs',
       crawl: 'Crawl the site from the first URL',
     },
@@ -98,7 +98,7 @@
     if (!el) return;
     const listed = (value('urls', '')).split(/[\n,]+/).map(function (s) { return s.trim(); }).filter(Boolean).length;
     if (listed === 0) { el.textContent = ''; return; }
-    const pages = parseInt(value('max-pages', '50'), 10) || 50;
+    const pages = parseInt(value('max-pages', '20'), 10) || 20;
     const minutes = estimateMinutes(listed, pages, value('lighthouse', 'performance-top'));
     const rounded = minutes < 1 ? '<1' : String(Math.round(minutes));
     const what = willCrawl(listed)
@@ -147,7 +147,7 @@
       params.set('lighthouse', LABELS.lighthouse[value('lighthouse', 'performance-top')]);
       params.set('viewport', value('viewport', 'Desktop (1280x800)'));
       params.set('what', LABELS.what[value('what', 'auto')]);
-      params.set('max-pages', String(parseInt(value('max-pages', '50'), 10) || 50));
+      params.set('max-pages', String(parseInt(value('max-pages', '20'), 10) || 20));
       params.set('where', LABELS.where[value('where', 'auto')]);
 
       const url = 'https://github.com/' + REPO + '/issues/new?' + params.toString();

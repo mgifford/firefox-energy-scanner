@@ -530,3 +530,30 @@ result is public. Local, private and development hosts are refused with
 requested a measurement of this project's site through the gateway and read it back:
 job 110654, 4.69 mWh, 3.11 W, 58 kB, grades A+/A+. The 30-day reuse lookup was not
 exercised then; the check now looks up the page it just measured and expects a reuse.
+
+## TDR-013: One URL means a seeded sample of the site, from its sitemap
+
+**Decision:** A hosted request with one URL scans the start page plus a sample of the
+pages the site's sitemap lists (20 by default), as open-scans does, and follows links only
+when there is no usable sitemap. The same short instructions as open-scans work in the
+title: `SCAN: canada.ca`, `PAGES:8`, `VIEWPORT:mobile`.
+
+**Why a sample.** "Scan canada.ca" asks what the site is like, not what sits nearest its
+home page. Following links from the home page gives the navigation's pages first, every
+time. A sitemap is the site's own list of its pages.
+
+**Seeded, not random.** open-scans samples at random, which suits accessibility, where any
+page found is worth fixing. Energy figures are compared over time, so the sample is seeded
+by the site's name and taken from a sorted list: the same site gives the same pages while
+its sitemap is unchanged.
+
+**Two flaws avoided.** open-scans issue 367 (`SCAN: https://canada.ca`) scanned 8 URLs,
+three of them stylesheets: its page crawl reads every `href`, including `<link>` tags, and
+its filter keeps `.css`. And it compares origins exactly, so `www.canada.ca` URLs do not
+count for `canada.ca`, which likely emptied the sitemap and left only relative links. Here
+files are never pages, and www and non-www are one site; the end-to-end test proves both
+through a bare-domain-to-www redirect.
+
+**Guarded.** Sitemaps are fetched through the browser context's request client, so the
+network guard checks them, and before the idle baseline, so no fetch falls inside an
+energy window.
