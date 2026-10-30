@@ -46,9 +46,14 @@ declare module '@tgwf/co2' {
     perVisitTrace(bytes: number, green?: boolean): TraceResult;
   }
 
-  export const hosting: {
-    check(domain: string | string[], userAgent?: string): Promise<boolean | string[]>;
-  };
+  /**
+   * In the ES-module build (the one this project imports) `hosting` is the
+   * check function itself; only the CommonJS build wraps it as `.check`.
+   */
+  export function hosting(
+    domain: string | string[],
+    options?: string | { userAgentIdentifier?: string; verbose?: boolean },
+  ): Promise<boolean | string[] | Record<string, { url?: string; green?: boolean }>>;
 
   export const averageIntensity: { data: Record<string, number>; type: string };
   export const marginalIntensity: { data: Record<string, number>; type: string };

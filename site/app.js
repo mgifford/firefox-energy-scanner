@@ -22,7 +22,7 @@
       none: 'No',
     },
     what: {
-      auto: 'Auto — one URL crawls its site; several URLs scan just those',
+      auto: 'Auto — one URL samples its site; several URLs scan just those',
       only: 'Only the listed URLs',
       crawl: 'Crawl the site from the first URL',
     },
@@ -98,7 +98,7 @@
     if (!el) return;
     const listed = (value('urls', '')).split(/[\n,]+/).map(function (s) { return s.trim(); }).filter(Boolean).length;
     if (listed === 0) { el.textContent = ''; return; }
-    const pages = parseInt(value('max-pages', '50'), 10) || 50;
+    const pages = parseInt(value('max-pages', '20'), 10) || 20;
     const minutes = estimateMinutes(listed, pages, value('lighthouse', 'performance-top'));
     const rounded = minutes < 1 ? '<1' : String(Math.round(minutes));
     const what = willCrawl(listed)
@@ -147,7 +147,7 @@
       params.set('lighthouse', LABELS.lighthouse[value('lighthouse', 'performance-top')]);
       params.set('viewport', value('viewport', 'Desktop (1280x800)'));
       params.set('what', LABELS.what[value('what', 'auto')]);
-      params.set('max-pages', String(parseInt(value('max-pages', '50'), 10) || 50));
+      params.set('max-pages', String(parseInt(value('max-pages', '20'), 10) || 20));
       params.set('where', LABELS.where[value('where', 'auto')]);
 
       const url = 'https://github.com/' + REPO + '/issues/new?' + params.toString();
@@ -170,6 +170,18 @@
   let entries = [];
 
   function text(el, value) { el.textContent = value == null ? '' : String(value); return el; }
+
+  /**
+   * A table that may scroll sideways on a phone. Focusable and named, so a
+   * keyboard user can reach and scroll it in every browser.
+   */
+  function scrollRegion(label) {
+    const el = make('div', 'table-scroll');
+    el.tabIndex = 0;
+    el.setAttribute('role', 'region');
+    el.setAttribute('aria-label', label);
+    return el;
+  }
   function make(tag, className) {
     const el = document.createElement(tag);
     if (className) el.className = className;
@@ -245,7 +257,7 @@
     }
     wrap.appendChild(head);
 
-    const scroll = make('div', 'table-scroll');
+    const scroll = scrollRegion('Results for ' + (entry.targetLabel || entry.target || entry.mode));
     const table = make('table');
 
     const caption = make('caption');
@@ -299,7 +311,8 @@
         String(s.requests),
         String(s.thirdPartyRequests),
         s.durationMs + ' ms',
-        fmtMg(s.co2Grams),
+        fmtMg(s.co2Grams) +
+          (typeof s.co2GreenShare === 'number' ? ' (' + Math.round(s.co2GreenShare * 100) + '% green-hosted)' : ''),
       ].forEach(function (v) {
         const td = make('td');
         text(td, v);
@@ -361,6 +374,7 @@
     });
 
     if (entry.lighthouse) wrap.appendChild(lighthouseSitewideNode(entry));
+    if (entry.webnrg && entry.webnrg.pages && entry.webnrg.pages.length) wrap.appendChild(webnrgNode(entry.webnrg));
 
     if (entry.runnerNote) {
       const p = make('p', 'run-warning');
@@ -562,6 +576,89 @@
       details.appendChild(note);
     }
     return details;
+  }
+
+  /** Only Green Coding's own pages are rendered as links. */
+  function greenCodingHref(url) {
+    return typeof url === 'string' && /^https:\/\/(website-tester|metrics)\.green-coding\.io\//.test(url) ? url : null;
+  }
+
+  /**
+   * webNRG lab figures: Firefox on Green Coding's dedicated machine. Its own
+   * table and boundary note, never extra columns on ours.
+   */
+  function webnrgNode(w) {
+    const section = make('div', 'scenario-detail');
+    const label = make('p', 'scenario-detail-label');
+    text(label, 'Lab check: webNRG');
+    section.appendChild(label);
+    const note = make('p', 'muted lh-note');
+    text(note, 'Green Coding\'s Green Metrics Tool: Firefox on a dedicated machine, CPU package energy for the ' +
+      'page load plus 5 s idle, no idle subtraction' + (w.machine ? ' (' + w.machine + ')' : '') +
+      '. Shown beside this scan\'s figures, never combined with them. Every webNRG result is public.');
+    section.appendChild(note);
+
+    const scroll = scrollRegion('webNRG figures per page');
+    const table = make('table');
+    const caption = make('caption');
+    text(caption, 'webNRG figures per page');
+    table.appendChild(caption);
+    const thead = make('thead');
+    const hr = make('tr');
+    ['Page', 'CPU energy', 'CPU power', 'Transfer', 'webNRG grades', 'Status'].forEach(function (h) {
+      const th = make('th');
+      th.setAttribute('scope', 'col');
+      text(th, h);
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    const fixed = function (v, digits, unit) {
+      return typeof v === 'number' && isFinite(v) ? v.toFixed(digits) + ' ' + unit : '—';
+    };
+    const statusText = {
+      reused: 'reused', measured: 'measured for this scan', submitted: 'requested, not finished',
+      'not-requested': 'no recent result', failed: 'failed',
+    };
+    const tbody = make('tbody');
+    w.pages.forEach(function (p) {
+      const tr = make('tr');
+      const th = make('th');
+      th.setAttribute('scope', 'row');
+      const href = greenCodingHref(p.statsUrl) || greenCodingHref(p.detailsUrl);
+      const name = p.page.length > 46 ? '…' + p.page.slice(-44) : p.page;
+      if (href) {
+        const a = make('a');
+        a.href = href;
+        text(a, name);
+        th.appendChild(a);
+      } else {
+        text(th, name);
+      }
+      tr.appendChild(th);
+      const m = p.metrics || {};
+      const grades = p.metrics
+        ? 'rendering ' + (m.renderingGrade || '—') + ', transfer ' + (m.transferGrade || '—')
+        : '—';
+      const when = p.measuredAt ? ' (' + String(p.measuredAt).slice(0, 10) + ')' : '';
+      [
+        fixed(m.cpuEnergyMwh, 2, 'mWh'),
+        fixed(m.cpuPowerW, 2, 'W'),
+        fixed(m.transferKb, 0, 'kB'),
+        grades,
+        (statusText[p.status] || p.status) + when + (p.error ? ': ' + p.error : ''),
+      ].forEach(function (v) {
+        const td = make('td');
+        text(td, v);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    scroll.appendChild(table);
+    section.appendChild(scroll);
+    return section;
   }
 
   /** Recommendations shared across pages: usually one template-level fix. */

@@ -81,10 +81,75 @@ export function estimateCo2(bytes: number, options: Co2Options): Co2Result {
   return result;
 }
 
+/**
+ * Estimate per domain: bytes from green-hosted domains with the model's green
+ * factor, the rest without. The models are linear in bytes, so this is exact,
+ * and it is fairer than one flag for the whole page: third-party scripts,
+ * fonts and images are often hosted somewhere else entirely. A domain absent
+ * from `green` (unknown, or the lookup failed) counts as not green, which is
+ * also the model's default.
+ */
+export function estimateCo2ByDomain(
+  bytesByDomain: Map<string, number>,
+  green: Map<string, boolean>,
+  model: Co2Model,
+): Co2Result {
+  let greenBytes = 0;
+  let otherBytes = 0;
+  for (const [domain, bytes] of bytesByDomain) {
+    if (green.get(domain) === true) greenBytes += bytes;
+    else otherBytes += bytes;
+  }
+  const parts = [
+    ...(greenBytes > 0 ? [estimateCo2(greenBytes, { model, greenHosting: true })] : []),
+    ...(otherBytes > 0 || greenBytes === 0 ? [estimateCo2(otherBytes, { model, greenHosting: false })] : []),
+  ];
+  const sum = (key: 'estimatedGrams' | 'consumerDeviceGrams' | 'networkGrams' | 'dataCenterGrams') =>
+    parts.every((p) => typeof p[key] === 'number') ? parts.reduce((t, p) => t + (p[key] as number), 0) : undefined;
+  const result: Co2Result = {
+    ...parts[0]!,
+    greenHosting: otherBytes === 0 && greenBytes > 0,
+    greenHostingChecked: true,
+    greenBytes,
+    inputBytes: greenBytes + otherBytes,
+    estimatedGrams: sum('estimatedGrams')!,
+  };
+  for (const key of ['consumerDeviceGrams', 'networkGrams', 'dataCenterGrams'] as const) {
+    const v = sum(key);
+    if (v === undefined) delete result[key];
+    else result[key] = v;
+  }
+  return result;
+}
+
+/**
+ * Green-hosting status for many domains, from the Green Web Foundation's
+ * Greencheck API, a batch at a time. A domain missing from the map is
+ * unknown: the lookup failed or the API did not answer for it.
+ */
+export async function lookupGreenHosting(domains: string[], batchSize = 20): Promise<Map<string, boolean>> {
+  const out = new Map<string, boolean>();
+  const unique = [...new Set(domains.map((d) => d.toLowerCase()).filter(Boolean))];
+  for (let i = 0; i < unique.length; i += batchSize) {
+    const batch = unique.slice(i, i + batchSize);
+    try {
+      const res = await hosting(batch, { verbose: true, userAgentIdentifier: 'firefox-energy-scanner' });
+      if (!res || typeof res !== 'object' || Array.isArray(res)) continue;
+      for (const [key, v] of Object.entries(res)) {
+        const domain = String(v?.url ?? key).toLowerCase();
+        if (typeof v?.green === 'boolean' && batch.includes(domain)) out.set(domain, v.green);
+      }
+    } catch {
+      /* unknown; counted as not green */
+    }
+  }
+  return out;
+}
+
 /** Look up green-hosting status for a domain. Network call; failures are non-fatal. */
 export async function checkGreenHosting(domain: string): Promise<boolean | undefined> {
   try {
-    const result = await hosting.check(domain);
+    const result = await hosting(domain, 'firefox-energy-scanner');
     if (typeof result === 'boolean') return result;
     if (Array.isArray(result)) return result.includes(domain);
     return undefined;
