@@ -118,6 +118,8 @@ export interface IndexEntry {
    */
   gridIntensity?: GridIntensity;
   scenarios: IndexScenario[];
+  /** webNRG lab figures for a few of the scan's pages, as recorded. */
+  webnrg?: import('../webnrg/run.js').WebnrgSummary;
   /** Run-level Lighthouse context; per-URL results sit on each scenario. */
   lighthouse?: {
     version: string;
@@ -273,6 +275,7 @@ export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry 
     ...(result.gridIntensity ? { gridIntensity: result.gridIntensity } : {}),
     scenarios,
     ...(result.lighthouse ? { lighthouse: lighthouseEntry(result.lighthouse, scenarios) } : {}),
+    ...(result.webnrg ? { webnrg: result.webnrg } : {}),
     warnings: result.warnings,
   };
 }

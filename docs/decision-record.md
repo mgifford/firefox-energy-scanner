@@ -487,3 +487,45 @@ first live call needs an API key supplied by the maintainer. The checklist is in
 [docs/crux.md](crux.md#verification-status). Deferred until then: nothing in the design
 depends on the outcome, but the window and p75 values have not been eyeballed against a
 real response.
+
+## TDR-012: webNRG is a lab figure beside ours, reused before it is requested
+
+**Decision:** Add an opt-in webNRG lab check: Green Coding's Green Metrics Tool (GMT)
+measures a page in Playwright Firefox on a dedicated machine, and the scanner shows that
+figure beside its own. Hosted scans turn it on for up to three pages. Nothing converts
+between the two, and no ratio is computed.
+
+**Why another energy figure.** Ours is measured on whichever machine runs the scan. It
+answers "did this change make the page cheaper here", not "how does this site compare
+with others". webNRG runs every site on the same calibrated hardware, so its figures are
+comparable across sites and over time. Same browser engine, different everything else:
+
+| | This scanner | webNRG |
+|---|---|---|
+| Counted | Firefox's processes (Apple Silicon) or CPU package | CPU package (RAPL) |
+| Window | each load, until stable | load plus 5 s idle |
+| Idle | subtracted | not subtracted |
+| Runs | several, median and spread | one |
+
+**Reuse before request.** webNRG's own page reuses a run of the same URL from the last
+30 days; so does the scanner, spelling URLs as webNRG stores them (no trailing slash) and
+matching exactly, because GMT filters variables with ILIKE. A free shared service should
+not be asked twice for the same answer.
+
+**Through webNRG's gateway, as co2-runner does.** The gateway accepts listed origins
+only. Like co2-runner (whose GMT client a Green Coding developer wrote), the scanner
+presents webNRG's origin, and names itself in its `User-Agent` so its requests can be
+told apart. This was chosen knowingly, with the intent to tell Green Coding and switch to
+an origin or key of their choosing (`WEBNRG_ORIGIN`, `DEFAULT_ORIGIN`).
+
+**Never block the scan machine.** A request waits 5 to 30 minutes in Green Coding's
+queue. Hosted scans never wait: a separate small GitHub-hosted job collects the results
+and adds a follow-up comment, so the energy runner is free for the next scan.
+
+**Privacy rule.** Even a lookup carries the URL to green-coding.io, and every webNRG
+result is public. Local, private and development hosts are refused with
+`localHostReason()` before anything is sent, as for CrUX.
+
+**Outstanding verification.** The client is tested against fixtures in the shapes GMT's
+API code returns; this session could not reach green-coding.io. The live round trip runs
+in the **webNRG live check** workflow (label `webnrg-live-check`).

@@ -173,6 +173,7 @@ web-energy report results/<file>.json
 web-energy profile --journey <file>
 web-energy lighthouse <url...>
 web-energy crux <url>
+web-energy webnrg <url...>
 ```
 
 ### Lighthouse (optional)
@@ -208,6 +209,22 @@ node dist/cli/index.js measure https://example.com/ --lighthouse --crux
 
 The query carries the URL to Google, so local and private targets are refused before
 anything is sent. See [docs/crux.md](docs/crux.md).
+
+### Lab check: webNRG (optional)
+
+Add `--webnrg` to `measure` or `crawl` to show a second energy figure from
+[webNRG](https://website-tester.green-coding.io/): Firefox on Green Coding's dedicated,
+calibrated machine, through their Green Metrics Tool. A result from the last 30 days is
+reused; otherwise a measurement is requested (5 to 30 minutes). It has its own
+boundary and is shown beside this scanner's figures, never combined with them. Every
+webNRG result is public. Hosted scans do this by default for up to three pages.
+
+```bash
+node dist/cli/index.js measure https://example.com/ --webnrg
+node dist/cli/index.js measure https://example.com/ --webnrg-lookup-only   # send nothing
+```
+
+See [docs/webnrg.md](docs/webnrg.md).
 
 ### measure
 
@@ -311,6 +328,7 @@ canvas charts) are generated alongside.
 - [docs/comparisons.md](docs/comparisons.md) — comparing patches without confounding
 - [docs/lighthouse.md](docs/lighthouse.md) — optional Lighthouse scores and recommendations
 - [docs/crux.md](docs/crux.md) — optional CrUX field data from real Chrome users
+- [docs/webnrg.md](docs/webnrg.md) — optional webNRG lab figures from Green Coding's cluster
 
 ## Licence
 

@@ -227,6 +227,9 @@ jobs:
     # The request budget is 90 minutes of scanning; this leaves room for
     # checkout, install, commit and comment without hitting the 360-minute cap.
     timeout-minutes: 120
+    outputs:
+      # webNRG measurements this scan requested and has not seen finish.
+      webnrg_pending: ${{ steps.scan.outputs.webnrg_pending }}
     permissions:
       # To push to the scan-results branch (never to main).
       contents: write
@@ -288,14 +291,18 @@ jobs:
           SCAN_LIGHTHOUSE_RUNS: ${{ needs.prepare.outputs.lighthouse_runs }}
           SCAN_LIGHTHOUSE_SCOPE: ${{ needs.prepare.outputs.lighthouse_scope }}
           ENERGY_MACHINE: ${{ needs.prepare.outputs.energy_machine }}
+          # Set the repository variable WEBNRG to "off" to stop sending pages
+          # to webNRG, or to "lookup" to only reuse results it already has.
+          WEBNRG: ${{ vars.WEBNRG }}
         run: |
           mkdir -p site/results
           # URLs come from an env var and are passed as argv, never interpolated
           # into the shell, so a hostile issue body cannot inject a command.
           node --input-type=module <<'NODE'
           import { spawnSync } from 'node:child_process';
-          import { readdirSync, appendFileSync } from 'node:fs';
+          import { readdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
           import { planRuns } from './dist/cli/issue-parser.js';
+          import { webnrgMarkdown } from './dist/webnrg/markdown.js';
           const urls = (process.env.SCAN_URLS || '').split('\n').map(s => s.trim()).filter(Boolean);
           if (urls.length === 0) { console.error('no urls'); process.exit(1); }
 
@@ -321,16 +328,22 @@ jobs:
           // addresses: never localhost, a home network or a DDEV site. On a
           // runner at home this is what keeps a request out of the network.
           const guard = ['--public-only'];
+          // A lab figure from webNRG (Green Coding's Green Metrics Tool
+          // cluster) for up to three pages: reused if measured in the last
+          // 30 days, otherwise requested. Never waits; a later job collects.
+          const webnrg = process.env.WEBNRG === 'off' ? []
+            : process.env.WEBNRG === 'lookup' ? ['--webnrg-lookup-only', '--webnrg-top', '3']
+            : ['--webnrg', '--webnrg-top', '3'];
           const args = mode === 'crawl'
             ? ['dist/cli/index.js', 'crawl', urls[0],
                '--max-pages', process.env.SCAN_MAX_PAGES || '50',
                ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
-               ...viewport, ...lighthouse, ...guard,
+               ...viewport, ...lighthouse, ...guard, ...webnrg,
                '--headless', '--out', 'site/results']
             : ['dist/cli/index.js', 'measure', ...urls,
                '--runs', String(plan.runs),
                '--warmups', String(plan.warmups),
-               ...viewport, ...lighthouse, ...guard,
+               ...viewport, ...lighthouse, ...guard, ...webnrg,
                '--headless', '--out', 'site/results'];
 
           console.log('mode:', mode, '| targets:', urls.length, '| runs:', plan.runs, '| warmups:', plan.warmups);
@@ -340,7 +353,25 @@ jobs:
           // Name this run's own result file, so the comment never summarises
           // another scan that lands in the repository at the same time.
           const mine = readdirSync('site/results').filter((f) => f.endsWith('.json') && !before.has(f));
-          if (mine.length) appendFileSync(process.env.GITHUB_OUTPUT, `result=${mine.sort().pop()}\n`);
+          if (mine.length) {
+            const file = mine.sort().pop();
+            appendFileSync(process.env.GITHUB_OUTPUT, `result=${file}\n`);
+            // The webNRG section of the comment, and the requests still
+            // running, for the follow-up job. URLs were validated as public
+            // http(s) and job ids are numbers, so the JSON is one line.
+            try {
+              const summary = JSON.parse(readFileSync(`site/results/${file}`, 'utf8')).webnrg;
+              if (summary) {
+                const pending = summary.pages.filter((p) => p.status === 'submitted');
+                writeFileSync('webnrg-comment.md', webnrgMarkdown(summary, { followUp: pending.length > 0 }));
+                if (pending.length) {
+                  appendFileSync(process.env.GITHUB_OUTPUT, `webnrg_pending=${JSON.stringify({ ...summary, pages: pending })}\n`);
+                }
+              }
+            } catch (e) {
+              console.log('No webNRG section:', e.message);
+            }
+          }
           process.exit(r.status ?? 1);
           NODE
 
@@ -535,6 +566,10 @@ jobs:
 
             // Lighthouse is a separate engine and boundary, so it gets its own
             // table rather than extra columns on the Firefox one.
+            // Written by the scan step from the result file (src/webnrg/markdown.ts).
+            let webnrgBlock = '';
+            try { webnrgBlock = '\n\n' + fs.readFileSync('webnrg-comment.md', 'utf8').trim(); } catch (e) { webnrgBlock = ''; }
+
             let lighthouseBlock = '';
             const lh = entry && entry.lighthouse;
             if (lh) {
@@ -698,7 +733,7 @@ jobs:
             // Conditionals yield null when omitted; '' entries are deliberate
             // blank lines. filter(Boolean) dropped both, which collapsed every
             // paragraph break in the comment.
-            ].filter((line) => line !== null).join('\n') + findingsBlock + lighthouseBlock +
+            ].filter((line) => line !== null).join('\n') + findingsBlock + lighthouseBlock + webnrgBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
               'scan again** — edit the request body first if you want different settings._';
 
@@ -746,6 +781,50 @@ jobs:
                 'the time budget. To retry, edit the request (saving re-runs it), or close',
                 'and reopen this issue.',
               ].join('\n'),
+            });
+
+  # webNRG measurements take 5-30 minutes in Green Coding's queue. Waiting for
+  # them here, on a small GitHub-hosted machine, keeps the scan machine free.
+  webnrg-results:
+    needs: [prepare, scan]
+    if: always() && needs.scan.result == 'success' && needs.scan.outputs.webnrg_pending != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --omit=optional
+      - run: npm run build
+
+      - name: Wait for the webNRG results
+        env:
+          PENDING: ${{ needs.scan.outputs.webnrg_pending }}
+        run: |
+          printf '%s' "$PENDING" > webnrg-pending.json
+          node dist/cli/index.js webnrg-collect webnrg-pending.json --wait 45 --markdown webnrg-results.md
+
+      - name: Add them to the issue
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '';
+            try { body = fs.readFileSync('webnrg-results.md', 'utf8').trim(); } catch (e) { body = ''; }
+            if (!body) return;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: body + '\n\n_Requests still running after 45 minutes stay linked above; a re-scan within ' +
+                '30 days reuses them._',
             });
 
   report-invalid:

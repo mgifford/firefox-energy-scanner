@@ -49,6 +49,9 @@ import { describeCapabilities } from '../core/capability.js';
 import { collectHostFacts, judgeEnergy, type EnergyProbe, type FirefoxProbe } from '../energy/probe.js';
 import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run.js';
 import { pickLighthouseUrls } from '../lighthouse/select.js';
+import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
+import { webnrgMarkdown } from '../webnrg/markdown.js';
+import { has, one, parseArgs, type Args } from './args.js';
 import {
   cruxApiKey,
   cruxTarget,
@@ -86,6 +89,8 @@ Usage:
   web-energy diagnose <url> [--runs <n>]
   web-energy lighthouse <url...>       [--lighthouse-* options]
   web-energy crux <url>                [--crux-* options]
+  web-energy webnrg <url...>           [--lookup-only] [--wait <minutes>]
+  web-energy webnrg-collect <file.json> [--wait <minutes>] [--markdown <file>]
 
 Options:
   --config <file>        YAML configuration file
@@ -131,47 +136,18 @@ Field data (CrUX; optional, read-only, needs a Chrome UX Report API key):
   --crux-key <key>              API key; prefer the CRUX_API_KEY environment variable
 
   \`crux <url>\` queries the field data on its own, without launching a browser.
+
+webNRG lab check (optional; Green Coding's Green Metrics Tool cluster):
+  --webnrg                Look up webNRG figures for the top pages and request
+                          new ones where none exist from the last 30 days.
+                          Sends those page URLs to green-coding.io; every
+                          webNRG result is public.
+  --webnrg-lookup-only    Only reuse existing webNRG results; send nothing new
+  --webnrg-top <n>        Pages to check (default 3, at most 10)
+  --webnrg-wait <min>     Minutes to wait for requested results (default 0;
+                          collect them later with webnrg-collect)
 `;
 
-interface Args {
-  _: string[];
-  flags: Map<string, string[]>;
-}
-
-/**
- * Flags that never take a value. Without this, `measure --lighthouse <url>`
- * would read the URL as the flag's value and drop it from the targets.
- */
-const BOOLEAN_FLAGS = new Set([
-  'authenticated', 'headed', 'headless', 'help', 'lighthouse', 'no-energy', 'public-only',
-  'triage-only',
-]);
-
-function parseArgs(argv: string[]): Args {
-  const _: string[] = [];
-  const flags = new Map<string, string[]>();
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]!;
-    if (a.startsWith('--')) {
-      const key = a.slice(2);
-      const next = argv[i + 1];
-      if (next && !next.startsWith('--') && !BOOLEAN_FLAGS.has(key)) {
-        const list = flags.get(key) ?? [];
-        list.push(next);
-        flags.set(key, list);
-        i++;
-      } else {
-        flags.set(key, [...(flags.get(key) ?? []), 'true']);
-      }
-    } else {
-      _.push(a);
-    }
-  }
-  return { _, flags };
-}
-
-const one = (args: Args, key: string): string | undefined => args.flags.get(key)?.[0];
-const has = (args: Args, key: string): boolean => args.flags.has(key);
 
 /** `--viewport 1280x800`. Rejects anything else rather than guessing. */
 function parseViewportFlag(raw: string): { width: number; height: number } {
@@ -622,10 +598,12 @@ async function cmdMeasure(args: Args): Promise<number> {
 
   await attachLighthouse(args, config, result, urls, 'measure');
   await attachCrux(result, crux);
+  await attachWebnrg(args, result, urls, 'measure');
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.crux) printCrux(result.crux);
+  if (result.webnrg) printWebnrg(result.webnrg);
   for (const w of result.warnings) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
@@ -721,10 +699,12 @@ async function cmdCrawl(args: Args): Promise<number> {
 
   await attachLighthouse(args, config, result, [start], 'crawl');
   await attachCrux(result, crux);
+  await attachWebnrg(args, result, [start], 'crawl');
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.crux) printCrux(result.crux);
+  if (result.webnrg) printWebnrg(result.webnrg);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
 }
@@ -843,6 +823,131 @@ function printLighthouse(lh: LighthouseSummary): void {
     '\nLighthouse runs Chromium under simulated throttling. Its scores describe lab load\n' +
       'performance, not Firefox and not energy; they are reported beside, never combined.',
   );
+}
+
+const intFlag = (args: Args, key: string, fallback: number, min: number, max: number): number => {
+  const raw = one(args, key);
+  const n = raw === undefined ? fallback : Number.parseInt(raw, 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n, min), max) : fallback;
+};
+
+/**
+ * Add webNRG lab figures for a few pages, after the Firefox session and
+ * Lighthouse have finished. Never fails the scan: problems become warnings.
+ */
+async function attachWebnrg(
+  args: Args,
+  result: BenchmarkResult,
+  requested: string[],
+  mode: 'measure' | 'crawl',
+): Promise<void> {
+  const lookupOnly = has(args, 'webnrg-lookup-only');
+  if (!has(args, 'webnrg') && !lookupOnly) return;
+  const top = intFlag(args, 'webnrg-top', 3, 1, 10);
+  // A list: the pages as listed. A crawl: the heaviest pages found.
+  const urls =
+    mode === 'measure'
+      ? pickLighthouseUrls(result.scenarios, requested, 'measure', undefined).urls.slice(0, top)
+      : pickLighthouseUrls(result.scenarios, requested, 'crawl', top).urls;
+  if (urls.length === 0) return;
+  if (!lookupOnly) {
+    process.stderr.write(`webNRG: checking ${urls.length} page(s) with green-coding.io; its results are public.\n`);
+  }
+  try {
+    result.webnrg = await runWebnrg(urls, {
+      submit: !lookupOnly,
+      waitMinutes: intFlag(args, 'webnrg-wait', 0, 0, 120),
+      onProgress: (m) => process.stderr.write(`\r${m.slice(0, 90).padEnd(90)}`),
+    });
+    process.stderr.write('\n');
+  } catch (err) {
+    result.warnings.push(`webNRG did not run: ${(err as Error).message}`);
+  }
+}
+
+function printWebnrg(summary: WebnrgSummary): void {
+  console.log(`\nwebNRG lab check — Firefox on Green Coding's machine${summary.machine ? ` (${summary.machine})` : ''}`);
+  console.log('Page                                    Energy     Power  Transfer  Grades    Status');
+  console.log('---------------------------------------------------------------------------------------');
+  const f = (v: number | undefined, d: number, u: string) => (v === undefined ? '—' : `${v.toFixed(d)} ${u}`);
+  for (const p of summary.pages) {
+    const name = (p.page.length > 38 ? `...${p.page.slice(-35)}` : p.page).padEnd(38);
+    const m = p.metrics;
+    const status =
+      p.status === 'reused' ? `reused ${p.measuredAt?.slice(0, 10) ?? ''}`
+        : p.status === 'submitted' ? `requested (job ${p.jobId})`
+          : p.status === 'failed' ? `failed: ${p.error ?? ''}`
+            : p.status === 'not-requested' ? 'no recent result' : p.status;
+    console.log(
+      name +
+        f(m?.cpuEnergyMwh, 2, 'mWh').padStart(10) +
+        f(m?.cpuPowerW, 2, 'W').padStart(9) +
+        f(m?.transferKb, 0, 'kB').padStart(10) +
+        `  ${m ? `${m.renderingGrade ?? '—'} / ${m.transferGrade ?? '—'}` : ''}`.padEnd(10) +
+        status,
+    );
+  }
+  console.log(
+    '\nCPU package energy for the page load plus 5 s idle on a dedicated machine, no idle\n' +
+      'subtraction. A different boundary from this scanner: shown beside, never combined.',
+  );
+  for (const p of summary.pages) {
+    if (p.runId || p.jobId !== undefined) console.log(`  ${p.page}\n    ${p.statsUrl ?? p.detailsUrl}`);
+  }
+}
+
+/** webNRG on its own: look up or request lab figures for these URLs. */
+async function cmdWebnrg(args: Args): Promise<number> {
+  const urls = args._.slice(1);
+  if (urls.length === 0) {
+    console.error('webnrg requires at least one URL');
+    return 1;
+  }
+  const config = await buildConfig(args);
+  const lookupOnly = has(args, 'lookup-only');
+  if (!lookupOnly) process.stderr.write(`webNRG: checking ${urls.length} page(s) with green-coding.io; its results are public.\n`);
+  const summary = await runWebnrg(urls, {
+    submit: !lookupOnly,
+    waitMinutes: intFlag(args, 'wait', 30, 0, 120),
+    onProgress: (m) => process.stderr.write(`\r${m.slice(0, 90).padEnd(90)}`),
+  });
+  process.stderr.write('\n');
+  const dir = resolve(config.output.directory);
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, `webnrg-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  await writeFile(file, JSON.stringify(summary, null, 2));
+  printWebnrg(summary);
+  console.log(`\nWrote ${file}`);
+  return 0;
+}
+
+/**
+ * Wait for webNRG measurements requested earlier and record their figures.
+ * Takes a scan result (its webnrg section is updated in place) or a webNRG
+ * summary on its own.
+ */
+async function cmdWebnrgCollect(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('webnrg-collect requires a result or webNRG JSON file');
+    return 1;
+  }
+  const doc = JSON.parse(await readFile(file, 'utf8')) as BenchmarkResult | WebnrgSummary;
+  const summary = 'tool' in doc && doc.tool === 'webnrg' ? doc : (doc as BenchmarkResult).webnrg;
+  if (!summary) {
+    console.error(`${file} has no webNRG section`);
+    return 1;
+  }
+  await collectWebnrg(summary, {
+    waitMinutes: intFlag(args, 'wait', 30, 0, 120),
+    onProgress: (m) => process.stderr.write(`\r${m.slice(0, 90).padEnd(90)}`),
+  });
+  process.stderr.write('\n');
+  await writeFile(file, JSON.stringify(doc, null, 2));
+  const md = one(args, 'markdown');
+  if (md) await writeFile(md, webnrgMarkdown(summary, { title: '**Lab check: webNRG results**' }) + '\n');
+  printWebnrg(summary);
+  return 0;
 }
 
 /** Lighthouse on its own, without a Firefox run. */
@@ -1606,6 +1711,8 @@ async function main(): Promise<number> {
       case 'build-index': return await cmdBuildIndex(args);
       case 'lighthouse': return await cmdLighthouse(args);
       case 'crux': return await cmdCrux(args);
+      case 'webnrg': return await cmdWebnrg(args);
+      case 'webnrg-collect': return await cmdWebnrgCollect(args);
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);

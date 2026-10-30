@@ -262,5 +262,11 @@ export interface BenchmarkResult {
    * beside it and never combined with it, with energy, or with CO2.js.
    */
   crux?: import('../core/crux.js').CruxResult;
+  /**
+   * webNRG lab figures (Green Metrics Tool cluster), when requested. Another
+   * boundary again — Firefox on Green Coding's dedicated machine — shown
+   * beside the scan's own figures and never combined with them.
+   */
+  webnrg?: import('../webnrg/run.js').WebnrgSummary;
   warnings: string[];
 }

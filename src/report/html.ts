@@ -6,6 +6,7 @@ import { groupByStep, failedSteps } from './csv.js';
 import { readableFailure } from '../core/failures.js';
 import { lighthouseSection } from './lighthouse-html.js';
 import { cruxSection } from './crux-html.js';
+import { webnrgSection } from './webnrg-html.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -338,6 +339,8 @@ ${
 ${cruxSection(result.crux, result.lighthouse)}
 
 ${lighthouseSection(result.lighthouse)}
+
+${webnrgSection(result.webnrg)}
 
 <section aria-labelledby="env-h">
   <h2 id="env-h">Environment</h2>
