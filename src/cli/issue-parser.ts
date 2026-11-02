@@ -77,7 +77,8 @@ export const ENERGY_WARMUPS = 2;
 
 /** Crawl page limits. A crawl visits each page once: 200 pages is ~15 minutes. */
 export const MAX_CRAWL_PAGES = 200;
-export const DEFAULT_CRAWL_PAGES = 50;
+/** A sampling of a site, as open-scans takes: the start page and 19 more. */
+export const DEFAULT_CRAWL_PAGES = 20;
 
 /**
  * Lighthouse cost. One run is ~15 s on a fast machine and slower on a shared
@@ -195,6 +196,77 @@ export function publicUrlProblem(candidate: string): string | undefined {
     : 'a local or development name (such as localhost or *.ddev.site); scans only reach public sites';
 }
 
+/** A bare domain, with an optional port and path: ottawa.ca, www.canada.ca/en. */
+const BARE_DOMAIN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#]\S*)?$/i;
+
+/**
+ * Spell a candidate as a URL. People type addresses the way they read them,
+ * so a bare domain gets https:// in front. Anything with a scheme is kept as
+ * typed, and still has to pass the public-URL check.
+ */
+export function withScheme(candidate: string): string {
+  return !/^[a-z][a-z0-9+.-]*:/i.test(candidate) && BARE_DOMAIN.test(candidate) ? `https://${candidate}` : candidate;
+}
+
+/**
+ * A Google search result link (google.com/url?q=…) points at the page it
+ * names; people paste these. As open-scans does, take the page.
+ */
+function unwrapGoogle(url: string): string {
+  try {
+    const u = new URL(url);
+    if (/(^|\.)google\.[a-z.]+$/i.test(u.hostname) && u.pathname === '/url') {
+      const target = u.searchParams.get('q') ?? u.searchParams.get('url');
+      if (target && /^https?:\/\//i.test(target)) return target;
+    }
+  } catch {
+    /* not a URL */
+  }
+  return url;
+}
+
+/**
+ * URL-like words in free text, including inside markdown links and href
+ * attributes. Bare domains only where asked: in prose, words such as Node.js
+ * look like domains.
+ */
+function urlWords(text: string, bareDomains: boolean): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(/https?:\/\/[^\s<>"'`()[\]]+/gi)) out.push(m[0].replace(/[.,;:!?]+$/, ''));
+  if (bareDomains) {
+    for (const w of text.split(/[\s,]+/)) {
+      const word = w.replace(/^[<(]+|[>),.;]+$/g, '');
+      if (!/^https?:\/\//i.test(word) && BARE_DOMAIN.test(word)) out.push(word);
+    }
+  }
+  return out.map(unwrapGoogle).filter((u, i, all) => all.indexOf(u) === i);
+}
+
+/**
+ * The simple instructions open-scans reads from a title or body, where they
+ * apply to an energy scan: `PAGES:20` (or `PAGE:`) and `VIEWPORT:mobile`
+ * (a preset, or WIDTHxHEIGHT). Others, such as engine names, `TIME:` or
+ * `BROWSER:`, have no meaning here and are ignored.
+ */
+export function readKeywords(text: string): { pages?: number; viewport?: string } {
+  const pages = /\bpages?:\s*(\d+)/i.exec(text);
+  const viewport = /\bviewport:\s*([a-z-]+|\d+\s*[x×]\s*\d+)/i.exec(text);
+  return {
+    ...(pages ? { pages: Number(pages[1]) } : {}),
+    ...(viewport ? { viewport: viewport[1]! } : {}),
+  };
+}
+
+/** Remove the keywords, so they are never read as part of an address. */
+function withoutKeywords(text: string): string {
+  return text.replace(/\b(?:pages?|viewport|time|browser|colorscheme):\s*\S+/gi, ' ');
+}
+
+/** URLs named in a "SCAN: …" title, for requests opened without the form. */
+export function urlsFromTitle(title: string): string[] {
+  return urlWords(withoutKeywords(title.replace(/^\s*SCAN:\s*/i, '')), true);
+}
+
 /** Extract a section from a GitHub issue-forms body (`### Label` + value). */
 export function extractSection(body: string, label: string): string | undefined {
   const lines = body.split(/\r?\n/);
@@ -291,15 +363,23 @@ function chooseRunner(body: string): RunnerChoice {
   return legacy ? 'cloud' : 'auto';
 }
 
-export function parseScanRequest(body: string): ScanRequest {
+export function parseScanRequest(body: string, title = ''): ScanRequest {
   const errors: string[] = [];
   const notes: string[] = [];
 
-  const urlBlock = extractSection(body, 'URLs') ?? '';
-  const candidates = urlBlock
+  // The form's URLs field first. An issue opened without the form may list
+  // URLs in its text, or only in its title ("SCAN: ottawa.ca").
+  const urlBlock = extractSection(body, 'URLs');
+  let candidates = (urlBlock ?? '')
     .split(/[\r\n,]+/)
     .map((l) => l.trim().replace(/^[-*]\s*/, ''))
     .filter(Boolean);
+  if (urlBlock === undefined && candidates.length === 0) candidates = urlWords(body, false);
+  if (candidates.length === 0) {
+    candidates = urlsFromTitle(title);
+    if (candidates.length) notes.push('The request had no URLs in its text, so the URL was taken from the title.');
+  }
+  candidates = candidates.map(withScheme);
 
   const urls: string[] = [];
   const notScanned: NotScanned[] = [];
@@ -316,7 +396,8 @@ export function parseScanRequest(body: string): ScanRequest {
   // rest. Only a request with nothing scannable is rejected.
   if (urls.length === 0) {
     errors.push(
-      'No valid public http(s) URLs were found in the request.' +
+      'No valid public http(s) URLs were found in the request. Put the address in the title ' +
+        '(for example "SCAN: example.org") or in the URLs field of the scan form.' +
         (notScanned.length
           ? ` Not usable: ${notScanned.slice(0, 5).map((n) => n.url).join(', ')}`
           : ''),
@@ -355,7 +436,9 @@ export function parseScanRequest(body: string): ScanRequest {
     }
   }
 
-  const pagesRaw = extractSection(body, 'Maximum pages to crawl');
+  // The form's fields first, then the short keywords in the title or text.
+  const keywords = { ...readKeywords(body), ...readKeywords(title) };
+  const pagesRaw = extractSection(body, 'Maximum pages to crawl') ?? (keywords.pages ? String(keywords.pages) : undefined);
   let maxPages = DEFAULT_CRAWL_PAGES;
   if (pagesRaw) {
     const parsed = Number.parseInt(pagesRaw.trim(), 10);
@@ -383,7 +466,7 @@ export function parseScanRequest(body: string): ScanRequest {
     }
   }
 
-  const viewport = parseViewport(extractSection(body, 'Viewport'));
+  const viewport = parseViewport(extractSection(body, 'Viewport') ?? keywords.viewport);
 
   const lighthouseRaw = extractSection(body, 'Lighthouse');
   const lighthouse = parseLighthouseChoice(lighthouseRaw);
@@ -410,7 +493,8 @@ export function parseScanRequest(body: string): ScanRequest {
 
   notes.unshift(
     mode === 'crawl'
-      ? `Crawling ${urls[0] ?? 'the site'} and the pages it links to on the same site, up to ${maxPages} pages, once each.`
+      ? `Sampling up to ${maxPages} pages of ${urls[0] ?? 'the site'}, once each: the start page and a sample of the ` +
+        "pages its sitemap lists, or, without a sitemap, the pages it links to."
       : `Scanning ${urls.length} listed page${urls.length === 1 ? '' : 's'}.`,
   );
   if (lighthouse !== 'none') {

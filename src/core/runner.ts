@@ -7,7 +7,8 @@ import type {
   TimingResult,
 } from './types.js';
 import { BrowserSession, waitForStablePage, readTimings } from '../collect/session.js';
-import { estimateCo2 } from './co2.js';
+import { estimateCo2, estimateCo2ByDomain, lookupGreenHosting } from './co2.js';
+import { localHostReason } from './addresses.js';
 import { applyBaseline, deriveBaseline, type Baseline } from './baseline.js';
 import type { JourneyDefinition } from './journey.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
@@ -265,14 +266,54 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
     const baselineEnergy = energyByLabel.get('__baseline__');
     if (baselineEnergy) baseline = deriveBaseline(baselineEnergy);
 
+    const green = await greenHostingFor(records, config, warnings);
     steps.push(
-      ...buildStepResults(records, energyByLabel, baseline, config, scenarioName),
+      ...buildStepResults(records, energyByLabel, baseline, config, scenarioName, green),
     );
   } finally {
     if (!closed) await session.close().catch(() => {});
   }
 
   return { steps, baseline, warnings, firefoxVersion, energyAvailable };
+}
+
+/**
+ * Green-hosting status for every domain the measured pages loaded from, when
+ * asked for. Runs after Firefox has closed, so the lookups are outside every
+ * energy window. Local and private hosts are never sent.
+ */
+export async function greenHostingFor(
+  records: StepRecord[],
+  config: Config,
+  warnings: string[],
+  lookup: (domains: string[]) => Promise<Map<string, boolean>> = lookupGreenHosting,
+): Promise<Map<string, boolean> | undefined> {
+  if (!config.co2.enabled || !config.co2.check_green_hosting) return undefined;
+  const domains = new Set<string>();
+  for (const r of records) {
+    for (const e of r.network.resources ?? []) {
+      if (e.domain && !localHostReason(e.domain)) domains.add(e.domain.toLowerCase());
+    }
+  }
+  if (domains.size === 0) return new Map();
+  const green = await lookup([...domains]);
+  if (green.size < domains.size) {
+    warnings.push(
+      `Green hosting is unknown for ${domains.size - green.size} of ${domains.size} domain(s); ` +
+        'their bytes are modelled as grid-powered.',
+    );
+  }
+  return green;
+}
+
+/** Bytes per lower-cased domain, from a step's resources. */
+function bytesByDomain(resources: { domain: string; transferBytes: number }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const e of resources) {
+    const d = e.domain.toLowerCase();
+    out.set(d, (out.get(d) ?? 0) + e.transferBytes);
+  }
+  return out;
 }
 
 /**
@@ -286,6 +327,8 @@ export function buildStepResults(
   baseline: Baseline | undefined,
   config: Config,
   scenarioName: string,
+  /** Per-domain green hosting; absent means it was not checked. */
+  green?: Map<string, boolean>,
 ): StepResult[] {
   const results: StepResult[] = [];
 
@@ -312,7 +355,10 @@ export function buildStepResults(
     };
 
     if (config.co2.enabled && record.network.transferBytes > 0) {
-      step.co2 = estimateCo2(record.network.transferBytes, { model: config.co2.model });
+      step.co2 =
+        green && record.network.resources
+          ? estimateCo2ByDomain(bytesByDomain(record.network.resources), green, config.co2.model)
+          : estimateCo2(record.network.transferBytes, { model: config.co2.model });
     }
 
     if (energy) {

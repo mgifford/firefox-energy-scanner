@@ -43,7 +43,7 @@ import {
   resolveGridIntensity,
   type GridIntensity,
 } from '../core/carbon.js';
-import { SCHEMA_VERSION, type BenchmarkResult, type StepResult } from '../core/types.js';
+import { SCHEMA_VERSION, type BenchmarkResult, type CrawlSampling, type StepResult } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
 import { describeCapabilities } from '../core/capability.js';
 import { collectHostFacts, judgeEnergy, type EnergyProbe, type FirefoxProbe } from '../energy/probe.js';
@@ -104,9 +104,17 @@ Options:
   --max-depth <n>        Crawl depth limit
   --include <regex>      Crawl include pattern (repeatable)
   --exclude <regex>      Crawl exclude pattern (repeatable)
+  --sample               Crawl: a sample of the pages the site's sitemap lists,
+                         up to --max-pages, the start page first. The same
+                         site gives the same sample. Falls back to following
+                         links when there is no usable sitemap.
   --authenticated        Use Drupal auth from environment variables
   --seed <string>        Seed for interleaved A/B ordering
   --no-energy            Disable energy measurement
+  --green-hosting        Ask the Green Web Foundation which domains each page
+                         loaded from are green-hosted, and model those bytes
+                         as such (CO2.js). Sends the domain names, after the
+                         browser has closed.
   --public-only          Refuse private and local addresses (localhost, LAN,
                          DDEV and similar) for every connection the browser
                          makes, including redirects and page resources. Use it
@@ -228,6 +236,11 @@ async function buildConfig(args: Args): Promise<Config> {
       ...(one(args, 'max-depth') ? { max_depth: Number.parseInt(one(args, 'max-depth')!, 10) } : {}),
       ...(args.flags.get('include') ? { include: args.flags.get('include')! } : {}),
       ...(args.flags.get('exclude') ? { exclude: args.flags.get('exclude')! } : {}),
+      ...(has(args, 'sample') ? { strategy: 'sitemap' as const } : {}),
+    },
+    co2: {
+      ...config.co2,
+      ...(has(args, 'green-hosting') ? { check_green_hosting: true } : {}),
     },
     network: {
       ...config.network,
@@ -688,6 +701,7 @@ async function cmdCrawl(args: Args): Promise<number> {
     }),
     target: { url: start },
     configuration: config,
+    sampling: outcome.sampling,
     scenarios: outcome.steps,
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
     ...(grid ? { gridIntensity: grid } : {}),
@@ -705,8 +719,17 @@ async function cmdCrawl(args: Args): Promise<number> {
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.crux) printCrux(result.crux);
   if (result.webnrg) printWebnrg(result.webnrg);
+  console.log(`\n${describeSampling(outcome.sampling)}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
+}
+
+/** One sentence on how a crawl chose its pages. */
+function describeSampling(s: CrawlSampling): string {
+  return s.method === 'sitemap'
+    ? `Pages: the start page and a sample of ${s.picked - 1} of the ${s.listed} pages listed in ${s.source}. ` +
+        'The same site gives the same sample.'
+    : `Pages: ${s.picked}, found by following links from the start page.`;
 }
 
 interface LighthouseArgs {
@@ -1450,7 +1473,9 @@ async function cmdParseIssue(args: Args): Promise<number> {
   }
   const { readFile } = await import('node:fs/promises');
   const body = await readFile(resolve(file), 'utf8');
-  const request = parseScanRequest(body);
+  const titleFile = one(args, 'title-file');
+  const title = titleFile ? await readFile(resolve(titleFile), 'utf8') : '';
+  const request = parseScanRequest(body, title);
   // Machine-readable on stdout so the workflow can consume it.
   console.log(JSON.stringify(request, null, 2));
   return request.urls.length > 0 ? 0 : 1;

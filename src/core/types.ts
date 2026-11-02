@@ -106,8 +106,15 @@ export interface Co2Result {
   library: string;
   libraryVersion: string;
   model: string;
+  /** True when every byte came from a domain listed as green-hosted. */
   greenHosting: boolean;
   greenHostingChecked: boolean;
+  /**
+   * Bytes from domains the Green Web Foundation lists as green-hosted, when
+   * checked per domain. The model zeroes data-centre operational emissions
+   * for these; the rest, unknown domains included, count as grid-powered.
+   */
+  greenBytes?: number;
   inputBytes: number;
   estimatedGrams: number;
   /**
@@ -213,6 +220,17 @@ export interface SessionInfo {
   orderings?: string[];
 }
 
+/** How a crawl chose its pages, so a reader knows what the sample stands for. */
+export interface CrawlSampling {
+  method: 'sitemap' | 'links';
+  /** The sitemap the pages came from. */
+  source?: string;
+  /** Scannable pages the sitemap listed. */
+  listed?: number;
+  /** Pages chosen, the start page included. */
+  picked: number;
+}
+
 export interface BenchmarkResult {
   schemaVersion: number;
   session: SessionInfo;
@@ -268,5 +286,7 @@ export interface BenchmarkResult {
    * beside the scan's own figures and never combined with them.
    */
   webnrg?: import('../webnrg/run.js').WebnrgSummary;
+  /** Crawls only: how the pages were chosen. */
+  sampling?: CrawlSampling;
   warnings: string[];
 }

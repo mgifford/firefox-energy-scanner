@@ -79,10 +79,12 @@ Only the energy questions need a Mac.
 
 **<https://mgifford.github.io/firefox-energy-scanner/>**
 
-**Paste URLs — that is all a request needs.** Use the web form or open a `SCAN:` issue.
+**Paste URLs — that is all a request needs.** Use the web form, or open an issue titled
+`SCAN: canada.ca` with nothing else, as in [open-scans](https://github.com/mgifford/open-scans).
 
-- **One URL** crawls its site (www and non-www, http and https count as one site,
-  redirects are followed), up to 50 pages by default.
+- **One URL** scans a sample of its site: the start page and pages from its sitemap, or,
+  without one, the pages it links to. 20 pages by default; `PAGES:8` or `VIEWPORT:mobile`
+  in the title change that. www and non-www, http and https count as one site.
 - **Several URLs** scans exactly those pages, up to 200 — a
   [Top Task Finder](https://mgifford.github.io/top-task-finder/) list works well.
 - **Lighthouse** runs by default on the 10 heaviest pages.
@@ -282,6 +284,10 @@ export default defineJourney({
 
 Crawls visit different pages under different conditions, which makes them a poor basis
 for A/B comparison. Use them to find what to measure, then write a journey.
+
+`--sample` takes a sample of the pages the site's sitemap lists instead of following
+links, the start page first; the same site gives the same sample. Hosted scans of one URL
+use it.
 
 ### compare
 

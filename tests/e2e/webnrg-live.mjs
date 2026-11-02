@@ -5,6 +5,7 @@
  *   1. Read a result webNRG already has (no request sent).
  *   2. Look up, and if needed request, a measurement of this project's own
  *      site, then wait for it and read its figures.
+ *   3. Look that page up again, which must reuse the run, not request one.
  *
  * Step 2 can use real time on Green Coding's free cluster, so this runs only
  * when asked (the webNRG live check workflow). Results are annotations, so
@@ -61,6 +62,21 @@ if ((o.status === 'measured' || o.status === 'reused') && o.metrics?.cpuEnergyMw
 } else {
   failed = true;
   annotate('error', `requesting a measurement failed. ${describe(o)}`);
+}
+
+// 3. The 30-day reuse: once the page has a finished run, a lookup alone must
+// find it, spelled the way webNRG stores it (no trailing slash).
+if (o.status === 'measured' || o.status === 'reused') {
+  const again = await runWebnrg([OWN], { submit: false, waitMinutes: 0 });
+  const a = again.pages[0];
+  if (a.status === 'reused' && a.runId === o.runId) {
+    annotate('notice', `reuse path works: the lookup found run ${a.runId} without a new request.`);
+  } else if (a.status === 'reused') {
+    annotate('notice', `reuse path works (found a newer run). ${describe(a)}`);
+  } else {
+    failed = true;
+    annotate('error', `the lookup did not find the run just measured. ${describe(a)}`);
+  }
 }
 
 process.exit(failed ? 1 : 0);

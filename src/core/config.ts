@@ -69,6 +69,12 @@ const crawlSchema = z
     include: z.array(z.string()).default([]),
     exclude: z.array(z.string()).default([]),
     query_strategy: z.enum(['strip', 'keep']).default('strip'),
+    /**
+     * links: follow links outward from the start page.
+     * sitemap: a seeded sample of the pages the site's sitemap lists, falling
+     * back to links when there is no usable sitemap.
+     */
+    strategy: z.enum(['links', 'sitemap']).default('links'),
     respect_robots: z.boolean().default(true),
     delay_ms: z.number().int().min(0).default(250),
   })

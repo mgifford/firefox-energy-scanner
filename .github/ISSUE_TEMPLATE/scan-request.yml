@@ -19,10 +19,11 @@ body:
     attributes:
       label: URLs
       description: >
-        One public `https://` or `http://` URL per line, or comma-separated. **One URL**:
-        the scanner crawls that site (www and non-www, http and https count as the same
-        site) up to the page limit below. **Several URLs**: it scans exactly those, up to
-        200; any more are listed in the results as not scanned.
+        One public `https://` or `http://` URL per line, or comma-separated; `example.org`
+        works too. **One URL**: the scanner takes a sample of that site, from its sitemap
+        when it has one (www and non-www, http and https count as the same site), up to
+        the page limit below. **Several URLs**: it scans exactly those, up to 200; any more
+        are listed in the results as not scanned.
       placeholder: |
         https://www.example.gov/
         https://www.example.gov/about
@@ -65,7 +66,7 @@ body:
     attributes:
       label: What to scan
       options:
-        - Auto — one URL crawls its site; several URLs scan just those
+        - Auto — one URL samples its site; several URLs scan just those
         - Only the listed URLs
         - Crawl the site from the first URL
       default: 0
@@ -76,8 +77,10 @@ body:
     id: max-pages
     attributes:
       label: Maximum pages to crawl
-      description: Used only when crawling. Up to 200; 50 pages takes about 5 minutes.
-      value: "50"
+      description: >
+        Used when one URL is given: the start page plus a sample of the site, from its
+        sitemap when it has one. Up to 200; 20 pages takes about 2 minutes.
+      value: "20"
     validations:
       required: false
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * End-to-end check with real Firefox: does a crawl follow a www redirect and
- * cover the site, is a PDF in a list reported as "not a web page", and does
- * --public-only keep the browser away from local addresses?
+ * cover the site, does a --sample come from the sitemap (through that same
+ * redirect, without stylesheets), is a PDF in a list reported as "not a web
+ * page", and does --public-only keep the browser away from local addresses?
  *
  * Serves a small site under two host names, site.test and www.site.test
  * (CI maps both to 127.0.0.1 in /etc/hosts). site.test redirects to
@@ -37,7 +38,17 @@ const PAGES = {
   '/en/contact': page('Contact', ['/en/', 'mailto:hello@site.test']),
   '/en/team': page('Team', ['/en/about']),
   '/fr/': page('Accueil', ['/en/']),
+  // Linked from nowhere: only the sitemap names it.
+  '/en/hidden': page('Hidden', ['/en/']),
 };
+
+// Lists the hidden page, a stylesheet and another site, as real sitemaps do.
+const SITEMAP =
+  '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+  ['/en/', '/en/about', '/en/contact', '/en/hidden', '/fr/', '/assets/theme.min.css']
+    .map((p) => `<url><loc>${WWW}${p}</loc></url>`)
+    .join('') +
+  '<url><loc>https://example.org/elsewhere</loc></url></urlset>';
 
 const hostsSeen = new Set();
 const server = http.createServer((req, res) => {
@@ -52,6 +63,10 @@ const server = http.createServer((req, res) => {
   if (path === '/') {
     res.writeHead(302, { Location: '/en/' });
     return res.end();
+  }
+  if (path === '/sitemap.xml') {
+    res.writeHead(200, { 'Content-Type': 'application/xml' });
+    return res.end(SITEMAP);
   }
   if (path === '/docs/report.pdf') {
     res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="report.pdf"' });
@@ -132,7 +147,17 @@ try {
   const home = (list?.scenarios ?? []).find((s) => s.step === `${WWW}/en/`);
   check(!!home && home.valid && home.network.transferBytes > 0, 'the page next to it was measured normally');
 
-  // 3. Public-only mode, as hosted scans run: local names and addresses are
+  // 3. A sample from the sitemap, as a hosted single-URL scan takes one. The
+  // start is the bare domain, which redirects to www, as canada.ca does.
+  const sampled = await run(['crawl', `${BARE}/`, '--sample', '--max-pages', '20'], mkdtempSync(join(tmpdir(), 'sample-')));
+  const samplePaths = (sampled?.scenarios ?? []).filter((s) => s.valid).map((s) => new URL(s.url ?? s.step).pathname);
+  annotate('notice', `sample: ${JSON.stringify(sampled?.sampling)} | ${samplePaths.join(', ')}`);
+  check(sampled?.sampling?.method === 'sitemap', `the sample came from the sitemap (${JSON.stringify(sampled?.sampling)})`);
+  check(samplePaths.includes('/en/hidden'), 'the sample reached a page only the sitemap names');
+  check(!samplePaths.some((p) => p.endsWith('.css')), 'the sample skipped the stylesheet the sitemap lists');
+  check(!(sampled?.scenarios ?? []).some((s) => s.step.includes('example.org')), 'the sample stayed on the site');
+
+  // 4. Public-only mode, as hosted scans run: local names and addresses are
   // refused, by name or after resolving, and a public site still works.
   hostsSeen.clear();
   const local = [
