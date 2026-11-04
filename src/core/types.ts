@@ -115,6 +115,8 @@ export interface Co2Result {
    * for these; the rest, unknown domains included, count as grid-powered.
    */
   greenBytes?: number;
+  /** Bytes from domains whose hosting could not be checked (modelled as grid-powered). */
+  greenUnknownBytes?: number;
   inputBytes: number;
   estimatedGrams: number;
   /**
@@ -229,6 +231,8 @@ export interface CrawlSampling {
   listed?: number;
   /** Pages chosen, the start page included. */
   picked: number;
+  /** Of those, pages the requester listed (after the start page). */
+  requested?: number;
 }
 
 export interface BenchmarkResult {

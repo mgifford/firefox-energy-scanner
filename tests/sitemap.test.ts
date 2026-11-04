@@ -106,6 +106,18 @@ describe('sampleFromSitemaps', () => {
     expect(sample!.listed).toBe(6);
   });
 
+  it('reads content sitemaps before attachment, author, tag and category ones', async () => {
+    const names = ['post-sitemap.xml', 'page-sitemap.xml', 'attachment-sitemap.xml', 'author-sitemap.xml', 'category-sitemap.xml', 'post_tag-sitemap.xml'];
+    const pages: Record<string, string> = { '/sitemap_index.xml': index(names.map((n) => `https://canada.ca/${n}`)) };
+    for (const n of names) pages[`/${n}`] = urlset([`https://canada.ca/${n.replace('.xml', '')}/a.html`]);
+    const { get, asked } = site(pages);
+    const sample = await sampleFromSitemaps('https://canada.ca/', options(get, ['https://canada.ca/sitemap_index.xml']));
+    const children = asked.filter((u) => /-sitemap\.xml$/.test(u)).map((u) => u.split('/').pop());
+    // Only the content sitemaps: thin ones are read only when there is nothing else.
+    expect(children.sort()).toEqual(['page-sitemap.xml', 'post-sitemap.xml']);
+    expect(sample!.urls.some((u) => u.includes('/post-sitemap/'))).toBe(true);
+  });
+
   it('is the same sample on a re-scan', async () => {
     const pages = { '/sitemap.xml': urlset(many) };
     const a = await sampleFromSitemaps('https://canada.ca/', options(site(pages).get));

@@ -141,9 +141,12 @@ describe('parseScanRequest: the easy default', () => {
 
   it('honours an explicit choice either way', () => {
     expect(parseScanRequest(form(['https://a.com/'], { 'What to scan': 'Only the listed URLs' })).mode).toBe('measure');
-    const crawl = parseScanRequest(form(['https://a.com/', 'https://a.com/b'], { 'What to scan': 'Crawl the site from the first URL' }));
+    const crawl = parseScanRequest(form(['https://a.com/', 'https://a.com/b', 'https://other.org/'], { 'What to scan': 'Crawl the site from the first URL' }));
     expect(crawl.mode).toBe('crawl');
-    expect(crawl.notScanned).toEqual([{ url: 'https://a.com/b', reason: 'crawling starts from one URL' }]);
+    // Listed pages of the same site are kept, to be measured first (issue #26 dropped 16).
+    expect(crawl.urls).toEqual(['https://a.com/', 'https://a.com/b']);
+    expect(crawl.notScanned).toEqual([{ url: 'https://other.org/', reason: "a crawl stays on the first URL's site" }]);
+    expect(crawl.notes[0]).toMatch(/the start page, the 1 other listed page, and a sample/);
   });
 
   it('accepts comma-separated URLs, as the web form allows', () => {

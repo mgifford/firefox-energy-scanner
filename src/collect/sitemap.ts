@@ -31,6 +31,15 @@ export interface SiteSample {
 
 /** At most this many child sitemaps are read from a sitemap index. */
 const MAX_CHILD_SITEMAPS = 3;
+
+/**
+ * Child sitemaps that list thin, template-identical pages rather than
+ * content: WordPress and Yoast attachment pages (one per uploaded image),
+ * author, tag and category archives. A scan of thegreenwebfoundation.org
+ * drew 38 of its 50 pages from these. They are read only when an index has
+ * nothing else.
+ */
+const THIN_SITEMAP = /(attachment|image|media|video|author|user|tag|categor|archive|format)[^/]*\.xml/i;
 /** Enough to sample from; a large site can list hundreds of thousands. */
 const MAX_LOCS = 50_000;
 
@@ -128,11 +137,10 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     const parsed = parseSitemapXml(res.text);
     let locs = parsed.locs;
     if (parsed.isIndex) {
-      const children = seededSample(
-        locs.filter((u) => sites.has(opts.siteOf(u)) && !/\.gz$/i.test(u)),
-        MAX_CHILD_SITEMAPS,
-        site,
-      );
+      const usable = locs.filter((u) => sites.has(opts.siteOf(u)) && !/\.gz$/i.test(u));
+      const content = usable.filter((u) => !THIN_SITEMAP.test(new URL(u).pathname));
+      const thin = usable.filter((u) => THIN_SITEMAP.test(new URL(u).pathname));
+      const children = seededSample(content.length > 0 ? content : thin, MAX_CHILD_SITEMAPS, site);
       locs = [];
       for (const child of children) {
         const c = await opts.get(child);

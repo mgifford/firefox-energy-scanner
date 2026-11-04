@@ -10,6 +10,8 @@ import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 export interface CrawlOptions {
   config: Config;
   startUrl: string;
+  /** Pages the requester named, measured right after the start page. */
+  extraPages?: string[];
   onProgress?: (message: string) => void;
 }
 
@@ -54,6 +56,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
   let energyAvailable = false;
   const steps: StepResult[] = [];
   let sampledFrom: { source: string; listed: number } | undefined;
+  let requestedPages = 0;
 
   try {
     if (config.auth?.type === 'drupal') {
@@ -106,6 +109,25 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
         warnings.push('No usable sitemap was found, so pages were chosen by following links from the start page.');
       }
     }
+
+    // Named pages on the same site go right after the start page, ahead of
+    // the sample or the links found, so the page limit never cuts them.
+    const startSite = siteOf(startUrl);
+    const extras = (options.extraPages ?? [])
+      .filter((u) => siteOf(u) === startSite)
+      .map((u) => normalizeUrl(u, keyOpts))
+      .filter((u, i, all) => all.findIndex((x) => pageKey(x, keyOpts) === pageKey(u, keyOpts)) === i)
+      .filter((u) => pageKey(u, keyOpts) !== pageKey(queue[0]!.url, keyOpts));
+    if (extras.length) {
+      const extraKeys = new Set(extras.map((u) => pageKey(u, keyOpts)));
+      const depth = sampledFrom ? config.crawl.max_depth : 1;
+      queue = [
+        queue[0]!,
+        ...extras.map((url) => ({ url, depth })),
+        ...queue.slice(1).filter((q) => !extraKeys.has(pageKey(q.url, keyOpts))),
+      ];
+    }
+    requestedPages = Math.min(extras.length, Math.max(0, config.crawl.max_pages - 1));
 
     if (config.energy.baseline && useEnergy) {
       options.onProgress?.('Collecting idle baseline');
@@ -191,9 +213,11 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     firefoxVersion,
     discovered: sortUrls(discovered),
     energyAvailable,
-    sampling: sampledFrom
-      ? { method: 'sitemap', ...sampledFrom, picked: discovered.length }
-      : { method: 'links', picked: discovered.length },
+    sampling: {
+      ...(sampledFrom ? { method: 'sitemap' as const, ...sampledFrom } : { method: 'links' as const }),
+      picked: discovered.length,
+      ...(requestedPages ? { requested: requestedPages } : {}),
+    },
   };
 }
 

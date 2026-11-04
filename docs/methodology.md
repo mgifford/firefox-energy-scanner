@@ -35,13 +35,16 @@ Derived from network/resource activity and model assumptions. Recorded per run:
 - green-hosting status when checked, and the bytes from green-hosted domains
 
 **Green hosting is checked per domain** (`--green-hosting`; on in hosted scans). After
-Firefox has closed, each domain a page loaded from is looked up once in the Green Web
-Foundation's Greencheck API, and each step's bytes are split: bytes from green-hosted
+Firefox has closed, each domain a page loaded from gets one full check in the Green Web
+Foundation's Greencheck API (not the multi-domain endpoint, which answers only from a
+cache of domains already found green and calls the rest grey), and each step's bytes are
+split: bytes from green-hosted
 domains get the model's green factor, the rest do not. The model is linear in bytes, so
 the split is exact, and it is fairer than one flag per page, since third-party scripts,
 fonts and images are often hosted elsewhere. A domain the API does not answer for counts
-as not green, which is the model's default, and a warning says how many there were.
-Local and private hosts are never sent.
+as not green, which is the model's default; a warning says how many there were, and the
+report shows that share as unknown rather than as not green. Local and private hosts are
+never sent.
 
 This is a **model output**, not an observation. Its boundary spans datacentre, network,
 and a generic consumer device — none of which is the specific machine under test.

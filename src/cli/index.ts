@@ -108,6 +108,8 @@ Options:
                          up to --max-pages, the start page first. The same
                          site gives the same sample. Falls back to following
                          links when there is no usable sitemap.
+  --also <url>           Crawl: also measure this page of the same site, right
+                         after the start page (repeatable).
   --authenticated        Use Drupal auth from environment variables
   --seed <string>        Seed for interleaved A/B ordering
   --no-energy            Disable energy measurement
@@ -684,6 +686,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   const outcome = await crawl({
     config,
     startUrl: start,
+    extraPages: args.flags.get('also') ?? [],
     onProgress: (m) => process.stderr.write(`\r${m.padEnd(70)}`),
   });
   process.stderr.write('\n');
@@ -726,10 +729,11 @@ async function cmdCrawl(args: Args): Promise<number> {
 
 /** One sentence on how a crawl chose its pages. */
 function describeSampling(s: CrawlSampling): string {
+  const listed = s.requested ? `, the ${s.requested} listed page${s.requested === 1 ? '' : 's'}` : '';
   return s.method === 'sitemap'
-    ? `Pages: the start page and a sample of ${s.picked - 1} of the ${s.listed} pages listed in ${s.source}. ` +
-        'The same site gives the same sample.'
-    : `Pages: ${s.picked}, found by following links from the start page.`;
+    ? `Pages: the start page${listed} and a sample of ${s.picked - 1 - (s.requested ?? 0)} of the ${s.listed} pages ` +
+        `listed in ${s.source}. The same site gives the same sample.`
+    : `Pages: ${s.picked}: the start page${listed} and pages found by following its links.`;
 }
 
 interface LighthouseArgs {

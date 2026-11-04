@@ -1,5 +1,6 @@
 import { isIP } from 'node:net';
 import { localHostReason } from '../core/addresses.js';
+import { siteOf } from '../collect/urls.js';
 
 /**
  * Parse a scan request from a GitHub issue body.
@@ -406,11 +407,20 @@ export function parseScanRequest(body: string, title = ''): ScanRequest {
 
   const mode = chooseMode(body, urls.length, notes);
 
+  // Pages listed beside a crawl are what the requester cares about most: they
+  // are measured first, and the sample fills the rest. A crawl stays on one
+  // site, so pages on other sites are listed as not scanned.
+  let listedInCrawl = 0;
   if (mode === 'crawl' && urls.length > 1) {
+    const site = siteOf(urls[0]!);
+    const kept = [urls[0]!];
     for (const u of urls.slice(1)) {
-      notScanned.push({ url: u, reason: 'crawling starts from one URL' });
+      if (siteOf(u) !== site) notScanned.push({ url: u, reason: "a crawl stays on the first URL's site" });
+      else kept.push(u);
     }
-    urls.length = 1;
+    urls.length = 0;
+    urls.push(...kept);
+    listedInCrawl = kept.length - 1;
   }
   if (mode === 'measure' && urls.length > MAX_URLS) {
     const extra = urls.length - MAX_URLS;
@@ -493,8 +503,9 @@ export function parseScanRequest(body: string, title = ''): ScanRequest {
 
   notes.unshift(
     mode === 'crawl'
-      ? `Sampling up to ${maxPages} pages of ${urls[0] ?? 'the site'}, once each: the start page and a sample of the ` +
-        "pages its sitemap lists, or, without a sitemap, the pages it links to."
+      ? `Sampling up to ${maxPages} pages of ${urls[0] ?? 'the site'}, once each: the start page` +
+        (listedInCrawl ? `, the ${Math.min(listedInCrawl, Math.max(0, maxPages - 1))} other listed page${listedInCrawl === 1 ? '' : 's'},` : '') +
+        ' and a sample of the pages its sitemap lists, or, without a sitemap, the pages it links to.'
       : `Scanning ${urls.length} listed page${urls.length === 1 ? '' : 's'}.`,
   );
   if (lighthouse !== 'none') {

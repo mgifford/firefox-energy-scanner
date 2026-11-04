@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { toIndexEntry } from '../src/report/index-builder.js';
+import type { BenchmarkResult } from '../src/core/types.js';
 import { checkGreenHosting, estimateCo2, estimateCo2ByDomain, lookupGreenHosting } from '../src/core/co2.js';
 import { buildStepResults, greenHostingFor, type StepRecord } from '../src/core/runner.js';
 import { defaultConfig } from '../src/core/config.js';
@@ -58,6 +61,17 @@ describe('estimateCo2ByDomain', () => {
     expect(estimateCo2ByDomain(bytes, new Map(), 'swd').estimatedGrams).toBeCloseTo(grid, 12);
   });
 
+  it('reports nothing checked, not 0% green, when no domain could be checked', () => {
+    const r = estimateCo2ByDomain(new Map([['a.org', 10], ['b.org', 20]]), new Map(), 'swd');
+    expect(r.greenHostingChecked).toBe(false);
+    expect(r.greenBytes).toBeUndefined();
+  });
+
+  it('records the bytes whose hosting is unknown when only some were checked', () => {
+    const r = estimateCo2ByDomain(new Map([['a.org', 10], ['b.org', 30]]), new Map([['a.org', true]]), 'swd');
+    expect(r).toMatchObject({ greenHostingChecked: true, greenBytes: 10, greenUnknownBytes: 30 });
+  });
+
   it('calls a page green-hosted only when every byte is', () => {
     const r = estimateCo2ByDomain(new Map([['a.org', 10], ['b.org', 20]]), new Map([['a.org', true], ['b.org', true]]), 'swd');
     expect(r.greenHosting).toBe(true);
@@ -102,29 +116,40 @@ describe('buildStepResults with green hosting', () => {
 });
 
 describe('lookupGreenHosting', () => {
-  it('asks the Greencheck API in batches and reads each domain it answers for', async () => {
+  // The multi-domain endpoint answers from a cache of known-green domains and
+  // calls the rest grey, and returns an array the old code skipped: a scan of
+  // thegreenwebfoundation.org reported every domain unknown, shown as 0% green.
+  it('does one full check per domain, a few at a time', async () => {
     const urls: string[] = [];
+    let inFlight = 0;
+    let most = 0;
     vi.stubGlobal('fetch', async (url: string) => {
       urls.push(url);
-      const domains = JSON.parse(decodeURIComponent(url.split('/greencheckmulti/')[1]!)) as string[];
-      const body = Object.fromEntries(domains.map((d) => [d, { url: d, green: d.startsWith('g') }]));
-      return new Response(JSON.stringify(body), { status: 200 });
+      inFlight++;
+      most = Math.max(most, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      const domain = url.split('/greencheck/')[1]!;
+      return new Response(JSON.stringify({ url: domain, green: domain.startsWith('g') }), { status: 200 });
     });
-    const domains = Array.from({ length: 25 }, (_, i) => (i % 2 ? `g${i}.org` : `n${i}.org`));
-    const out = await lookupGreenHosting(domains);
-    expect(urls).toHaveLength(2);
-    expect(urls[0]).toContain('api.thegreenwebfoundation.org/v2/greencheckmulti/');
-    expect(out.size).toBe(25);
+    const domains = Array.from({ length: 10 }, (_, i) => (i % 2 ? `g${i}.org` : `n${i}.org`));
+    const out = await lookupGreenHosting([...domains, 'G1.org']);
+    expect(urls).toHaveLength(10);
+    expect(urls.every((u) => u.startsWith('https://api.thegreenwebfoundation.org/greencheck/'))).toBe(true);
+    expect(most).toBeLessThanOrEqual(4);
+    expect(out.size).toBe(10);
     expect(out.get('g1.org')).toBe(true);
     expect(out.get('n0.org')).toBe(false);
   });
 
-  it('leaves domains unknown when the API fails, rather than calling them not green', async () => {
-    vi.stubGlobal('fetch', async () => {
-      throw new Error('offline');
+  it('leaves a domain unknown when its check fails, rather than calling it not green', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (url.endsWith('/down.org')) throw new Error('offline');
+      return new Response(JSON.stringify({ url: 'up.org', green: true }), { status: 200 });
     });
-    const out = await lookupGreenHosting(['a.org']);
-    expect(out.has('a.org')).toBe(false);
+    const out = await lookupGreenHosting(['down.org', 'up.org']);
+    expect(out.has('down.org')).toBe(false);
+    expect(out.get('up.org')).toBe(true);
   });
 });
 
@@ -139,5 +164,28 @@ describe('checkGreenHosting', () => {
     });
     expect(await checkGreenHosting('a.org')).toBe(true);
     expect(urls).toEqual(['https://api.thegreenwebfoundation.org/greencheck/a.org']);
+  });
+});
+
+describe('green share in the site index', () => {
+  const fixture = () => JSON.parse(readFileSync('tests/fixtures/issue-6-downloads.json', 'utf8')) as BenchmarkResult;
+  const withCo2 = (r: BenchmarkResult, green: number, unknown?: number) => {
+    for (const s of r.scenarios) {
+      if (s.co2) Object.assign(s.co2, { greenHostingChecked: true, greenBytes: s.co2.inputBytes * green, ...(unknown ? { greenUnknownBytes: s.co2.inputBytes * unknown } : {}) });
+    }
+    return r;
+  };
+
+  it('shows the green and unknown shares', () => {
+    const row = toIndexEntry(withCo2(fixture(), 0.6, 0.1), 'x.json').scenarios.find((s) => !s.failed)!;
+    expect(row.co2GreenShare).toBe(0.6);
+    expect(row.co2GreenUnknownShare).toBe(0.1);
+  });
+
+  it('hides the share of an older result whose lookup failed entirely, instead of showing 0%', () => {
+    const r = withCo2(fixture(), 0);
+    r.warnings.push('Green hosting is unknown for 8 of 8 domain(s); their bytes are modelled as grid-powered.');
+    const row = toIndexEntry(r, 'x.json').scenarios.find((s) => !s.failed)!;
+    expect(row.co2GreenShare).toBeUndefined();
   });
 });
