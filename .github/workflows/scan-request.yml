@@ -354,6 +354,8 @@ jobs:
             : ['--webnrg', '--webnrg-top', '3'];
           const args = mode === 'crawl'
             ? ['dist/cli/index.js', 'crawl', urls[0],
+               // Other pages listed with a crawl are measured first.
+               ...urls.slice(1).flatMap((u) => ['--also', u]),
                '--max-pages', process.env.SCAN_MAX_PAGES || '20',
                // A sample of the pages the sitemap lists, as open-scans takes;
                // following links only when there is no usable sitemap.
@@ -575,7 +577,10 @@ jobs:
                     const kb = (s.transferBytes / 1024).toFixed(0) + ' KB';
                     const co2 = s.co2Grams != null
                       ? (s.co2Grams * 1000).toFixed(3) + ' mg' +
-                        (s.co2GreenShare != null ? ` (${Math.round(s.co2GreenShare * 100)}% green-hosted)` : '')
+                        (s.co2GreenShare != null
+                          ? ` (${Math.round(s.co2GreenShare * 100)}% green-hosted` +
+                            (s.co2GreenUnknownShare ? `, ${Math.round(s.co2GreenUnknownShare * 100)}% unknown` : '') + ')'
+                          : '')
                       : '—';
                     // "Not measured" (no power hardware) and "not resolved"
                     // (measured, but below the noise floor) are different
@@ -719,10 +724,14 @@ jobs:
             const coverage = notScanned.length && !isCrawl
               ? `\nScanned **${scannedCount}** of ${scannedCount + notScanned.length} listed URLs; the rest are listed under _Not scanned_ below.\n`
               : sampling && sampling.method === 'sitemap'
-                ? `\n**Pages:** the start page and a sample of ${sampling.picked - 1} of the ${sampling.listed} pages its ` +
+                ? `\n**Pages:** the start page` +
+                  (sampling.requested ? `, the ${sampling.requested} other pages listed,` : '') +
+                  ` and a sample of ${sampling.picked - 1 - (sampling.requested || 0)} of the ${sampling.listed} pages its ` +
                   `sitemap lists. The same site gives the same sample, so a re-scan compares like with like.\n`
                 : sampling
-                  ? `\n**Pages:** ${sampling.picked}, found by following links from the start page (no usable sitemap).\n`
+                  ? `\n**Pages:** ${sampling.picked}: the start page` +
+                    (sampling.requested ? `, the ${sampling.requested} other pages listed,` : '') +
+                    ` and pages found by following its links (no usable sitemap).\n`
                   : '';
 
             const notes = [

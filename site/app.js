@@ -312,7 +312,10 @@
         String(s.thirdPartyRequests),
         s.durationMs + ' ms',
         fmtMg(s.co2Grams) +
-          (typeof s.co2GreenShare === 'number' ? ' (' + Math.round(s.co2GreenShare * 100) + '% green-hosted)' : ''),
+          (typeof s.co2GreenShare === 'number'
+            ? ' (' + Math.round(s.co2GreenShare * 100) + '% green-hosted' +
+              (s.co2GreenUnknownShare ? ', ' + Math.round(s.co2GreenUnknownShare * 100) + '% unknown' : '') + ')'
+            : ''),
       ].forEach(function (v) {
         const td = make('td');
         text(td, v);

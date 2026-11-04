@@ -96,10 +96,14 @@ export function estimateCo2ByDomain(
 ): Co2Result {
   let greenBytes = 0;
   let otherBytes = 0;
+  let unknownBytes = 0;
   for (const [domain, bytes] of bytesByDomain) {
     if (green.get(domain) === true) greenBytes += bytes;
     else otherBytes += bytes;
+    if (!green.has(domain)) unknownBytes += bytes;
   }
+  // Nothing could be checked: say so, rather than report "0% green".
+  if (unknownBytes === greenBytes + otherBytes) return estimateCo2(unknownBytes, { model });
   const parts = [
     ...(greenBytes > 0 ? [estimateCo2(greenBytes, { model, greenHosting: true })] : []),
     ...(otherBytes > 0 || greenBytes === 0 ? [estimateCo2(otherBytes, { model, greenHosting: false })] : []),
@@ -111,6 +115,7 @@ export function estimateCo2ByDomain(
     greenHosting: otherBytes === 0 && greenBytes > 0,
     greenHostingChecked: true,
     greenBytes,
+    ...(unknownBytes > 0 ? { greenUnknownBytes: unknownBytes } : {}),
     inputBytes: greenBytes + otherBytes,
     estimatedGrams: sum('estimatedGrams')!,
   };
@@ -124,25 +129,29 @@ export function estimateCo2ByDomain(
 
 /**
  * Green-hosting status for many domains, from the Green Web Foundation's
- * Greencheck API, a batch at a time. A domain missing from the map is
- * unknown: the lookup failed or the API did not answer for it.
+ * Greencheck API, one full check per domain, a few at a time. A domain
+ * missing from the map is unknown: the lookup failed for it.
+ *
+ * Not the multi-domain endpoint: it answers from a cache of domains already
+ * found green and reports every other domain as grey, so a green site that
+ * nobody has checked yet would read as not green. A scan loads from a few
+ * dozen domains at most, so single checks are affordable.
  */
-export async function lookupGreenHosting(domains: string[], batchSize = 20): Promise<Map<string, boolean>> {
+export async function lookupGreenHosting(domains: string[], concurrency = 4): Promise<Map<string, boolean>> {
   const out = new Map<string, boolean>();
-  const unique = [...new Set(domains.map((d) => d.toLowerCase()).filter(Boolean))];
-  for (let i = 0; i < unique.length; i += batchSize) {
-    const batch = unique.slice(i, i + batchSize);
-    try {
-      const res = await hosting(batch, { verbose: true, userAgentIdentifier: 'firefox-energy-scanner' });
-      if (!res || typeof res !== 'object' || Array.isArray(res)) continue;
-      for (const [key, v] of Object.entries(res)) {
-        const domain = String(v?.url ?? key).toLowerCase();
-        if (typeof v?.green === 'boolean' && batch.includes(domain)) out.set(domain, v.green);
+  const queue = [...new Set(domains.map((d) => d.toLowerCase()).filter(Boolean))];
+  const worker = async () => {
+    for (let domain = queue.shift(); domain !== undefined; domain = queue.shift()) {
+      try {
+        const res = await hosting(domain, { verbose: true, userAgentIdentifier: 'firefox-energy-scanner' });
+        const green = typeof res === 'boolean' ? res : (res as { green?: unknown } | undefined)?.green;
+        if (typeof green === 'boolean') out.set(domain, green);
+      } catch {
+        /* unknown */
       }
-    } catch {
-      /* unknown; counted as not green */
     }
-  }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
   return out;
 }
 

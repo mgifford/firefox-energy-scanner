@@ -32,8 +32,14 @@ plus a sample of the pages it lists. Two differences: stylesheets, scripts, feed
 files are never counted as pages, and `canada.ca` and `www.canada.ca` count as one site,
 so a redirect to www does not empty the sample. The sample is seeded by the site's name,
 so a re-scan of the same site measures the same pages while its sitemap is unchanged,
-which keeps energy figures comparable. Without a usable sitemap, it follows links from the
-start page instead. The comment says which happened.
+which keeps energy figures comparable. In a sitemap index, content sections are read
+before attachment, author, tag and category ones, which list near-identical template pages
+(WordPress lists every uploaded image as a page). Without a usable sitemap, it follows
+links from the start page instead. The comment says which happened.
+
+**URLs listed with a crawl** are kept: pages of the same site are measured right after the
+start page, and the sample fills the rest up to the page limit. Pages on other sites are
+listed as not scanned.
 
 **Only the URLs are required.** Everything else has a default:
 

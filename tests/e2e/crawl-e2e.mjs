@@ -125,7 +125,8 @@ async function run(args, outDir) {
 await new Promise((resolve) => server.listen(PORT, '127.0.0.1', resolve));
 try {
   // 1. Crawl from the bare domain, which redirects to www.
-  const crawl = await run(['crawl', `${BARE}/`, '--max-pages', '20'], mkdtempSync(join(tmpdir(), 'crawl-')));
+  // A listed page that nothing links to (--also) must be measured too.
+  const crawl = await run(['crawl', `${BARE}/`, '--max-pages', '20', '--also', `${WWW}/en/hidden`], mkdtempSync(join(tmpdir(), 'crawl-')));
   check(crawl !== null, 'crawl wrote a result');
   const pages = (crawl?.scenarios ?? []).filter((s) => s.valid).map((s) => s.url ?? s.step);
   const paths = pages.map((u) => new URL(u).pathname.replace(/\/$/, '') || '/').sort();
@@ -136,6 +137,8 @@ try {
     check(paths.includes(p), `crawl reached ${p}`);
   }
   check(new Set(paths).size === paths.length, 'each page was measured once, whatever spelling linked to it');
+  check(paths.includes('/en/hidden'), 'the crawl measured a listed page that nothing links to');
+  check(crawl?.sampling?.requested === 1, `the result records the listed page (${JSON.stringify(crawl?.sampling)})`);
   check(!pages.some((u) => u.includes('example.org')), 'crawl stayed on the site');
   check(!(crawl?.scenarios ?? []).some((s) => s.step.endsWith('.pdf')), 'crawl skipped the PDF link');
 

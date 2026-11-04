@@ -557,3 +557,10 @@ through a bare-domain-to-www redirect.
 **Guarded.** Sitemaps are fetched through the browser context's request client, so the
 network guard checks them, and before the idle baseline, so no fetch falls inside an
 energy window.
+
+**Amended after issue #26** (thegreenwebfoundation.org). 38 of its 50 sampled pages were
+image attachment pages from WordPress's attachment sitemap: one template, 22 requests
+each. Content sections of a sitemap index are now read first, and thin ones (attachments,
+media, authors, users, tags, categories, archives) only when there is nothing else. The 16
+pages listed beside that crawl were dropped as "crawling starts from one URL"; listed pages
+of the same site are now measured first.

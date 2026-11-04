@@ -50,6 +50,8 @@ export interface IndexScenario {
    * green-hosted, when every run was checked per domain.
    */
   co2GreenShare?: number;
+  /** Share of bytes (0 to 1) whose hosting could not be checked. */
+  co2GreenUnknownShare?: number;
   durationMs: number;
   energyMwh?: number;
   energyIqrMwh?: number;
@@ -144,17 +146,27 @@ export interface IndexEntry {
   warnings: string[];
 }
 
-/** Median green-hosted share of bytes, only when every run was checked per domain. */
-function greenShare(runs: StepResult[]): { co2GreenShare?: number } {
-  const shares = runs.map((r) =>
-    r.co2?.greenHostingChecked && r.co2.greenBytes !== undefined && r.co2.inputBytes > 0
-      ? r.co2.greenBytes / r.co2.inputBytes
-      : Number.NaN,
+/**
+ * Median green-hosted share of bytes, only when every run was checked per
+ * domain, and the share that could not be checked.
+ */
+function greenShare(runs: StepResult[]): { co2GreenShare?: number; co2GreenUnknownShare?: number } {
+  const checked = runs.every(
+    (r) => r.co2?.greenHostingChecked && r.co2.greenBytes !== undefined && r.co2.inputBytes > 0,
   );
-  if (shares.length === 0 || shares.some((v) => !Number.isFinite(v))) return {};
-  const m = summarize(shares).median;
-  return Number.isFinite(m) ? { co2GreenShare: Math.round(m * 1000) / 1000 } : {};
+  if (runs.length === 0 || !checked) return {};
+  const median = (f: (c: NonNullable<StepResult['co2']>) => number) =>
+    Math.round(summarize(runs.map((r) => f(r.co2!) / r.co2!.inputBytes)).median * 1000) / 1000;
+  const unknown = median((c) => c.greenUnknownBytes ?? 0);
+  return { co2GreenShare: median((c) => c.greenBytes ?? 0), ...(unknown > 0 ? { co2GreenUnknownShare: unknown } : {}) };
 }
+
+/**
+ * Results written before the lookup was fixed recorded a failed lookup as
+ * "checked, 0% green". Their warning says every domain was unknown.
+ */
+const greenLookupFailed = (warnings: string[]) =>
+  warnings.some((w) => /^Green hosting is unknown for (\d+) of \1 domain/.test(w));
 
 export interface SiteIndex {
   generatedAt: string;
@@ -265,6 +277,12 @@ function summarizeScenarios(steps: StepResult[], grid?: GridIntensity): IndexSce
 export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry {
   const env = result.environment;
   const scenarios = summarizeScenarios(result.scenarios, result.gridIntensity);
+  if (greenLookupFailed(result.warnings)) {
+    for (const s of scenarios) {
+      delete s.co2GreenShare;
+      delete s.co2GreenUnknownShare;
+    }
+  }
   const energyAvailable = result.scenarios.some(
     (s) => s.energy?.raw.totalJoules !== undefined,
   );
