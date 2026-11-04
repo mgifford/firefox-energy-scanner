@@ -24,10 +24,9 @@ export type ScanMode = 'measure' | 'crawl';
 
 /**
  * 'auto' uses the repository's energy-measuring machine when one is set up
- * (the ENERGY_RUNNER variable), otherwise GitHub's cloud. 'macos' is kept for
- * older requests that asked for a hosted Mac.
+ * (the ENERGY_RUNNER variable), otherwise GitHub's cloud.
  */
-export type RunnerChoice = 'auto' | 'cloud' | 'macos';
+export type RunnerChoice = 'auto' | 'cloud';
 
 /** 'all' adds accessibility, best practices and SEO to performance. */
 export type LighthouseChoice = 'none' | 'performance' | 'all';
@@ -352,7 +351,7 @@ function chooseMode(body: string, urlCount: number, notes: string[]): ScanMode {
   return urlCount === 1 ? 'crawl' : 'measure';
 }
 
-function chooseRunner(body: string): RunnerChoice {
+function chooseRunner(body: string, notes: string[]): RunnerChoice {
   const where = extractSection(body, 'Where to run')?.toLowerCase();
   // "Auto — ... otherwise GitHub's cloud" also mentions the cloud, so key on
   // how the label starts.
@@ -360,7 +359,16 @@ function chooseRunner(body: string): RunnerChoice {
   // Older form: "Measurement type".
   const legacy = (extractSection(body, 'Measurement type') ?? '').toLowerCase();
   if (legacy.includes('self')) return 'auto';
-  if (legacy.includes('macos')) return 'macos';
+  if (legacy.includes('macos')) {
+    // GitHub's hosted Macs are virtual machines too (no energy; the Energy
+    // probe found 0 samples) and often have no capacity: reopened requests
+    // #3 and #7 waited 15 minutes and were cancelled without starting.
+    notes.push(
+      "This request asked for GitHub's macOS machines. They are virtual machines too, so they cannot " +
+        "measure energy, and they are often unavailable, so it runs on GitHub's Linux machines instead.",
+    );
+    return 'cloud';
+  }
   return legacy ? 'cloud' : 'auto';
 }
 
@@ -434,7 +442,7 @@ export function parseScanRequest(body: string, title = ''): ScanRequest {
     urls.length = MAX_URLS;
   }
 
-  const runner = chooseRunner(body);
+  const runner = chooseRunner(body, notes);
 
   // Older form only; the new form leaves runs to planRuns().
   const runsRaw = extractSection(body, 'Measured runs per URL');

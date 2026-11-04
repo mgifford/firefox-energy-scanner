@@ -163,7 +163,7 @@ jobs:
           const energyMachine = r.runner === 'auto' && labelsOk;
           set('energy_machine', energyMachine ? 'true' : 'false');
           set('energy_labels', labels.join(', '));
-          set('runs_on', JSON.stringify(energyMachine ? labels : r.runner === 'macos' ? 'macos-latest' : 'ubuntu-latest'));
+          set('runs_on', JSON.stringify(energyMachine ? labels : 'ubuntu-latest'));
           set('valid', r.errors.length === 0 && r.urls.length > 0 ? 'true' : 'false');
           set('url_count', String(r.urls.length));
           set('not_scanned_count', String((r.notScanned ?? []).length));
@@ -893,6 +893,44 @@ jobs:
               issue_number: Number(process.env.ISSUE_NUMBER),
               body: body + '\n\n_Requests still running after 45 minutes stay linked above; a re-scan within ' +
                 '30 days reuses them._',
+            });
+
+  # A scan job that never started (no machine took it: GitHub had no capacity,
+  # or the energy machine is offline) leaves no comment of its own, because
+  # the failure report is a step of that job; the request looked accepted.
+  # Not when the whole run was cancelled: a newer run for the issue replaced it.
+  report-not-started:
+    needs: [prepare, scan]
+    if: always() && !cancelled() && needs.prepare.outputs.valid == 'true' && needs.scan.result == 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Explain that the scan never started
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ needs.prepare.outputs.issue }}
+          ENERGY_MACHINE: ${{ needs.prepare.outputs.energy_machine }}
+        with:
+          script: |
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const why = process.env.ENERGY_MACHINE === 'true'
+              ? "The repository's energy-measuring machine did not pick up the job, so nothing was scanned. " +
+                'It may be offline, asleep or busy: check that its runner service is running.'
+              : "GitHub did not provide a machine for this scan, so nothing was scanned. This is a capacity " +
+                "problem on GitHub's side and usually passes within minutes.";
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: [
+                '## Scan did not start',
+                '',
+                why,
+                '',
+                'This issue stays open. **To try again, add the `rescan` label**, or close and reopen the issue. ' +
+                  `[View the run](${run}).`,
+              ].join('\n'),
             });
 
   report-invalid:
