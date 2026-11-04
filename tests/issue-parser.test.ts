@@ -275,7 +275,10 @@ describe('parseScanRequest: requests written with the older form', () => {
 
   it('maps the old runner choices', () => {
     expect(parseScanRequest(legacy(['https://a.com'], 'measure', 'self-hosted — physical Apple Silicon')).runner).toBe('auto');
-    expect(parseScanRequest(legacy(['https://a.com'], 'measure', 'macos — structural only')).runner).toBe('macos');
+    // Hosted Macs measure nothing more and are often unavailable (#3, #7 never started).
+    const mac = parseScanRequest(legacy(['https://a.com'], 'measure', 'macos — structural only'));
+    expect(mac.runner).toBe('cloud');
+    expect(mac.notes.join(' ')).toMatch(/macOS machines.*Linux machines instead/);
     expect(parseScanRequest(legacy(['https://a.com'], 'measure', 'linux — structural only')).runner).toBe('cloud');
   });
 
