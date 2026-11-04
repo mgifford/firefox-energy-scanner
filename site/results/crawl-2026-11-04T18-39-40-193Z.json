@@ -1,0 +1,340 @@
+{
+  "schemaVersion": 1,
+  "session": {
+    "id": "b94f3d6f-22df-4805-bae7-a1f5967ba1c4",
+    "startedAt": "2026-11-04T18:39:38.893Z",
+    "mode": "crawl"
+  },
+  "capabilities": {
+    "tier": "structural",
+    "summary": "Structural tier: no energy measurement on this host. Network, CO2.js, timing and page-structure metrics are fully valid — none of them depend on power hardware.",
+    "unavailable": [
+      {
+        "metric": "observed client energy (joules / mWh)",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      },
+      {
+        "metric": "idle baseline subtraction",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      },
+      {
+        "metric": "resolution check (is the effect above the noise floor)",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      },
+      {
+        "metric": "energy apportioned to work categories",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      },
+      {
+        "metric": "A/B energy regression comparison",
+        "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples."
+      }
+    ],
+    "energyCheck": {
+      "verdict": "unavailable",
+      "reason": "This host is a virtual machine (Microsoft Corporation Virtual Machine). Virtual machines do not normally pass power-measurement hardware through to the guest, so energy cannot be measured here. Firefox recorded 0 power samples.",
+      "nextSteps": [
+        "A physical Apple Silicon Mac: per-process Firefox energy, no setup or admin rights. The most precise option.",
+        "A Linux PC on bare metal with an Intel or AMD CPU: run `sudo sysctl kernel.perf_event_paranoid=0` once per boot. Measures the whole CPU package, so close other applications.",
+        "A Windows 11 PC on a supported Intel, AMD or ARM CPU: CPU package energy, no setup.",
+        "Run the CLI on one of these, or register it as a self-hosted runner so issue scans use it (docs/self-hosted-runner.md)."
+      ],
+      "hypervisor": "Microsoft Corporation Virtual Machine"
+    }
+  },
+  "environment": {
+    "timestamp": "2026-11-04T18:39:38.895Z",
+    "os": "linux",
+    "osVersion": "7.0.0-1017-azure",
+    "architecture": "x64",
+    "cpuCount": 4,
+    "totalMemoryBytes": 16760344576,
+    "firefoxVersion": "153.0",
+    "playwrightVersion": "1.62.1",
+    "co2jsVersion": "0.19.0",
+    "energyAdapter": "auto",
+    "headed": false,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "target": {
+    "url": "https://civicactions.com"
+  },
+  "configuration": {
+    "browser": {
+      "name": "firefox",
+      "headed": false,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "benchmark": {
+      "warmups": 3,
+      "runs": 10,
+      "settle_ms": 1500,
+      "cache_mode": "warm"
+    },
+    "stability": {
+      "network_idle_ms": 500,
+      "post_idle_ms": 1500,
+      "max_wait_ms": 10000
+    },
+    "crawl": {
+      "enabled": false,
+      "max_pages": 50,
+      "max_depth": 5,
+      "same_origin": true,
+      "include": [],
+      "exclude": [],
+      "query_strategy": "strip",
+      "strategy": "sitemap",
+      "respect_robots": true,
+      "delay_ms": 250
+    },
+    "energy": {
+      "adapter": "auto",
+      "baseline": true,
+      "baseline_duration_ms": 10000,
+      "baseline_settle_ms": 5000,
+      "profiler_interval_ms": 10,
+      "retain_profile": false
+    },
+    "co2": {
+      "enabled": true,
+      "model": "swd",
+      "check_green_hosting": true
+    },
+    "carbon": {
+      "grid_kind": "average"
+    },
+    "network": {
+      "public_only": true
+    },
+    "sitespeed": {
+      "enabled": false
+    },
+    "output": {
+      "directory": "site/results",
+      "json": true,
+      "csv": true,
+      "html": true,
+      "collect_hostname": false
+    }
+  },
+  "sampling": {
+    "method": "links",
+    "picked": 1
+  },
+  "scenarios": [
+    {
+      "scenario": "crawl",
+      "step": "https://civicactions.com/",
+      "run": 0,
+      "warmup": false,
+      "url": "https://civicactions.com/",
+      "startedAt": 1793817569683,
+      "endedAt": 1793817572927,
+      "timing": {
+        "durationMs": 3244,
+        "ttfbMs": 57.94,
+        "responseMs": 58.04,
+        "domContentLoadedMs": 177.04,
+        "loadMs": 462.72
+      },
+      "network": {
+        "requests": 10,
+        "transferBytes": 2361013,
+        "thirdPartyRequests": 0,
+        "thirdPartyBytes": 0,
+        "byType": {
+          "document": {
+            "requests": 2,
+            "bytes": 226848
+          },
+          "script": {
+            "requests": 2,
+            "bytes": 242024
+          },
+          "xhr": {
+            "requests": 3,
+            "bytes": 1884288
+          },
+          "fetch": {
+            "requests": 2,
+            "bytes": 2286
+          },
+          "image": {
+            "requests": 1,
+            "bytes": 5567
+          }
+        },
+        "resources": [
+          {
+            "url": "https://civicactions.com/",
+            "domain": "civicactions.com",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 5935,
+            "status": 403,
+            "durationMs": 57.97705078125
+          },
+          {
+            "url": "https://civicactions.com/cdn-cgi/challenge-platform/h/g/orchestrate/chl_page/v1?ray=a555bde2cc6e3bdc",
+            "domain": "civicactions.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 213438,
+            "status": 200,
+            "durationMs": 84.511962890625
+          },
+          {
+            "url": "https://challenges.cloudflare.com/turnstile/v0/g/5c2e6b612edd/api.js?onload=_3c227b2cde204b6bab6c243e&render=explicit",
+            "domain": "challenges.cloudflare.com",
+            "thirdParty": false,
+            "resourceType": "script",
+            "transferBytes": 28586,
+            "status": 200,
+            "durationMs": 44.298095703125
+          },
+          {
+            "url": "https://civicactions.com/cdn-cgi/challenge-platform/h/g/fo/3360967886:1793812533:Tk5otubtEDGJlZSNm89PSkoL-uOvGP-PVXKGf3BkaCM/a555bde2cc6e3bdc/nWcew.Eqt_FvVC99nXTUcgx.k1fND8.ApZn2rzJvEHs-1793817569-1.2.1.1-lj39Hdf57moAQIxOZkeROtFLm5alICiaKKxx1_Pgp0zzbLy7bQmk9ySUwZ67qNGy",
+            "domain": "civicactions.com",
+            "thirdParty": false,
+            "resourceType": "xhr",
+            "transferBytes": 173652,
+            "status": 200,
+            "durationMs": 59.64111328125
+          },
+          {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/turnstile/f/av0/rch/im6ui/0x4AAAAAAADnPIDROrmt1Wwj/light/fbE/new/normal?lang=auto",
+            "domain": "challenges.cloudflare.com",
+            "thirdParty": false,
+            "resourceType": "document",
+            "transferBytes": 220913,
+            "status": 200,
+            "durationMs": 115.537841796875
+          },
+          {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/fo/2444668120:1793812536:RqmDcSR-37L0ZjaDB9ircKdDk-vpzeb1kjWZ57rLJBQ/a555bde62b81e80d/Cj6qDIOULkuZEe1mVRghEmOPCqoV1Cryup2pW92jXi2OgKmRIvo-1-6Qegf3A334hCDuN0sn6bOeoJ21uZGHb3dXyoy4-QyOtMn3K0yaNb1Z9be2CWM8QaaP2V8RPzNEZQ",
+            "domain": "challenges.cloudflare.com",
+            "thirdParty": false,
+            "resourceType": "xhr",
+            "transferBytes": 1505193,
+            "status": 200,
+            "durationMs": 91.9658203125
+          },
+          {
+            "url": "https://brunhild.challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/i/a555bde62b81e80d/Cj6qDIOULkuZEe1mVRghEmOPCqoV1Cryup2pW92jXi2OgKmRIvo-1-6Qegf3A334hCDuN0sn6bOeoJ21uZGHb3dXyoy4-QyOtMn3K0yaNb1Z9be2CWM8QaaP2V8RPzNEZQ",
+            "domain": "brunhild.challenges.cloudflare.com",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 0
+          },
+          {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/pat/a555bde62b81e80d/1793817570592/f92611d9ef7c75f33ceb1a39622ff37a935c626c3fcaaea19b51becb09f348d8/CuTUxpjhgQ335XvEIzHrcK_jOcwEamFHK1Y_mvgmo519XcTIb0t88k43ae1KKUvdIT4juY9z2JLb-PznB85tN4qFwCE_PNfDZiMps-HPurtQ7NLJVN-a1luW8yEJyZGg4UZrvCpx67JgqRgEIcq7rZldfjKjSL2jMYPE2JO6ZKMY4cpbhv1xu-GQE2vNHeBdjFB-UusVVcB555hyrafvgDkkOtGFIZgUc46JJqqdQIa9NnihktzC11itejqgKRIG5e30PFgMW1MxW7BUYQMpFr38pHbUVyaDJpaa0RP1b2QdlMU1qTafhQH7Px3J_0C6pzjS905DWSwgZxe_jPdmnKEFCqW4xtVR4VXSjtm-O8A4DzfQhNtRuOLeRh7YuIvxpxcNd_5pUuCxUGzv4QodWPr5pWk43bJOJHQXgIl4BJ5oTVJQP8c_oITtYcteImBH_1tDlOAuoSlQ2v7jbSjj7OVtcad7VqEZOUDHcDU4NkKTuqOTa-imtZj-GpkXuG5-lUdwJq4lLQSzwLfsU3GjtMnNj2-966ZXqGNSKzv34HVWQUcpgKXo6cwyNZSknKZZr_4Fccnbycka_VI_NryeXP4kevTvWTd6-gbl-ueNRyt5s6L2cD5bMY2LcPVbpZK-V-GyJMdGoY0Q1DovnAi_8g",
+            "domain": "challenges.cloudflare.com",
+            "thirdParty": false,
+            "resourceType": "fetch",
+            "transferBytes": 2286,
+            "status": 401,
+            "durationMs": 11.022216796875
+          },
+          {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/ci/a555bde62b81e80d/1793817570599/Ct9Y1pd8R67eRX9AEWH-g8YOhyfU6ZPhrXUkmRbcx5RLKp8bR2Jkg7QWAnNJVgHPyuEyoLR8K06ftfF71ovXvhJsagwIsB6qDXveFZvkBwdkdl_qkUzKfmVnHKhQbwItoADttDjxrM8VHxFzu_dQ87Ms3qggGxj3PScrPobOLS5ioLeAO6KdOXary_VbbT52MhurFdIV32NY3bxGERjlCQ825FY5wQ2YQQqzx_jq-lDjSvA9lEEar9sRNvFtzm5kvO61l3JtIOLKvO-s1SJHA9jLimkppwH-K4h1wbmVs3uFMv1cb6vfiQ3sDH1-bBiIwflRdM9atlHkC6QIHmOn-9Mrldoy5IHzZx09D9ryEX3Pag1Fxx1vZPe-6h8CDCXXUBATKSM6_P4qwT5Ra8Un6vMsXdaQcpuata1Qw6tw3jeTdsD6cFGHXyG9gCgJ9NOuH3az0LWHlq8uyES3BS69RhparY9eBlWk-labmMIdEXmz39red-Q5EBhxHv28-LRrA_aCBlKo7Zv6ZTNlUi3uM1s0mFFH9AhT-iZ7X017U29Z4t5VzqBLD8zYWGuK01ZKN_kqpB4idUrpmSEFq4ZtewQ",
+            "domain": "challenges.cloudflare.com",
+            "thirdParty": false,
+            "resourceType": "image",
+            "transferBytes": 5567,
+            "status": 200,
+            "durationMs": 13.43212890625
+          },
+          {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/fo/2444668120:1793812536:RqmDcSR-37L0ZjaDB9ircKdDk-vpzeb1kjWZ57rLJBQ/a555bde62b81e80d/Cj6qDIOULkuZEe1mVRghEmOPCqoV1Cryup2pW92jXi2OgKmRIvo-1-6Qegf3A334hCDuN0sn6bOeoJ21uZGHb3dXyoy4-QyOtMn3K0yaNb1Z9be2CWM8QaaP2V8RPzNEZQ",
+            "domain": "challenges.cloudflare.com",
+            "thirdParty": false,
+            "resourceType": "xhr",
+            "transferBytes": 205443,
+            "status": 200,
+            "durationMs": 107.630126953125
+          }
+        ]
+      },
+      "valid": true,
+      "warnings": [],
+      "anatomy": {
+        "domNodes": 47,
+        "domDepth": 6,
+        "cssRules": 232,
+        "cssSelectors": 340,
+        "scripts": 3,
+        "images": 1,
+        "iframes": 0,
+        "animatedElements": 4,
+        "heaviestSubtrees": []
+      },
+      "findings": [
+        {
+          "id": "css-expensive-selectors",
+          "severity": "low",
+          "title": "10 selectors with high match cost",
+          "evidence": "* (universal selector); ._d7b79e6f376f3525c2e9d873 ._65e9eba6991e00e527f28e0e input:focus ~ ._32279f1d57 (deep descendant chain); ._d7b79e6f376f3525c2e9d873 ._65e9eba6991e00e527f28e0e input:active ~ ._32279f1d5 (deep descendant chain)",
+          "action": "Universal selectors, long descendant chains and :has()/:not() are matched right-to-left against many elements. Prefer a single class on the target element.",
+          "category": "Layout"
+        },
+        {
+          "id": "images-without-dimensions",
+          "severity": "low",
+          "title": "1 of 1 images lack width/height",
+          "evidence": "Images without intrinsic dimensions force a reflow when each one arrives.",
+          "action": "Set width and height (or aspect-ratio) so layout is computed once rather than recalculated per image.",
+          "category": "Layout"
+        }
+      ],
+      "co2": {
+        "library": "@tgwf/co2",
+        "libraryVersion": "0.19.0",
+        "model": "swd",
+        "greenHosting": true,
+        "greenHostingChecked": true,
+        "inputBytes": 2361013,
+        "estimatedGrams": 0.28575340339,
+        "consumerDeviceGrams": 0.187780807942,
+        "networkGrams": 0.08397651038399999,
+        "dataCenterGrams": 0.078144808274,
+        "greenBytes": 2361013
+      },
+      "energy": {
+        "raw": {
+          "durationMs": 3244,
+          "measurementScope": "system",
+          "measurementType": "hardware-estimate",
+          "attribution": "time-window",
+          "adapterId": "firefox-profiler"
+        }
+      }
+    }
+  ],
+  "warnings": [
+    "No usable sitemap was found, so pages were chosen by following links from the start page.",
+    "No power counters were found in the Gecko profile. Energy values are unavailable on this platform; timing and network metrics are still valid.",
+    "Crawl mode is for discovery and broad assessment. It is not a controlled regression workload; use journey mode for A/B comparisons."
+  ],
+  "webnrg": {
+    "tool": "webnrg",
+    "boundary": "Green Metrics Tool lab run: Playwright Firefox in a container on a dedicated machine, warm Squid cache, RAPL CPU package energy for the page load plus 5 s idle, no idle subtraction. Not comparable as a ratio with this scanner's own figures; shown beside them.",
+    "phase": "Visit page and idle for 5 s",
+    "reuseDays": 30,
+    "pages": [
+      {
+        "url": "https://civicactions.com/",
+        "page": "https://civicactions.com",
+        "status": "failed",
+        "detailsUrl": "https://website-tester.green-coding.io/details.html?page=https%3A%2F%2Fcivicactions.com",
+        "error": "webNRG gateway refused the request: HTTP 400: Could not access webpage. Returned HTTP code was 403. Is the site public? Is the server working? Is the server blocking Cloudflare Workers? (the gateway could not load the page)"
+      }
+    ]
+  }
+}
