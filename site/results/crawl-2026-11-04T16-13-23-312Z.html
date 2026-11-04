@@ -1,0 +1,1144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web energy benchmark — https://thegreenwebfoundation.org/</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#fff; --muted:#555; --line:#d0d0d0; --accent:#0b5fff; --warn:#8a5300; --warnbg:#fff6e5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e8e8e8; --bg:#141414; --muted:#aaa; --line:#3a3a3a; --accent:#7aa7ff; --warn:#ffcf80; --warnbg:#3a2c10; }
+  }
+  body { font: 16px/1.55 system-ui, sans-serif; color: var(--fg); background: var(--bg);
+         margin: 0 auto; max-width: 68rem; padding: 2rem 1rem; }
+  h1,h2,h3 { line-height: 1.25; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  caption { text-align: left; font-weight: 600; padding-bottom: .5rem; }
+  th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: right; }
+  th[scope="row"], td:first-child, th:first-child { text-align: left; }
+  thead th { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+  .note { color: var(--muted); font-size: .92rem; }
+  .warning { background: var(--warnbg); border-left: 4px solid var(--warn); padding: .75rem 1rem; margin: 1rem 0; }
+  .boundary { border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 1rem; margin: 1.5rem 0; }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; }
+  dl.meta dt { color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  code { font-size: .9em; }
+</style>
+</head>
+<body>
+<h1>Web energy benchmark</h1>
+<p class="note">
+  Session <code>27a82144-8ce6-4d7b-9bf4-ba3b3bbadbb7</code>, mode <code>crawl</code>,
+  generated 2026-11-04T16:11:29.993Z.
+</p>
+
+<section class="boundary" aria-labelledby="boundary-h">
+  <h2 id="boundary-h">What these numbers mean</h2>
+  <p>
+    This report contains <strong>three different classes of sustainability indicator</strong>.
+    They have different system boundaries and different units, and they are not interchangeable.
+    The first two are always present. The third appears only when a grid intensity was declared.
+  </p>
+  <dl>
+    <dt><strong>A. Modelled CO2e (CO2.js)</strong></dt>
+    <dd>Estimated emissions derived from transferred bytes and model assumptions. Not a measurement.</dd>
+    <dt><strong>B. Observed client energy (Firefox power counters)</strong></dt>
+    <dd>
+      Energy drawn by Firefox processes on this client machine during the workload.
+      Scope is the browser's processes — not the display, not the server, and not the network.
+    </dd>
+    <dt><strong>C. Grid-derived carbon (from B, not from A)</strong></dt>
+    <dd>
+      Carbon implied by the electricity measured in B, at a grid intensity declared by the
+      operator. It is derived from observed energy and carries that assumption with it.
+      It is <strong>not</strong> a conversion of the CO2.js estimate, and the CO2.js estimate is
+      never converted into it.
+    </dd>
+  </dl>
+  <p>
+    The measurement boundary is the <strong>client machine only</strong>. These results do not
+    measure server, PHP, database, data-centre, or whole-Internet energy, and they are not a
+    total carbon figure for the site.
+  </p>
+</section>
+
+<section aria-labelledby="warn-h"><h2 id="warn-h">Warnings</h2><p class="warning">No power counters were found in the Gecko profile. Energy values are unavailable on this platform; timing and network metrics are still valid.</p><p class="warning">Green hosting is unknown for 8 of 8 domain(s); their bytes are modelled as grid-powered.</p><p class="warning">Crawl mode is for discovery and broad assessment. It is not a controlled regression workload; use journey mode for A/B comparisons.</p></section>
+
+<section aria-labelledby="summary-h">
+  <h2 id="summary-h">Per-step summary</h2>
+  <p class="note">
+    Median is the headline statistic. Warmup runs are excluded.
+    No energy values were captured in this session.
+    
+    
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Measured steps (n = number of non-warmup runs)</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th><th scope="col">n</th>
+        <th scope="col">Duration median (ms)</th>
+        <th scope="col">Transfer median (KB)</th>
+        <th scope="col">CO2.js median (mg)</th>
+        <th scope="col">Incremental energy median (mWh)</th>
+        <th scope="col">Energy IQR (mWh)</th>
+        
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">https://thegreenwebfoundation.org/</th>
+        <td>1</td>
+        <td>5135</td>
+        <td>194.2</td>
+        <td>29.477</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/holistic-security-for-environmental-defenders/img_2633</th>
+        <td>1</td>
+        <td>4307</td>
+        <td>277.6</td>
+        <td>42.124</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/three-levers-for-change-as-a-technologist-consumption-intensity-and-direction/garzweiler-tagebau</th>
+        <td>1</td>
+        <td>3332</td>
+        <td>145.2</td>
+        <td>22.035</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/seeweb-logo-300x89</th>
+        <td>1</td>
+        <td>4511</td>
+        <td>138.1</td>
+        <td>20.965</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/notes-from-green-io-paris-conference/event-report-green-io-conference-london-2024-2</th>
+        <td>1</td>
+        <td>3824</td>
+        <td>137.3</td>
+        <td>20.832</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/a-web-component-for-grid-aware-websites/frame-2</th>
+        <td>1</td>
+        <td>3930</td>
+        <td>141.9</td>
+        <td>21.540</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/thinking-hard-about-the-concept-of-internet-practitioner/ecosys</th>
+        <td>1</td>
+        <td>3852</td>
+        <td>144.3</td>
+        <td>21.892</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/environment-variables-podcast-building-carbon-aware-testbeds/podcast-episode-80</th>
+        <td>1</td>
+        <td>4392</td>
+        <td>140.9</td>
+        <td>21.385</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/our-team/bio-chris-adams/subak-125</th>
+        <td>1</td>
+        <td>3634</td>
+        <td>138.3</td>
+        <td>20.993</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/fellowships/slammer-musuta/greenwebtriangle-1</th>
+        <td>1</td>
+        <td>4189</td>
+        <td>142.4</td>
+        <td>21.610</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/logo-truegreen</th>
+        <td>1</td>
+        <td>4085</td>
+        <td>138.8</td>
+        <td>21.069</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/branch-issue-9-attunement/branch-issue-9-launch</th>
+        <td>1</td>
+        <td>3984</td>
+        <td>142.8</td>
+        <td>21.668</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/4-years-of-twin-transition-european-union-press/coverage20192023_2</th>
+        <td>1</td>
+        <td>3725</td>
+        <td>132.2</td>
+        <td>20.062</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/notes-from-the-sdia-green-coding-summit/screenshot-2023-12-01-at-16-53-06</th>
+        <td>1</td>
+        <td>4162</td>
+        <td>180.7</td>
+        <td>27.416</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/publications/report-fog-of-enactment/1-full-lca-diagram</th>
+        <td>1</td>
+        <td>3711</td>
+        <td>128.4</td>
+        <td>19.485</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/comparing-climate-narratives</th>
+        <td>1</td>
+        <td>4403</td>
+        <td>196.6</td>
+        <td>29.834</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/what-should-sustainability-standards-for-datacentres-be-in-europe-part-3/updated-eu-datacentre-label</th>
+        <td>1</td>
+        <td>3982</td>
+        <td>155.9</td>
+        <td>23.657</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/provisioning-and-providers-two-levers-for-a-lower-carbon-internet</th>
+        <td>1</td>
+        <td>4219</td>
+        <td>215.7</td>
+        <td>32.740</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/audit/green-io-logo</th>
+        <td>1</td>
+        <td>3646</td>
+        <td>133.3</td>
+        <td>20.234</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/release-guide-co2-js-v0-19</th>
+        <td>1</td>
+        <td>4382</td>
+        <td>203.4</td>
+        <td>30.872</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/sidn</th>
+        <td>1</td>
+        <td>3668</td>
+        <td>135.3</td>
+        <td>20.538</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/it-all-revolves-around-environmental-justice</th>
+        <td>1</td>
+        <td>4574</td>
+        <td>181.6</td>
+        <td>27.556</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/create-carbon-txt-files-using-our-new-python-package/group</th>
+        <td>1</td>
+        <td>3901</td>
+        <td>141.0</td>
+        <td>21.400</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/publications/a4-cover-1</th>
+        <td>1</td>
+        <td>3881</td>
+        <td>136.4</td>
+        <td>20.706</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/jobs/mid-senior-product-comms-manager/were-hiring-for-a-product-comms-manager</th>
+        <td>1</td>
+        <td>3951</td>
+        <td>139.2</td>
+        <td>21.122</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/andreea</th>
+        <td>1</td>
+        <td>4054</td>
+        <td>196.8</td>
+        <td>29.869</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/notes-from-the-sdia-green-coding-summit/sdia-2023-workshop-ppt</th>
+        <td>1</td>
+        <td>3962</td>
+        <td>140.2</td>
+        <td>21.272</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/how-much-of-the-internet-is-covered-by-credible-net-zero-targets-what-we-learned</th>
+        <td>1</td>
+        <td>4406</td>
+        <td>221.1</td>
+        <td>33.558</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/figuring-out-a-model-for-applying-climate-justice-to-websites/levers-diagram</th>
+        <td>1</td>
+        <td>4016</td>
+        <td>156.4</td>
+        <td>23.729</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/logo-c</th>
+        <td>1</td>
+        <td>3808</td>
+        <td>133.1</td>
+        <td>20.191</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/branch-magazine-issue-3/branch_issue_3_3a-2</th>
+        <td>1</td>
+        <td>4245</td>
+        <td>230.5</td>
+        <td>34.983</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/press-and-media/branch-issue-04-cover-2</th>
+        <td>1</td>
+        <td>4097</td>
+        <td>159.0</td>
+        <td>24.125</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/introducing-our-updated-directory/green-web-hosting-directory-filters</th>
+        <td>1</td>
+        <td>3734</td>
+        <td>158.1</td>
+        <td>23.992</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/fellowship-project-sustainability-and-accountability-in-the-gig-economy/1920px-energy_middle-out2</th>
+        <td>1</td>
+        <td>3959</td>
+        <td>133.9</td>
+        <td>20.318</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/our-submissions-to-the-digital-sustainability-forum</th>
+        <td>1</td>
+        <td>4125</td>
+        <td>171.8</td>
+        <td>26.078</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/pianod-logo-black-and-yellow-2</th>
+        <td>1</td>
+        <td>3974</td>
+        <td>128.6</td>
+        <td>19.511</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/place-policy-procurement-more-levers-for-a-lower-carbon-internet/scoped-emissions</th>
+        <td>1</td>
+        <td>4131</td>
+        <td>141.8</td>
+        <td>21.523</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/release-guide-co2-js-v0-19/frame-1-6-3</th>
+        <td>1</td>
+        <td>4203</td>
+        <td>144.1</td>
+        <td>21.875</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/putting-the-internet-back-in-the-things</th>
+        <td>1</td>
+        <td>3997</td>
+        <td>210.9</td>
+        <td>32.008</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/a-web-component-for-grid-aware-websites/frame-1-8</th>
+        <td>1</td>
+        <td>3783</td>
+        <td>135.4</td>
+        <td>20.551</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/fieke</th>
+        <td>1</td>
+        <td>4952</td>
+        <td>2234.6</td>
+        <td>339.119</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/good-net-zero-bad-net-zero-crowdsourcing-company-targets-with-wikirate/img-20221103-wa0002</th>
+        <td>1</td>
+        <td>4927</td>
+        <td>144.1</td>
+        <td>21.874</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/fellowships/slammer-musuta/greenwebtriangle2</th>
+        <td>1</td>
+        <td>3830</td>
+        <td>146.4</td>
+        <td>22.222</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/partner-up/the-green-web-dev-partner</th>
+        <td>1</td>
+        <td>3948</td>
+        <td>139.1</td>
+        <td>21.103</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/branch-issue-9-open-call/open-call-issue-9-gwf-blog</th>
+        <td>1</td>
+        <td>3725</td>
+        <td>137.2</td>
+        <td>20.814</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/estimating-website-emissions-in-the-italian-context-sitigreen-co2-js/def-2023-sitigreen-x-co2js-2</th>
+        <td>1</td>
+        <td>3902</td>
+        <td>140.8</td>
+        <td>21.373</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/formalising-our-co-leadership-model/31-pyramid-1024x428</th>
+        <td>1</td>
+        <td>3714</td>
+        <td>133.9</td>
+        <td>20.320</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/the-eus-digital-services-act-must-ensure-public-data-for-public-interest-research/lock-and-circuit-board</th>
+        <td>1</td>
+        <td>4149</td>
+        <td>139.5</td>
+        <td>21.166</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/gabriela</th>
+        <td>1</td>
+        <td>4078</td>
+        <td>208.5</td>
+        <td>31.635</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/place-policy-procurement-more-levers-for-a-lower-carbon-internet/screenshot-2019-07-10-at-18-50-30</th>
+        <td>1</td>
+        <td>3887</td>
+        <td>147.5</td>
+        <td>22.391</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+
+
+<section aria-labelledby="compare-h">
+  <h2 id="compare-h">Modelled CO2e versus observed energy</h2>
+  <p class="note">
+    Presented side by side in their own units. These columns are deliberately
+    <strong>not</strong> summed or converted into one another.
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Model and measurement, per step</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th>
+        <th scope="col">Transfer (KB)</th>
+        <th scope="col">CO2.js total (mg)</th>
+        <th scope="col">CO2.js device segment (mg)</th>
+        <th scope="col">Observed energy (mWh)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">https://thegreenwebfoundation.org/</th>
+        <td>194.2</td>
+        <td>29.477</td>
+        <td>15.819</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/holistic-security-for-environmental-defenders/img_2633</th>
+        <td>277.6</td>
+        <td>42.124</td>
+        <td>22.607</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/three-levers-for-change-as-a-technologist-consumption-intensity-and-direction/garzweiler-tagebau</th>
+        <td>145.2</td>
+        <td>22.035</td>
+        <td>11.826</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/seeweb-logo-300x89</th>
+        <td>138.1</td>
+        <td>20.965</td>
+        <td>11.251</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/notes-from-green-io-paris-conference/event-report-green-io-conference-london-2024-2</th>
+        <td>137.3</td>
+        <td>20.832</td>
+        <td>11.180</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/a-web-component-for-grid-aware-websites/frame-2</th>
+        <td>141.9</td>
+        <td>21.540</td>
+        <td>11.560</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/thinking-hard-about-the-concept-of-internet-practitioner/ecosys</th>
+        <td>144.3</td>
+        <td>21.892</td>
+        <td>11.749</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/environment-variables-podcast-building-carbon-aware-testbeds/podcast-episode-80</th>
+        <td>140.9</td>
+        <td>21.385</td>
+        <td>11.477</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/our-team/bio-chris-adams/subak-125</th>
+        <td>138.3</td>
+        <td>20.993</td>
+        <td>11.266</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/fellowships/slammer-musuta/greenwebtriangle-1</th>
+        <td>142.4</td>
+        <td>21.610</td>
+        <td>11.598</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/logo-truegreen</th>
+        <td>138.8</td>
+        <td>21.069</td>
+        <td>11.307</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/branch-issue-9-attunement/branch-issue-9-launch</th>
+        <td>142.8</td>
+        <td>21.668</td>
+        <td>11.629</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/4-years-of-twin-transition-european-union-press/coverage20192023_2</th>
+        <td>132.2</td>
+        <td>20.062</td>
+        <td>10.767</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/notes-from-the-sdia-green-coding-summit/screenshot-2023-12-01-at-16-53-06</th>
+        <td>180.7</td>
+        <td>27.416</td>
+        <td>14.713</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/publications/report-fog-of-enactment/1-full-lca-diagram</th>
+        <td>128.4</td>
+        <td>19.485</td>
+        <td>10.457</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/comparing-climate-narratives</th>
+        <td>196.6</td>
+        <td>29.834</td>
+        <td>16.011</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/what-should-sustainability-standards-for-datacentres-be-in-europe-part-3/updated-eu-datacentre-label</th>
+        <td>155.9</td>
+        <td>23.657</td>
+        <td>12.696</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/provisioning-and-providers-two-levers-for-a-lower-carbon-internet</th>
+        <td>215.7</td>
+        <td>32.740</td>
+        <td>17.571</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/audit/green-io-logo</th>
+        <td>133.3</td>
+        <td>20.234</td>
+        <td>10.859</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/release-guide-co2-js-v0-19</th>
+        <td>203.4</td>
+        <td>30.872</td>
+        <td>16.568</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/sidn</th>
+        <td>135.3</td>
+        <td>20.538</td>
+        <td>11.022</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/it-all-revolves-around-environmental-justice</th>
+        <td>181.6</td>
+        <td>27.556</td>
+        <td>14.788</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/create-carbon-txt-files-using-our-new-python-package/group</th>
+        <td>141.0</td>
+        <td>21.400</td>
+        <td>11.485</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/publications/a4-cover-1</th>
+        <td>136.4</td>
+        <td>20.706</td>
+        <td>11.112</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/jobs/mid-senior-product-comms-manager/were-hiring-for-a-product-comms-manager</th>
+        <td>139.2</td>
+        <td>21.122</td>
+        <td>11.335</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/andreea</th>
+        <td>196.8</td>
+        <td>29.869</td>
+        <td>16.029</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/notes-from-the-sdia-green-coding-summit/sdia-2023-workshop-ppt</th>
+        <td>140.2</td>
+        <td>21.272</td>
+        <td>11.416</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/how-much-of-the-internet-is-covered-by-credible-net-zero-targets-what-we-learned</th>
+        <td>221.1</td>
+        <td>33.558</td>
+        <td>18.010</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/figuring-out-a-model-for-applying-climate-justice-to-websites/levers-diagram</th>
+        <td>156.4</td>
+        <td>23.729</td>
+        <td>12.734</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/logo-c</th>
+        <td>133.1</td>
+        <td>20.191</td>
+        <td>10.836</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/branch-magazine-issue-3/branch_issue_3_3a-2</th>
+        <td>230.5</td>
+        <td>34.983</td>
+        <td>18.774</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/press-and-media/branch-issue-04-cover-2</th>
+        <td>159.0</td>
+        <td>24.125</td>
+        <td>12.947</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/introducing-our-updated-directory/green-web-hosting-directory-filters</th>
+        <td>158.1</td>
+        <td>23.992</td>
+        <td>12.876</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/fellowship-project-sustainability-and-accountability-in-the-gig-economy/1920px-energy_middle-out2</th>
+        <td>133.9</td>
+        <td>20.318</td>
+        <td>10.904</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/our-submissions-to-the-digital-sustainability-forum</th>
+        <td>171.8</td>
+        <td>26.078</td>
+        <td>13.995</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/who-supports-our-mission/pianod-logo-black-and-yellow-2</th>
+        <td>128.6</td>
+        <td>19.511</td>
+        <td>10.471</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/place-policy-procurement-more-levers-for-a-lower-carbon-internet/scoped-emissions</th>
+        <td>141.8</td>
+        <td>21.523</td>
+        <td>11.551</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/release-guide-co2-js-v0-19/frame-1-6-3</th>
+        <td>144.1</td>
+        <td>21.875</td>
+        <td>11.740</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/putting-the-internet-back-in-the-things</th>
+        <td>210.9</td>
+        <td>32.008</td>
+        <td>17.178</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/a-web-component-for-grid-aware-websites/frame-1-8</th>
+        <td>135.4</td>
+        <td>20.551</td>
+        <td>11.029</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/fieke</th>
+        <td>2234.6</td>
+        <td>339.119</td>
+        <td>181.994</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/good-net-zero-bad-net-zero-crowdsourcing-company-targets-with-wikirate/img-20221103-wa0002</th>
+        <td>144.1</td>
+        <td>21.874</td>
+        <td>11.739</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/fellowships/slammer-musuta/greenwebtriangle2</th>
+        <td>146.4</td>
+        <td>22.222</td>
+        <td>11.926</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/partner-up/the-green-web-dev-partner</th>
+        <td>139.1</td>
+        <td>21.103</td>
+        <td>11.325</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/branch-issue-9-open-call/open-call-issue-9-gwf-blog</th>
+        <td>137.2</td>
+        <td>20.814</td>
+        <td>11.170</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/estimating-website-emissions-in-the-italian-context-sitigreen-co2-js/def-2023-sitigreen-x-co2js-2</th>
+        <td>140.8</td>
+        <td>21.373</td>
+        <td>11.470</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/formalising-our-co-leadership-model/31-pyramid-1024x428</th>
+        <td>133.9</td>
+        <td>20.320</td>
+        <td>10.905</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/the-eus-digital-services-act-must-ensure-public-data-for-public-interest-research/lock-and-circuit-board</th>
+        <td>139.5</td>
+        <td>21.166</td>
+        <td>11.359</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/gabriela</th>
+        <td>208.5</td>
+        <td>31.635</td>
+        <td>16.977</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/place-policy-procurement-more-levers-for-a-lower-carbon-internet/screenshot-2019-07-10-at-18-50-30</th>
+        <td>147.5</td>
+        <td>22.391</td>
+        <td>12.017</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Not enough measured runs to report correlations.</p>
+</section>
+
+
+
+<section aria-labelledby="dist-h">
+  <h2 id="dist-h">Distributions</h2>
+  <p class="note">Full descriptive statistics, given as a table rather than a chart image.</p>
+  <div class="scroll">
+  <table>
+    <caption>Incremental energy per step (mWh)</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th><th scope="col">n</th><th scope="col">min</th>
+        <th scope="col">p25</th><th scope="col">median</th><th scope="col">p75</th>
+        <th scope="col">p95</th><th scope="col">max</th><th scope="col">sd</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="9">No energy data.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+
+
+<section aria-labelledby="lh-h">
+  <h2 id="lh-h">Lighthouse (Chromium lab data)</h2>
+  <p class="boundary">
+    Lighthouse 13.5.0 in HeadlessChrome/156.0.0.0, mobile profile,
+    simulate, 150 ms RTT, 1.6 Mbps, 4× CPU slowdown. Median of 1 run per URL.
+    This is a different browser engine under simulated throttling: it describes lab load
+    performance, not Firefox and not energy, and is never combined with the results above.
+    Main-thread work is the figure closest to client energy, since it counts CPU time.
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Lighthouse scores and lab metrics per URL (performance range across runs in brackets)</caption>
+    <thead><tr>
+      <th scope="col">URL</th><th scope="col">Performance</th><th scope="col">LCP</th>
+      <th scope="col">TBT</th><th scope="col">CLS</th><th scope="col">Main-thread work</th>
+      <th scope="col">Total bytes</th>
+    </tr></thead>
+    <tbody><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/fieke</th>
+        <td>95<br><span class="note">good</span></td>
+        <td>2.3 s</td>
+        <td>87 ms</td>
+        <td>0.001</td>
+        <td>1.5 s</td>
+        <td>1093 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/holistic-security-for-environmental-defenders/img_2633</th>
+        <td>83<br><span class="note">needs improvement</span></td>
+        <td>3.9 s</td>
+        <td>0 ms</td>
+        <td>0</td>
+        <td>0.3 s</td>
+        <td>295 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/branch-magazine-issue-3/branch_issue_3_3a-2</th>
+        <td>71<br><span class="note">needs improvement</span></td>
+        <td>6.4 s</td>
+        <td>0 ms</td>
+        <td>0</td>
+        <td>0.4 s</td>
+        <td>723 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/how-much-of-the-internet-is-covered-by-credible-net-zero-targets-what-we-learned</th>
+        <td>95<br><span class="note">good</span></td>
+        <td>2.5 s</td>
+        <td>0 ms</td>
+        <td>0</td>
+        <td>0.4 s</td>
+        <td>236 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/provisioning-and-providers-two-levers-for-a-lower-carbon-internet</th>
+        <td>90<br><span class="note">good</span></td>
+        <td>3.4 s</td>
+        <td>0 ms</td>
+        <td>0</td>
+        <td>0.3 s</td>
+        <td>218 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/putting-the-internet-back-in-the-things</th>
+        <td>89<br><span class="note">needs improvement</span></td>
+        <td>3.5 s</td>
+        <td>0 ms</td>
+        <td>0</td>
+        <td>0.4 s</td>
+        <td>1276 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/gabriela</th>
+        <td>95<br><span class="note">good</span></td>
+        <td>2.6 s</td>
+        <td>0 ms</td>
+        <td>0</td>
+        <td>0.3 s</td>
+        <td>200 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/release-guide-co2-js-v0-19</th>
+        <td>91<br><span class="note">good</span></td>
+        <td>3.2 s</td>
+        <td>0 ms</td>
+        <td>0</td>
+        <td>0.4 s</td>
+        <td>229 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/author/andreea</th>
+        <td>95<br><span class="note">good</span></td>
+        <td>2.4 s</td>
+        <td>0 ms</td>
+        <td>0.009</td>
+        <td>0.3 s</td>
+        <td>192 KB</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.thegreenwebfoundation.org/news/comparing-climate-narratives</th>
+        <td>95<br><span class="note">good</span></td>
+        <td>2.4 s</td>
+        <td>0 ms</td>
+        <td>0.015</td>
+        <td>0.4 s</td>
+        <td>228 KB</td>
+        
+      </tr></tbody>
+  </table>
+  </div>
+  <h3>Recommendations shared across pages</h3>
+  <p class="note">A failure on most pages usually comes from the theme or a shared asset: one fix lands everywhere.</p>
+  <div class="scroll"><table>
+    <caption>Failing performance audits, by number of pages affected</caption>
+    <thead><tr><th scope="col">Recommendation</th><th scope="col">Pages</th>
+      <th scope="col">Median est. time saved</th><th scope="col">Median est. bytes saved</th></tr></thead>
+    <tbody><tr><th scope="row">Document request latency</th><td>10 of 10</td>
+      <td>1.2 s</td><td>—</td></tr><tr><th scope="row">Use efficient cache lifetimes</th><td>10 of 10</td>
+      <td>0.1 s</td><td>21 KB</td></tr><tr><th scope="row">Reduce unused JavaScript</th><td>10 of 10</td>
+      <td>0.1 s</td><td>21 KB</td></tr><tr><th scope="row">Legacy JavaScript</th><td>10 of 10</td>
+      <td>0.1 s</td><td>10 KB</td></tr><tr><th scope="row">Render-blocking requests</th><td>10 of 10</td>
+      <td>0.1 s</td><td>—</td></tr><tr><th scope="row">Font display</th><td>10 of 10</td>
+      <td>0.1 s</td><td>—</td></tr><tr><th scope="row">Network dependency tree</th><td>10 of 10</td>
+      <td>—</td><td>—</td></tr><tr><th scope="row">Image elements do not have explicit `width` and `height`</th><td>10 of 10</td>
+      <td>—</td><td>—</td></tr><tr><th scope="row">LCP request discovery</th><td>9 of 10</td>
+      <td>—</td><td>—</td></tr><tr><th scope="row">Improve image delivery</th><td>7 of 10</td>
+      <td>0.3 s</td><td>31 KB</td></tr><tr><th scope="row">LCP breakdown</th><td>2 of 10</td>
+      <td>—</td><td>—</td></tr></tbody>
+  </table></div>
+  <h3>Per-URL recommendations</h3><details>
+  <summary>https://www.thegreenwebfoundation.org/news/author/fieke — 10 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,360 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/image-delivery">Improve image delivery</a> — Est savings of 848 KiB</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 30 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a></li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.6 s · Script Evaluation 0.4 s · Style &amp; Layout 0.2 s · Parse HTML &amp; CSS 0.2 s · Rendering 0.1 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/holistic-security-for-environmental-defenders/img_2633 — 11 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,190 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/image-delivery">Improve image delivery</a> — Est savings of 86 KiB</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a> — Est savings of 120 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 50 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-breakdown">LCP breakdown</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Script Evaluation 0.1 s · Style &amp; Layout 0.1 s · Parse HTML &amp; CSS 0.0 s · Rendering 0.0 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/branch-magazine-issue-3/branch_issue_3_3a-2 — 11 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/image-delivery">Improve image delivery</a> — Est savings of 496 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,150 ms</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a> — Est savings of 90 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 40 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-breakdown">LCP breakdown</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Script Evaluation 0.1 s · Style &amp; Layout 0.1 s · Parse HTML &amp; CSS 0.0 s · Rendering 0.0 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/how-much-of-the-internet-is-covered-by-credible-net-zero-targets-what-we-learned — 8 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,480 ms</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 50 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a></li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Style &amp; Layout 0.1 s · Script Evaluation 0.1 s · Parse HTML &amp; CSS 0.0 s · Rendering 0.0 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/provisioning-and-providers-two-levers-for-a-lower-carbon-internet — 9 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,380 ms</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 30 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a></li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Script Evaluation 0.1 s · Style &amp; Layout 0.1 s · Parse HTML &amp; CSS 0.0 s · Rendering 0.0 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/putting-the-internet-back-in-the-things — 9 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,250 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 40 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 42 KiB</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a></li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Script Evaluation 0.1 s · Style &amp; Layout 0.1 s · Parse HTML &amp; CSS 0.0 s · Rendering 0.0 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/author/gabriela — 10 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,500 ms</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 50 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/image-delivery">Improve image delivery</a> — Est savings of 11 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a></li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Script Evaluation 0.1 s · Style &amp; Layout 0.0 s · Parse HTML &amp; CSS 0.0 s · Script Parsing &amp; Compilation 0.0 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/release-guide-co2-js-v0-19 — 10 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,180 ms</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 30 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/image-delivery">Improve image delivery</a> — Est savings of 27 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a></li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Script Evaluation 0.1 s · Style &amp; Layout 0.1 s · Parse HTML &amp; CSS 0.0 s · Rendering 0.0 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/author/andreea — 10 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,140 ms</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a> — Est savings of 140 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 30 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/image-delivery">Improve image delivery</a> — Est savings of 11 KiB</li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Script Evaluation 0.1 s · Style &amp; Layout 0.0 s · Parse HTML &amp; CSS 0.0 s · Rendering 0.0 s</p>
+  
+</details><details>
+  <summary>https://www.thegreenwebfoundation.org/news/comparing-climate-narratives — 10 recommendations</summary>
+  <ol><li><a href="https://developer.chrome.com/docs/performance/insights/document-latency">Document request latency</a> — Est savings of 1,200 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/render-blocking">Render-blocking requests</a> — Est savings of 270 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/image-delivery">Improve image delivery</a> — Est savings of 31 KiB</li><li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-javascript/">Reduce unused JavaScript</a> — Est savings of 21 KiB</li><li><a href="https://developer.chrome.com/docs/performance/insights/font-display">Font display</a> — Est savings of 30 ms</li><li><a href="https://developer.chrome.com/docs/performance/insights/lcp-discovery">LCP request discovery</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/network-dependency-tree">Network dependency tree</a></li><li><a href="https://developer.chrome.com/docs/performance/insights/cache">Use efficient cache lifetimes</a> — Est savings of 21 KiB</li><li><a href="https://web.dev/articles/baseline-and-polyfills">Legacy JavaScript</a> — Est savings of 10 KiB</li><li><a href="https://web.dev/articles/optimize-cls#images_without_dimensions">Image elements do not have explicit `width` and `height`</a></li></ol>
+  <p class="note">Main-thread work by category: Other 0.1 s · Script Evaluation 0.1 s · Style &amp; Layout 0.1 s · Parse HTML &amp; CSS 0.0 s · Rendering 0.0 s</p>
+  
+</details>
+</section>
+
+<section aria-labelledby="webnrg-h">
+  <h2 id="webnrg-h">Lab check: webNRG</h2>
+  <p>Green Metrics Tool lab run: Playwright Firefox in a container on a dedicated machine, warm Squid cache, RAPL CPU package energy for the page load plus 5 s idle, no idle subtraction. Not comparable as a ratio with this scanner's own figures; shown beside them.
+    Every webNRG result is public on <a href="https://metrics.green-coding.io/">metrics.green-coding.io</a>.</p>
+  <div class="scroll">
+  <table>
+    <caption>webNRG figures for the Visit page and idle for 5 s phase</caption>
+    <thead><tr><th scope="col">Page</th><th scope="col">CPU energy</th><th scope="col">CPU power</th>
+      <th scope="col">Transfer</th><th scope="col">webNRG grades</th><th scope="col">Status</th></tr></thead>
+    <tbody><tr><th scope="row"><a href="https://website-tester.green-coding.io/details.html?page=https%3A%2F%2Fwww.thegreenwebfoundation.org%2Fnews%2Fauthor%2Ffieke">https://www.thegreenwebfoundation.org/news/author/fieke</a></th>
+        <td>—</td><td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>requested, not finished yet</td></tr><tr><th scope="row"><a href="https://website-tester.green-coding.io/details.html?page=https%3A%2F%2Fwww.thegreenwebfoundation.org%2Fnews%2Fholistic-security-for-environmental-defenders%2Fimg_2633">https://www.thegreenwebfoundation.org/news/holistic-security-for-environmental-defenders/img_2633</a></th>
+        <td>—</td><td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>requested, not finished yet</td></tr><tr><th scope="row"><a href="https://website-tester.green-coding.io/details.html?page=https%3A%2F%2Fwww.thegreenwebfoundation.org%2Fnews%2Fbranch-magazine-issue-3%2Fbranch_issue_3_3a-2">https://www.thegreenwebfoundation.org/news/branch-magazine-issue-3/branch_issue_3_3a-2</a></th>
+        <td>—</td><td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>requested, not finished yet</td></tr></tbody>
+  </table>
+  </div>
+</section>
+
+<section aria-labelledby="env-h">
+  <h2 id="env-h">Environment</h2>
+  <dl class="meta">
+    <dt>OS</dt><dd>linux 7.0.0-1017-azure (x64)</dd>
+    <dt>CPU count</dt><dd>4</dd>
+    <dt>Firefox</dt><dd>153.0</dd>
+    <dt>Playwright</dt><dd>1.62.1</dd>
+    <dt>CO2.js</dt><dd>0.19.0</dd>
+    <dt>Energy adapter</dt><dd>auto</dd>
+    <dt>Browser mode</dt><dd>headless</dd>
+    <dt>Viewport</dt><dd>1024×768</dd>
+    <dt>Power source</dt><dd>unknown</dd>
+    <dt>Low Power Mode</dt><dd>unknown</dd>
+  </dl>
+  
+</section>
+
+<section aria-labelledby="method-h">
+  <h2 id="method-h">Methodology</h2>
+  <p>
+    Energy is attributed to a step by <strong>time window</strong>: the harness records
+    wall-clock boundaries and integrates Firefox's power counters over that range.
+    Any concurrent browser activity inside the window is included. Counter samples are
+    picowatt-hours, converted with <code>joules = pWh × 1e-12 × 3600</code>.
+  </p>
+  <p>
+    Baseline correction retains all three values — raw measured energy, the estimated idle
+    energy, and the incremental difference. Negative incremental values are reported as-is
+    and flagged as noisy rather than clamped to zero.
+  </p>
+  <p>
+    Class C is opt-in. It is omitted entirely unless a grid intensity was declared for the
+    session, and it is derived from Class B only — the CO2.js estimate is never converted,
+    summed or averaged with anything. See <code>docs/methodology.md</code>.
+  </p>
+</section>
+</body>
+</html>
