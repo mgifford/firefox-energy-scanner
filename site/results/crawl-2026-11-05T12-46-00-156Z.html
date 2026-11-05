@@ -1,0 +1,1181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web energy benchmark — https://www.cms.gov/</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#fff; --muted:#555; --line:#d0d0d0; --accent:#0b5fff; --warn:#8a5300; --warnbg:#fff6e5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e8e8e8; --bg:#141414; --muted:#aaa; --line:#3a3a3a; --accent:#7aa7ff; --warn:#ffcf80; --warnbg:#3a2c10; }
+  }
+  body { font: 16px/1.55 system-ui, sans-serif; color: var(--fg); background: var(--bg);
+         margin: 0 auto; max-width: 68rem; padding: 2rem 1rem; }
+  h1,h2,h3 { line-height: 1.25; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  caption { text-align: left; font-weight: 600; padding-bottom: .5rem; }
+  th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: right; }
+  th[scope="row"], td:first-child, th:first-child, td.text, th.text { text-align: left; }
+  thead th { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+  .note { color: var(--muted); font-size: .92rem; }
+  .warning { background: var(--warnbg); border-left: 4px solid var(--warn); padding: .75rem 1rem; margin: 1rem 0; }
+  .boundary { border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 1rem; margin: 1.5rem 0; }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; }
+  dl.meta dt { color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  code { font-size: .9em; }
+  table.families th[scope="row"], table.families td.text { overflow-wrap: anywhere; min-width: 9rem; }
+  details summary, details li, details p { overflow-wrap: anywhere; }
+  .remedy { border-left: 3px solid var(--accent); padding: .1rem .75rem; margin: .75rem 0; }
+  .maps { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; }
+  .page-map { margin: 0; max-width: 100%; }
+  .page-map svg { display: block; max-width: 100%; height: auto; }
+  .page-map .page { fill: none; stroke: var(--line); }
+  .page-map .fold { stroke: var(--muted); stroke-dasharray: 4 3; }
+  .page-map .item rect { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 2; }
+  .page-map .item .tag { fill: var(--accent); stroke: none; }
+  .page-map text { fill: var(--bg); font: 600 10px system-ui, sans-serif; }
+  .map-list { font-size: .92rem; }
+  @media (forced-colors: active) {
+    .page-map .page, .page-map .item rect { stroke: CanvasText; fill: none; }
+    .page-map .item .tag { fill: CanvasText; }
+    .page-map text { fill: Canvas; }
+    .page-map .fold { stroke: GrayText; }
+  }
+  details { border: 1px solid var(--line); padding: .5rem .75rem; margin: .5rem 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  @media (forced-colors: active) { details, .boundary, .warning { border-color: CanvasText; } }
+</style>
+</head>
+<body>
+<h1>Web energy benchmark</h1>
+<p class="note">
+  Session <code>d9b7f7b1-cae6-44e3-9ee3-9c25aeb3dac9</code>, mode <code>crawl</code>,
+  generated 2026-11-05T12:45:55.422Z.
+</p>
+
+<section class="boundary" aria-labelledby="boundary-h">
+  <h2 id="boundary-h">What these numbers mean</h2>
+  <p>
+    This report contains <strong>three different classes of sustainability indicator</strong>.
+    They have different system boundaries and different units, and they are not interchangeable.
+    The first two are always present. The third appears only when a grid intensity was declared.
+  </p>
+  <dl>
+    <dt><strong>A. Modelled CO2e (CO2.js)</strong></dt>
+    <dd>Estimated emissions derived from transferred bytes and model assumptions. Not a measurement.</dd>
+    <dt><strong>B. Observed client energy (Firefox power counters)</strong></dt>
+    <dd>
+      Energy drawn by Firefox processes on this client machine during the workload.
+      Scope is the browser's processes — not the display, not the server, and not the network.
+    </dd>
+    <dt><strong>C. Grid-derived carbon (from B, not from A)</strong></dt>
+    <dd>
+      Carbon implied by the electricity measured in B, at a grid intensity declared by the
+      operator. It is derived from observed energy and carries that assumption with it.
+      It is <strong>not</strong> a conversion of the CO2.js estimate, and the CO2.js estimate is
+      never converted into it.
+    </dd>
+  </dl>
+  <p>
+    The measurement boundary is the <strong>client machine only</strong>. These results do not
+    measure server, PHP, database, data-centre, or whole-Internet energy, and they are not a
+    total carbon figure for the site.
+  </p>
+</section>
+
+<section aria-labelledby="warn-h"><h2 id="warn-h">Warnings</h2><p class="warning">No power counters were found in the Gecko profile. Energy values are unavailable on this platform; timing and network metrics are still valid.</p><p class="warning">Crawl mode is for discovery and broad assessment. It is not a controlled regression workload; use journey mode for A/B comparisons.</p></section>
+
+<section aria-labelledby="summary-h">
+  <h2 id="summary-h">Per-step summary</h2>
+  <p class="note">
+    Median is the headline statistic. Warmup runs are excluded.
+    No energy values were captured in this session.
+    
+    
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Measured steps (n = number of non-warmup runs)</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th><th scope="col">n</th>
+        <th scope="col">Duration median (ms)</th>
+        <th scope="col">Transfer median (KB)</th>
+        <th scope="col">CO2.js median (mg)</th>
+        <th scope="col">Incremental energy median (mWh)</th>
+        <th scope="col">Energy IQR (mWh)</th>
+        
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">https://www.cms.gov/</th>
+        <td>1</td>
+        <td>3504</td>
+        <td>1201.6</td>
+        <td>177.023</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r11251cp</th>
+        <td>1</td>
+        <td>2783</td>
+        <td>534.9</td>
+        <td>75.832</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/research-statistics-data-and-systems/statistics-trends-and-reports/reports/research-reports-items/cms1243161</th>
+        <td>1</td>
+        <td>3296</td>
+        <td>621.0</td>
+        <td>88.911</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/research-statistics-data-and-systems/computer-data-and-systems/medicaiddatasourcesgeninfo/max-validation-reports-items/cms1238581</th>
+        <td>1</td>
+        <td>2866</td>
+        <td>454.3</td>
+        <td>63.607</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/regulations-guidance/transmittals/2024-transmittals/r12497bp</th>
+        <td>1</td>
+        <td>2983</td>
+        <td>532.2</td>
+        <td>75.437</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/research-statistics-data-and-systems/research/healthcarefinancingreview/list-of-past-articles-items/cms1192033</th>
+        <td>1</td>
+        <td>3069</td>
+        <td>454.6</td>
+        <td>63.663</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/coordination-of-benefits-and-recovery/workers-compensation-medicare-set-aside-arrangements/wcmsap/wcmsap-items/alerts</th>
+        <td>1</td>
+        <td>3041</td>
+        <td>454.2</td>
+        <td>63.598</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/provider-enrollment-and-certification/surveycertificationgeninfo/policy-and-memos-to-states-and-regions-items/cms1253857</th>
+        <td>1</td>
+        <td>2856</td>
+        <td>454.4</td>
+        <td>63.634</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/data-research/statistics-trends-and-reports/medicare-advantagepart-d-contract-and-enrollment-data/ma-contract-service-area-state/county/ma-contract-service-area-2023-10</th>
+        <td>1</td>
+        <td>2908</td>
+        <td>454.1</td>
+        <td>63.577</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/research-statistics-data-and-systems/downloadable-public-use-files/cost-reports/hha-20-fy-2023</th>
+        <td>1</td>
+        <td>2680</td>
+        <td>454.0</td>
+        <td>63.565</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/coverage/investigational-device-exemption-ide-studies/approved/g230050-nct05650658</th>
+        <td>1</td>
+        <td>3113</td>
+        <td>620.8</td>
+        <td>88.878</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023</th>
+        <td>1</td>
+        <td>3367</td>
+        <td>621.3</td>
+        <td>88.959</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/payment/part-b-drugs/asp-education-outreach/product-data-template</th>
+        <td>1</td>
+        <td>3194</td>
+        <td>454.2</td>
+        <td>63.594</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic</th>
+        <td>1</td>
+        <td>2717</td>
+        <td>454.5</td>
+        <td>63.644</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/audits-compliance/part-c-d/pharmaceutical-manufacturer-enforcement-actions/p1571-primal-critical-care-pharmaceutical-manufacturers-cmp-determination-notice-letter</th>
+        <td>1</td>
+        <td>3199</td>
+        <td>620.9</td>
+        <td>88.901</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/httpswwwcmsgovresearch-statistics-data-and-systemsdownloadable-public-use-filescost-reportscost/2021-1</th>
+        <td>1</td>
+        <td>2903</td>
+        <td>454.1</td>
+        <td>63.584</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r12028msp</th>
+        <td>1</td>
+        <td>2911</td>
+        <td>454.3</td>
+        <td>63.612</td>
+        <td>—</td>
+        <td>—</td>
+        
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section aria-labelledby="failed-h">
+  <h2 id="failed-h">Not measured</h2>
+  <p class="note">No measured run of these steps succeeded, so they are left out of every table above.</p>
+  <ul><li><strong>https://www.cms.gov/files/document/flash-item-testdocx</strong><br>Not a web page: the URL starts a file download (for example a PDF) instead of rendering a page, so there is nothing for the browser to lay out or paint. It was not measured.</li><li><strong>https://www.cms.gov/files/zip/oct6confcallzip</strong><br>Not a web page: the URL starts a file download (for example a PDF) instead of rendering a page, so there is nothing for the browser to lay out or paint. It was not measured.</li><li><strong>https://www.cms.gov/medicare/fraud-and-abuse/physicianselfreferral/downloads/cms4068fpdf</strong><br>Not a web page: the URL starts a file download (for example a PDF) instead of rendering a page, so there is nothing for the browser to lay out or paint. It was not measured.</li></ul>
+</section>
+
+
+
+<section aria-labelledby="investigate-h">
+  <h2 id="investigate-h">Investigate first</h2>
+  <p>What to look at, in order. The order is a sort on these keys, one after another, each shown in its own column. It is <strong>not a score</strong>, and nothing in it is an energy figure:</p>
+  <ol class="note"><li>evidence: a structural fact and a Lighthouse finding, then a Lighthouse finding, then a structural fact</li><li>reach: pages it is on</li><li>opportunity: a known remedy applies</li><li>workload: elements, or Chromium main-thread time for scripts</li></ol>
+  <div class="scroll"><table class="families">
+    <caption>Investigation queue</caption>
+    <thead><tr><th scope="col">#</th><th scope="col" class="text">What</th><th scope="col" class="text">Evidence</th><th scope="col">Pages</th>
+      <th scope="col" class="text">Workload</th><th scope="col" class="text">Remedy</th><th scope="col" class="text">Confidence</th></tr></thead>
+    <tbody><tr><td>1</td><th scope="row"><a href="#q-cmp-ba3882d0">class:menu</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">3034 elements (189%)</td><td class="text">Render fewer elements</td><td class="text">low</td></tr><tr><td>2</td><th scope="row"><a href="#q-cmp-76f7c2a0">class:menu-item</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">2424 elements (151%)</td><td class="text">Render fewer elements</td><td class="text">low</td></tr><tr><td>3</td><th scope="row"><a href="#q-cmp-1d1d0dbb">class:dialog-off-canvas-main-canvas</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">1554 elements (98%)<br>123 KB loaded</td><td class="text">Lazy-load images below the first screen</td><td class="text">low</td></tr><tr><td>4</td><th scope="row"><a href="#q-cmp-e92e319d">class:ds-l-container</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">1538 elements (97%)<br>7 KB loaded</td><td class="text">Lazy-load images below the first screen</td><td class="text">low</td></tr><tr><td>5</td><th scope="row"><a href="#q-cmp-dd31db22">class:ds-l-row</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">1523 elements (96%)</td><td class="text">Render fewer elements</td><td class="text">low</td></tr><tr><td>6</td><th scope="row"><a href="#q-cmp-20967d16">class:header</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">1367 elements (85%)<br>3 KB loaded</td><td class="text">Render fewer elements</td><td class="text">low</td></tr><tr><td>7</td><th scope="row"><a href="#q-cmp-4ab89d12">class:header-main-menu-wrapper</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">1245 elements (78%)</td><td class="text">Render fewer elements</td><td class="text">low</td></tr><tr><td>8</td><th scope="row"><a href="#q-cmp-a99136de">drupal-region:cms-header-navigation</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">1241 elements (78%)</td><td class="text">Render fewer elements</td><td class="text">high</td></tr><tr><td>9</td><th scope="row"><a href="#q-cmp-e07f195e">class:menu-wrapper</a><br><span class="note">component</span></th>
+      <td class="text">structure</td><td>17 of 17</td>
+      <td class="text">604 elements (38%)</td><td class="text">Render fewer elements</td><td class="text">low</td></tr></tbody>
+  </table></div>
+  <h3>Where they are</h3>
+  <p class="note">Each map is a page drawn from the positions recorded in Firefox, 20% of its size, with numbered boxes for queued components. The list under each map gives the same positions.</p>
+  <div class="maps"><figure class="page-map" aria-labelledby="map-0">
+    <svg aria-hidden="true" focusable="false" width="256" height="355" viewBox="0 0 256 355">
+      <rect class="page" x="0" y="0" width="256" height="355"></rect>
+      <g class="item"><rect x="0" y="0" width="256" height="355"></rect><rect x="0" y="0" width="256" height="52"></rect><rect x="0" y="26" width="256" height="12"></rect><rect x="0" y="26" width="256" height="12"></rect><rect x="0" y="26" width="256" height="12"></rect><rect x="3" y="26" width="250" height="12"></rect><rect x="6" y="26" width="243" height="12"></rect><rect x="16" y="26" width="27" height="12"></rect></g>
+      <line class="fold" x1="0" y1="160" x2="256" y2="160"></line>
+      <g class="item"><rect class="tag" x="0" y="0" width="15" height="15"></rect><text x="4" y="11">3</text><rect class="tag" x="17" y="0" width="15" height="15"></rect><text x="21" y="11">6</text><rect class="tag" x="0" y="26" width="15" height="15"></rect><text x="4" y="37">1</text><rect class="tag" x="17" y="26" width="15" height="15"></rect><text x="21" y="37">4</text><rect class="tag" x="34" y="26" width="15" height="15"></rect><text x="38" y="37">7</text><rect class="tag" x="54" y="26" width="15" height="15"></rect><text x="58" y="37">5</text><rect class="tag" x="74" y="26" width="15" height="15"></rect><text x="78" y="37">8</text><rect class="tag" x="101" y="26" width="15" height="15"></rect><text x="105" y="37">2</text></g>
+    </svg>
+    <figcaption id="map-0"><a href="https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r12028msp">…nce/transmittals/transmittals/r12028msp</a>: the dashed line is the end of the first screen.</figcaption>
+    <ol class="map-list"><li value="1"><a href="#q-cmp-ba3882d0">class:menu</a>: 129 px down, 1280×60 px</li><li value="2"><a href="#q-cmp-76f7c2a0">class:menu-item</a>: 129 px down, 134×60 px</li><li value="3"><a href="#q-cmp-1d1d0dbb">class:dialog-off-canvas-main-canvas</a>: 0 px down, 1280×1773 px</li><li value="4"><a href="#q-cmp-e92e319d">class:ds-l-container</a>: 129 px down, 1280×60 px</li><li value="5"><a href="#q-cmp-dd31db22">class:ds-l-row</a>: 129 px down, 1248×60 px</li><li value="6"><a href="#q-cmp-20967d16">class:header</a>: 0 px down, 1280×261 px</li><li value="7"><a href="#q-cmp-4ab89d12">class:header-main-menu-wrapper</a>: 129 px down, 1280×60 px</li><li value="8"><a href="#q-cmp-a99136de">drupal-region:cms-header-navigation</a>: 129 px down, 1216×60 px</li></ol>
+  </figure><figure class="page-map" aria-labelledby="map-1">
+    <svg aria-hidden="true" focusable="false" width="256" height="708" viewBox="0 0 256 708">
+      <rect class="page" x="0" y="0" width="256" height="708"></rect>
+      <g class="item"><rect x="0" y="0" width="256" height="708"></rect><rect x="0" y="0" width="256" height="38"></rect><rect x="0" y="26" width="256" height="12"></rect><rect x="0" y="26" width="256" height="12"></rect><rect x="0" y="26" width="256" height="12"></rect><rect x="3" y="26" width="250" height="12"></rect><rect x="6" y="26" width="243" height="12"></rect><rect x="16" y="26" width="27" height="12"></rect></g>
+      <line class="fold" x1="0" y1="160" x2="256" y2="160"></line>
+      <g class="item"><rect class="tag" x="0" y="0" width="15" height="15"></rect><text x="4" y="11">3</text><rect class="tag" x="17" y="0" width="15" height="15"></rect><text x="21" y="11">6</text><rect class="tag" x="0" y="26" width="15" height="15"></rect><text x="4" y="37">1</text><rect class="tag" x="17" y="26" width="15" height="15"></rect><text x="21" y="37">4</text><rect class="tag" x="34" y="26" width="15" height="15"></rect><text x="38" y="37">7</text><rect class="tag" x="54" y="26" width="15" height="15"></rect><text x="58" y="37">5</text><rect class="tag" x="74" y="26" width="15" height="15"></rect><text x="78" y="37">8</text><rect class="tag" x="101" y="26" width="15" height="15"></rect><text x="105" y="37">2</text></g>
+    </svg>
+    <figcaption id="map-1"><a href="https://www.cms.gov/">/</a>: the dashed line is the end of the first screen.</figcaption>
+    <ol class="map-list"><li value="1"><a href="#q-cmp-ba3882d0">class:menu</a>: 129 px down, 1280×60 px</li><li value="2"><a href="#q-cmp-76f7c2a0">class:menu-item</a>: 129 px down, 134×60 px</li><li value="3"><a href="#q-cmp-1d1d0dbb">class:dialog-off-canvas-main-canvas</a>: 0 px down, 1280×3541 px</li><li value="4"><a href="#q-cmp-e92e319d">class:ds-l-container</a>: 129 px down, 1280×60 px</li><li value="5"><a href="#q-cmp-dd31db22">class:ds-l-row</a>: 129 px down, 1248×60 px</li><li value="6"><a href="#q-cmp-20967d16">class:header</a>: 0 px down, 1280×189 px</li><li value="7"><a href="#q-cmp-4ab89d12">class:header-main-menu-wrapper</a>: 129 px down, 1280×60 px</li><li value="8"><a href="#q-cmp-a99136de">drupal-region:cms-header-navigation</a>: 129 px down, 1216×60 px</li></ol>
+  </figure></div>
+  <details id="q-cmp-ba3882d0">
+    <summary>1. class:menu</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>3034 elements (189% of the page)</li></ul>
+    <p><strong>Where:</strong></p><ul><li><a href="https://www.cms.gov/">/</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu</code>, 129 px down</li></ul>
+    <div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+<details id="q-cmp-76f7c2a0">
+    <summary>2. class:menu-item</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>2424 elements (151% of the page)</li></ul>
+    <p><strong>Where:</strong></p><ul><li><a href="https://www.cms.gov/">/</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu &gt; li.menu-item:nth-of-type(1)</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu &gt; li.menu-item:nth-of-type(1)</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu &gt; li.menu-item:nth-of-type(1)</code>, 129 px down</li></ul>
+    <div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+<details id="q-cmp-1d1d0dbb">
+    <summary>3. class:dialog-off-canvas-main-canvas</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>2 eager images below the first screen</li><li>1554 elements (98% of the page)</li></ul>
+    <p><strong>Where:</strong></p><ul><li><a href="https://www.cms.gov/">/</a> <code>div.dialog-off-canvas-main-canvas</code>, 0 px down</li><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.dialog-off-canvas-main-canvas</code>, 0 px down</li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.dialog-off-canvas-main-canvas</code>, 0 px down</li></ul>
+    <div class="remedy">
+      <p><strong>Lazy-load images below the first screen.</strong> Add loading=&quot;lazy&quot; (and decoding=&quot;async&quot;) to images below the first screen. Never to the LCP image.</p>
+      <p class="note"><strong>Why:</strong> Images nobody scrolls to are still downloaded and decoded at load: transfer, decode and memory for nothing.</p>
+      <p class="note"><strong>Check it:</strong> Compare the page load with and without loading=&quot;lazy&quot;. Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div><div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+<details id="q-cmp-e92e319d">
+    <summary>4. class:ds-l-container</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>2 eager images below the first screen</li><li>1538 elements (97% of the page)</li></ul>
+    <p><strong>Where:</strong></p><ul><li><a href="https://www.cms.gov/">/</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container</code>, 129 px down</li></ul>
+    <div class="remedy">
+      <p><strong>Lazy-load images below the first screen.</strong> Add loading=&quot;lazy&quot; (and decoding=&quot;async&quot;) to images below the first screen. Never to the LCP image.</p>
+      <p class="note"><strong>Why:</strong> Images nobody scrolls to are still downloaded and decoded at load: transfer, decode and memory for nothing.</p>
+      <p class="note"><strong>Check it:</strong> Compare the page load with and without loading=&quot;lazy&quot;. Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div><div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+<details id="q-cmp-dd31db22">
+    <summary>5. class:ds-l-row</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>1523 elements (96% of the page)</li></ul>
+    <p><strong>Where:</strong></p><ul><li><a href="https://www.cms.gov/">/</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container &gt; div.ds-l-row</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container &gt; div.ds-l-row</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container &gt; div.ds-l-row</code>, 129 px down</li></ul>
+    <div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+<details id="q-cmp-20967d16">
+    <summary>6. class:header</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>1367 elements (85% of the page)</li></ul>
+    <p><strong>Where:</strong></p><ul><li><a href="https://www.cms.gov/">/</a> <code>#header</code>, 0 px down</li><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>#header</code>, 0 px down</li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>#header</code>, 0 px down</li></ul>
+    <div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+<details id="q-cmp-4ab89d12">
+    <summary>7. class:header-main-menu-wrapper</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>1245 elements (78% of the page)</li></ul>
+    <p><strong>Where:</strong></p><ul><li><a href="https://www.cms.gov/">/</a> <code>div.header-main-menu-wrapper</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.header-main-menu-wrapper</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.header-main-menu-wrapper</code>, 129 px down</li></ul>
+    <div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+<details id="q-cmp-a99136de">
+    <summary>8. drupal-region:cms-header-navigation</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>1241 elements (78% of the page)</li></ul>
+    <p><strong>Where:</strong></p><ul><li><a href="https://www.cms.gov/">/</a> <code>div.region-cms-header-navigation</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.region-cms-header-navigation</code>, 129 px down</li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.region-cms-header-navigation</code>, 129 px down</li></ul>
+    <div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+<details id="q-cmp-e07f195e">
+    <summary>9. class:menu-wrapper</summary>
+    <p><strong>Why it is here:</strong></p>
+    <ul><li>604 elements (38% of the page)</li></ul>
+    
+    <div class="remedy">
+      <p><strong>Render fewer elements.</strong> Paginate or virtualise long lists, render menus and other hidden content on demand rather than on every page, and remove wrappers that exist only for styling.</p>
+      <p class="note"><strong>Why:</strong> Every element is re-examined on style recalculation and layout, so a large subtree costs work on load and on every later change.</p>
+      <p class="note"><strong>Check it:</strong> Compare the template with the smaller markup (a paginated or virtualised variant). Measure it with `web-energy experiment --from &lt;result.json&gt; --item &lt;n&gt;` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.</p>
+    </div>
+    
+  </details>
+  <ul class="note"><li>The order is a sort on the keys above, one after another. It is not a score, and nothing in it is an energy figure.</li><li>A remedy is a lead until a measured comparison (with and without the change) shows its effect on this site.</li><li>Without Lighthouse, only structural facts are available; add --lighthouse for element and script findings.</li></ul>
+</section>
+
+<section aria-labelledby="history-h">
+  <h2 id="history-h">Since the last scan</h2>
+  <p>Compared with <code>crawl-2026-11-04T18-47-05-533Z.json</code> (2026-11-04): 1 page measured in both,
+  16 only now, 19 only then.</p>
+  <div class="scroll"><table>
+    <caption>Medians over the pages in both scans (before → now)</caption>
+    <thead><tr><th scope="col">Measure</th><th scope="col">Before → now</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Transfer</th><td>1204 KB → 1202 KB</td></tr>
+      <tr><th scope="row">Elements</th><td>1,954 → 1,954</td></tr>
+      <tr><th scope="row">Requests</th><td>41 → 41</td></tr>
+      
+      <tr><th scope="row">Observed energy, median</th><td>not comparable</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Not comparable: energy was not measured in one or both scans.</p>
+  
+  
+  <ul class="note"><li>Each page was visited once in each scan, so these differences are indicative. No significance is claimed.</li><li>Transfer and elements change with content as well as code: a new article or banner moves them as much as a template change.</li></ul>
+</section>
+
+<section aria-labelledby="families-h">
+  <h2 id="families-h">Page families</h2>
+  <p>17 measured pages group into <strong>2</strong>
+  families by how they are built. A family is a grouping for
+  investigation, not a measurement: start with its representative page, then check the outliers.</p>
+  <div class="scroll"><table class="families">
+    <caption>Page families, largest first (medians of the pages measured in each)</caption>
+    <thead><tr>
+      <th scope="col">Family</th><th scope="col">Pages</th><th scope="col">Representative page</th>
+      <th scope="col">DOM nodes, median (range)</th><th scope="col">Transfer KB, median (range)</th>
+      <th scope="col">Requests, median</th><th scope="col">Cohesion</th><th scope="col">Outliers</th>
+    </tr></thead>
+    <tbody><tr><th scope="row"><a href="#pf-b87c441f">/regulations-and-guidance/guidance/transmittals/transmittals/:id (page-node-type-dynamic-list-item)</a><br><code class="note">pf-b87c441f</code></th>
+        <td>16</td>
+        <td class="text"><a href="https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r12028msp">…ce/guidance/transmittals/transmittals/r12028msp</a></td>
+        <td>1600.5 (1583–1661)</td>
+        <td>454 (454–621)</td>
+        <td>25.5</td>
+        <td>0.79</td>
+        <td>0</td></tr><tr><th scope="row"><a href="#pf-c8e3619a">/ (page-node-type-cms-homepage)</a><br><code class="note">pf-c8e3619a</code></th>
+        <td>1</td>
+        <td class="text"><a href="https://www.cms.gov/">/</a></td>
+        <td>1954 (1954–1954)</td>
+        <td>1202 (1202–1202)</td>
+        <td>41</td>
+        <td>1.00</td>
+        <td>0</td></tr></tbody>
+  </table></div>
+  <details id="pf-b87c441f">
+    <summary>/regulations-and-guidance/guidance/transmittals/transmittals/:id (page-node-type-dynamic-list-item) — 16 pages</summary>
+    <p>Shared by most of its pages: component <code>class:cms-evo-unstyled-list</code>, component <code>class:cms-popular-search-terms</code>, component <code>class:dialog-off-canvas-main-canvas</code>, component <code>class:ds-c-usa-banner</code>, component <code>class:ds-l-container</code>, component <code>class:ds-l-row</code>, component <code>class:footer-social</code>, component <code>class:form-item</code>, component <code>class:header</code>, component <code>class:header-main-menu-wrapper</code>, component <code>class:header-top-wrapper</code>, component <code>class:logos-social-wrapper</code>, component <code>class:menu</code>, component <code>class:menu-item</code>, component <code>class:menu-wrapper</code>, component <code>drupal-block:core</code>, component <code>drupal-block:search</code>, component <code>drupal-block:system</code>, component <code>drupal-node:dynamic-list-item:full</code>, component <code>drupal-paragraph:dynamic-list-information</code>, and 15 more.</p>
+    
+    <p>Pages:</p>
+    <ul><li><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023</a></li><li><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic</a></li><li><a href="https://www.cms.gov/data-research/statistics-trends-and-reports/medicare-advantagepart-d-contract-and-enrollment-data/ma-contract-service-area-state/county/ma-contract-service-area-2023-10">https://www.cms.gov/data-research/statistics-trends-and-reports/medicare-advantagepart-d-contract-and-enrollment-data/ma-contract-service-area-state/county/ma-contract-service-area-2023-10</a></li><li><a href="https://www.cms.gov/httpswwwcmsgovresearch-statistics-data-and-systemsdownloadable-public-use-filescost-reportscost/2021-1">https://www.cms.gov/httpswwwcmsgovresearch-statistics-data-and-systemsdownloadable-public-use-filescost-reportscost/2021-1</a></li><li><a href="https://www.cms.gov/medicare/audits-compliance/part-c-d/pharmaceutical-manufacturer-enforcement-actions/p1571-primal-critical-care-pharmaceutical-manufacturers-cmp-determination-notice-letter">https://www.cms.gov/medicare/audits-compliance/part-c-d/pharmaceutical-manufacturer-enforcement-actions/p1571-primal-critical-care-pharmaceutical-manufacturers-cmp-determination-notice-letter</a></li><li><a href="https://www.cms.gov/medicare/coordination-of-benefits-and-recovery/workers-compensation-medicare-set-aside-arrangements/wcmsap/wcmsap-items/alerts">https://www.cms.gov/medicare/coordination-of-benefits-and-recovery/workers-compensation-medicare-set-aside-arrangements/wcmsap/wcmsap-items/alerts</a></li><li><a href="https://www.cms.gov/medicare/coverage/investigational-device-exemption-ide-studies/approved/g230050-nct05650658">https://www.cms.gov/medicare/coverage/investigational-device-exemption-ide-studies/approved/g230050-nct05650658</a></li><li><a href="https://www.cms.gov/medicare/payment/part-b-drugs/asp-education-outreach/product-data-template">https://www.cms.gov/medicare/payment/part-b-drugs/asp-education-outreach/product-data-template</a></li><li><a href="https://www.cms.gov/medicare/provider-enrollment-and-certification/surveycertificationgeninfo/policy-and-memos-to-states-and-regions-items/cms1253857">https://www.cms.gov/medicare/provider-enrollment-and-certification/surveycertificationgeninfo/policy-and-memos-to-states-and-regions-items/cms1253857</a></li><li><a href="https://www.cms.gov/medicare/regulations-guidance/transmittals/2024-transmittals/r12497bp">https://www.cms.gov/medicare/regulations-guidance/transmittals/2024-transmittals/r12497bp</a></li><li><a href="https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r11251cp">https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r11251cp</a></li><li><a href="https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r12028msp">https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r12028msp</a> (representative)</li><li><a href="https://www.cms.gov/research-statistics-data-and-systems/computer-data-and-systems/medicaiddatasourcesgeninfo/max-validation-reports-items/cms1238581">https://www.cms.gov/research-statistics-data-and-systems/computer-data-and-systems/medicaiddatasourcesgeninfo/max-validation-reports-items/cms1238581</a></li><li><a href="https://www.cms.gov/research-statistics-data-and-systems/downloadable-public-use-files/cost-reports/hha-20-fy-2023">https://www.cms.gov/research-statistics-data-and-systems/downloadable-public-use-files/cost-reports/hha-20-fy-2023</a></li><li><a href="https://www.cms.gov/research-statistics-data-and-systems/research/healthcarefinancingreview/list-of-past-articles-items/cms1192033">https://www.cms.gov/research-statistics-data-and-systems/research/healthcarefinancingreview/list-of-past-articles-items/cms1192033</a></li><li><a href="https://www.cms.gov/research-statistics-data-and-systems/statistics-trends-and-reports/reports/research-reports-items/cms1243161">https://www.cms.gov/research-statistics-data-and-systems/statistics-trends-and-reports/reports/research-reports-items/cms1243161</a></li></ul>
+  </details>
+<details id="pf-c8e3619a">
+    <summary>/ (page-node-type-cms-homepage) — 1 page</summary>
+    <p>Shared by most of its pages: component <code>class:agency-priorities</code>, component <code>class:cms-popular-search-terms</code>, component <code>class:dialog-off-canvas-main-canvas</code>, component <code>class:ds-c-usa-banner</code>, component <code>class:ds-l-container</code>, component <code>class:ds-l-row</code>, component <code>class:form-item</code>, component <code>class:header</code>, component <code>class:header-main-menu-wrapper</code>, component <code>class:header-top-wrapper</code>, component <code>class:item-list</code>, component <code>class:light-blue-background</code>, component <code>class:light-gray-background</code>, component <code>class:logos-social-wrapper</code>, component <code>class:menu</code>, component <code>class:menu-item</code>, component <code>class:menu-wrapper</code>, component <code>class:program-websites</code>, component <code>class:responsive-tabs-wrapper</code>, component <code>class:shared-image-container</code>, and 23 more.</p>
+    
+    <p>Pages:</p>
+    <ul><li><a href="https://www.cms.gov/">https://www.cms.gov/</a> (representative)</li></ul>
+  </details>
+  <ul class="note"><li>Families group the 17 pages measured in this scan out of 4729 the sitemap lists. Their figures are medians of those pages and are not extrapolated to pages that were not measured.</li><li>Pages are grouped by how they are built (components, landmarks, scripts and stylesheets, template, URL pattern), not by what they cost. Pages in one family can still differ in content, media and behaviour after interaction.</li></ul>
+  <p class="note">Method <code>structure-v1</code>: weighted Jaccard similarity of components, scripts and stylesheets,
+  landmarks, Drupal template and URL pattern, then average-linkage clustering at 0.6. Cohesion is the mean similarity
+  of a family’s pages, from 0 to 1.</p>
+  <h3 id="sampling-h">How the pages were chosen</h3>
+  <p>20 pages by a seeded sample spread across the URL sections of the site’s sitemap, from 4729 pages the sitemap lists.
+  Reasons: 1 start page, 14 one per URL section, 4 rare URL section, 1 share of a large section.</p>
+  <div class="scroll"><table>
+    <caption>URL sections in the sitemap (25 of 50 shown: the largest and every one a page came from)</caption>
+    <thead><tr><th scope="col">Section</th><th scope="col">Pages listed</th><th scope="col">Pages measured</th><th scope="col">Rare</th></tr></thead>
+    <tbody><tr><th scope="row"><code>/regulations-and-guidance/guidance</code></th><td>1132</td><td>2</td><td>no</td></tr><tr><th scope="row"><code>/research-statistics-data-and-systems/statistics-trends-and-reports</code></th><td>639</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/files/document</code></th><td>538</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/research-statistics-data-and-systems/computer-data-and-systems</code></th><td>400</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/medicare/regulations-guidance</code></th><td>377</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/research-statistics-data-and-systems/research</code></th><td>308</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/medicare/coordination-of-benefits-and-recovery</code></th><td>262</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/medicare/provider-enrollment-and-certification</code></th><td>181</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/files/zip</code></th><td>145</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/data-research/statistics-trends-and-reports</code></th><td>130</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/research-statistics-data-and-systems/downloadable-public-use-files</code></th><td>82</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/medicare/coverage</code></th><td>76</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/data-research/cms-information-technology</code></th><td>53</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/medicare/payment</code></th><td>51</td><td>1</td><td>no</td></tr><tr><th scope="row"><code>/about-cms/information-systems</code></th><td>45</td><td>0</td><td>yes</td></tr><tr><th scope="row"><code>/training-education/medicare-learning-network</code></th><td>41</td><td>0</td><td>yes</td></tr><tr><th scope="row"><code>/cciio/programs-and-initiatives</code></th><td>32</td><td>0</td><td>yes</td></tr><tr><th scope="row"><code>/medicare/health-safety-standards</code></th><td>31</td><td>0</td><td>yes</td></tr><tr><th scope="row"><code>/medicare/audits-compliance</code></th><td>23</td><td>1</td><td>yes</td></tr><tr><th scope="row"><code>/research-statistics-data-and-systems/monitoring-programs</code></th><td>23</td><td>0</td><td>yes</td></tr><tr><th scope="row"><code>/cciioprograms-and-initiativeshealth-insurance-marketplacesgeneral-resources</code></th><td>19</td><td>0</td><td>yes</td></tr><tr><th scope="row"><code>/medicare/medicare-fee-for-service-payment</code></th><td>14</td><td>0</td><td>yes</td></tr><tr><th scope="row"><code>/data-research/research</code></th><td>13</td><td>1</td><td>yes</td></tr><tr><th scope="row"><code>/httpswwwcmsgovresearch-statistics-data-and-systemsdownloadable-public-use-filescost-reportscost</code></th><td>4</td><td>1</td><td>yes</td></tr><tr><th scope="row"><code>/medicare/fraud-and-abuse</code></th><td>1</td><td>1</td><td>yes</td></tr></tbody>
+  </table></div>
+  <ul class="note"><li>The sitemap index names 74 sitemaps and 6 were read, so pages listed only in the others could not be picked.</li><li>Sections come from URL paths. Pages in one section can still be built differently; the page families say how the measured pages actually group.</li></ul>
+</section>
+
+<section aria-labelledby="components-h">
+  <h2 id="components-h">Components</h2>
+  <p>60 components recognised on 17 pages.
+  These are the structures that drive browser work and the findings tied to them. <strong>None of these figures is a component’s energy.</strong></p>
+  <div class="scroll"><table class="families">
+    <caption>Components that recur or carry a signal, recurring first</caption>
+    <thead><tr><th scope="col">Component</th><th scope="col">Pages</th><th scope="col">Elements, median</th>
+      <th scope="col">Confidence</th><th scope="col">Signals</th><th scope="col">Lighthouse findings</th></tr></thead>
+    <tbody><tr><th scope="row"><a href="#cmp-ba3882d0">class:menu</a></th>
+      <td>17</td><td>3034</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 34 occurrences on a page hold 189% of the page’s elements (median 3034).</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-76f7c2a0">class:menu-item</a></th>
+      <td>17</td><td>2424</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 64 occurrences on a page hold 151% of the page’s elements (median 2424).</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-1d1d0dbb">class:dialog-off-canvas-main-canvas</a></th>
+      <td>17</td><td>1554</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Holds 98% of a page’s elements (median 1554).</li><li>2 images below the first screen without loading=&quot;lazy&quot;.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-e92e319d">class:ds-l-container</a></th>
+      <td>17</td><td>1538</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 5 occurrences on a page hold 97% of the page’s elements (median 1538).</li><li>2 images below the first screen without loading=&quot;lazy&quot;.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-dd31db22">class:ds-l-row</a></th>
+      <td>17</td><td>1523</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 7 occurrences on a page hold 96% of the page’s elements (median 1523).</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-20967d16">class:header</a></th>
+      <td>17</td><td>1367</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Holds 85% of a page’s elements (median 1367).</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-4ab89d12">class:header-main-menu-wrapper</a></th>
+      <td>17</td><td>1245</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Holds 78% of a page’s elements (median 1245).</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-a99136de">drupal-region:cms-header-navigation</a></th>
+      <td>17</td><td>1241</td><td class="text">high</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Holds 78% of a page’s elements (median 1241).</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-e07f195e">class:menu-wrapper</a></th>
+      <td>17</td><td>604</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 26 occurrences on a page hold 38% of the page’s elements (median 604).</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-040f4727">drupal-region:cms-footer</a></th>
+      <td>17</td><td>82</td><td class="text">high</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-37257afe">class:header-top-wrapper</a></th>
+      <td>17</td><td>59</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-123d0ef6">drupal-block:system</a></th>
+      <td>17</td><td>49</td><td class="text">high</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-1ce7f245">element:ds-usa-banner</a></th>
+      <td>17</td><td>45</td><td class="text">high</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-bac31f86">drupal-region:cms-header-secondary</a></th>
+      <td>17</td><td>45</td><td class="text">high</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-a68b834d">class:ds-c-usa-banner</a></th>
+      <td>17</td><td>43</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-13f8b077">drupal-block:search</a></th>
+      <td>17</td><td>35</td><td class="text">high</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-5191e5c1">class:logos-social-wrapper</a></th>
+      <td>17</td><td>29</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-cefb2b27">class:form-item</a></th>
+      <td>17</td><td>27</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-af4ff7e9">class:cms-popular-search-terms</a></th>
+      <td>17</td><td>21</td><td class="text">low</td>
+      <td class="text"><ul><li>On 17 of 17 pages, in 2 page families.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-5d13d269">drupal-region:content</a></th>
+      <td>16</td><td>41</td><td class="text">high</td>
+      <td class="text"><ul><li>On 16 of 17 pages.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-deea6def">drupal-node:dynamic-list-item:full</a></th>
+      <td>16</td><td>33</td><td class="text">high</td>
+      <td class="text"><ul><li>On 16 of 17 pages.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-61dc9b4c">class:footer-social</a></th>
+      <td>16</td><td>23</td><td class="text">low</td>
+      <td class="text"><ul><li>On 16 of 17 pages.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-c7c78e17">class:cms-evo-unstyled-list</a></th>
+      <td>16</td><td>21</td><td class="text">low</td>
+      <td class="text"><ul><li>On 16 of 17 pages.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-f1a55849">drupal-paragraph:dynamic-list-information</a></th>
+      <td>16</td><td>17</td><td class="text">high</td>
+      <td class="text"><ul><li>On 16 of 17 pages.</li></ul></td>
+      <td>0</td></tr><tr><th scope="row"><a href="#cmp-4349549a">drupal-region:cms-header-primary</a></th>
+      <td>16</td><td>9</td><td class="text">high</td>
+      <td class="text"><ul><li>On 16 of 17 pages.</li></ul></td>
+      <td>0</td></tr></tbody></table></div>
+  <details id="cmp-ba3882d0">
+    <summary>class:menu</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 3034, at most 3034, 189% of a page</dd>
+      <dt>Role</dt><dd>list</dd>
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu</code><br><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu</code><br><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu</code></dd>
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 34 occurrences on a page hold 189% of the page’s elements (median 3034).</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li></ul>
+  </details>
+<details id="cmp-76f7c2a0">
+    <summary>class:menu-item</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 2424, at most 2424, 151% of a page</dd>
+      
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu &gt; li.menu-item:nth-of-type(1)</code><br><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu &gt; li.menu-item:nth-of-type(1)</code><br><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>#block-cmsglobalprimarymenu2 &gt; ul.menu &gt; li.menu-item:nth-of-type(1)</code></dd>
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 64 occurrences on a page hold 151% of the page’s elements (median 2424).</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li></ul>
+  </details>
+<details id="cmp-1d1d0dbb">
+    <summary>class:dialog-off-canvas-main-canvas</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 1554, at most 1909, 98% of a page</dd>
+      
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>div.dialog-off-canvas-main-canvas</code><br><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.dialog-off-canvas-main-canvas</code><br><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.dialog-off-canvas-main-canvas</code></dd>
+      <dt>Loads</dt><dd>image <a href="https://www.cms.gov/sites/default/files/styles/max_width_tabs/public/2026-03/responsive-tabs-priorities-photo.png?itok=AWrOCaqx">…tabs-priorities-photo.png?itok=AWrOCaqx</a> (117 KB)<br>image <a href="https://www.cms.gov/themes/custom/cms_evo/images/hhslogo.png">…hemes/custom/cms_evo/images/hhslogo.png</a> (4 KB)<br>image <a href="https://www.cms.gov/themes/custom/cms_evo/logo.svg">/themes/custom/cms_evo/logo.svg</a> (3 KB)<br>image <a href="https://www.cms.gov/sites/default/files/styles/desktop_width/public/2022-12/program_websites_section_.png?itok=dgV8aovq">…ram_websites_section_.png?itok=dgV8aovq</a></dd>
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Holds 98% of a page’s elements (median 1554).</li><li>2 images below the first screen without loading=&quot;lazy&quot;.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li></ul>
+  </details>
+<details id="cmp-e92e319d">
+    <summary>class:ds-l-container</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 1538, at most 1864, 97% of a page</dd>
+      
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container</code><br><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container</code><br><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container</code></dd>
+      <dt>Loads</dt><dd>image <a href="https://www.cms.gov/themes/custom/cms_evo/images/hhslogo.png">…hemes/custom/cms_evo/images/hhslogo.png</a> (4 KB)<br>image <a href="https://www.cms.gov/themes/custom/cms_evo/logo.svg">/themes/custom/cms_evo/logo.svg</a> (3 KB)</dd>
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 5 occurrences on a page hold 97% of the page’s elements (median 1538).</li><li>2 images below the first screen without loading=&quot;lazy&quot;.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li></ul>
+  </details>
+<details id="cmp-dd31db22">
+    <summary>class:ds-l-row</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 1523, at most 1873, 96% of a page</dd>
+      
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container &gt; div.ds-l-row</code><br><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container &gt; div.ds-l-row</code><br><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.header-main-menu-wrapper &gt; div.ds-l-container &gt; div.ds-l-row</code></dd>
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 7 occurrences on a page hold 96% of the page’s elements (median 1523).</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li></ul>
+  </details>
+<details id="cmp-20967d16">
+    <summary>class:header — Site header</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 1367, at most 1367, 85% of a page</dd>
+      <dt>Role</dt><dd>banner</dd>
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>#header</code><br><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>#header</code><br><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>#header</code></dd>
+      <dt>Loads</dt><dd>image <a href="https://www.cms.gov/themes/custom/cms_evo/logo.svg">/themes/custom/cms_evo/logo.svg</a> (3 KB)</dd>
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Holds 85% of a page’s elements (median 1367).</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li></ul>
+  </details>
+<details id="cmp-4ab89d12">
+    <summary>class:header-main-menu-wrapper</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 1245, at most 1245, 78% of a page</dd>
+      
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>div.header-main-menu-wrapper</code><br><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.header-main-menu-wrapper</code><br><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.header-main-menu-wrapper</code></dd>
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Holds 78% of a page’s elements (median 1245).</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li></ul>
+  </details>
+<details id="cmp-a99136de">
+    <summary>drupal-region:cms-header-navigation</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 1241, at most 1241, 78% of a page</dd>
+      
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>div.region-cms-header-navigation</code><br><a href="https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">…r2023q300-system-release-august-18-2023</a> <code>div.region-cms-header-navigation</code><br><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.region-cms-header-navigation</code></dd>
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Holds 78% of a page’s elements (median 1241).</li></ul>
+    
+    
+  </details>
+<details id="cmp-e07f195e">
+    <summary>class:menu-wrapper</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 604, at most 604, 38% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li><li>Its 26 occurrences on a page hold 38% of the page’s elements (median 604).</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-040f4727">
+    <summary>drupal-region:cms-footer</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 82, at most 82, 5% of a page</dd>
+      
+      <dt>Where</dt><dd><a href="https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic">…bs-vaccinations-against-flu-infographic</a> <code>div.region-cms-footer</code> (below the first screen)<br><a href="https://www.cms.gov/data-research/statistics-trends-and-reports/medicare-advantagepart-d-contract-and-enrollment-data/ma-contract-service-area-state/county/ma-contract-service-area-2023-10">…county/ma-contract-service-area-2023-10</a> <code>div.region-cms-footer</code> (below the first screen)<br><a href="https://www.cms.gov/httpswwwcmsgovresearch-statistics-data-and-systemsdownloadable-public-use-filescost-reportscost/2021-1">…public-use-filescost-reportscost/2021-1</a> <code>div.region-cms-footer</code> (below the first screen)</dd>
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    
+  </details>
+<details id="cmp-37257afe">
+    <summary>class:header-top-wrapper</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 59, at most 59, 4% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-123d0ef6">
+    <summary>drupal-block:system</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 49, at most 403, 3% of a page</dd>
+      
+      <dt>Where</dt><dd><a href="https://www.cms.gov/">/</a> <code>#block-cms-evo-content</code></dd>
+      <dt>Loads</dt><dd>image <a href="https://www.cms.gov/sites/default/files/styles/max_width_tabs/public/2026-03/responsive-tabs-priorities-photo.png?itok=AWrOCaqx">…tabs-priorities-photo.png?itok=AWrOCaqx</a> (117 KB)<br>image <a href="https://www.cms.gov/sites/default/files/styles/desktop_width/public/2022-12/program_websites_section_.png?itok=dgV8aovq">…ram_websites_section_.png?itok=dgV8aovq</a></dd>
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    
+  </details>
+<details id="cmp-1ce7f245">
+    <summary>element:ds-usa-banner</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>framework (high confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 45, at most 45, 3% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    <ul class="note"><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-bac31f86">
+    <summary>drupal-region:cms-header-secondary</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 45, at most 45, 3% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    <ul class="note"><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-a68b834d">
+    <summary>class:ds-c-usa-banner</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 43, at most 43, 3% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-13f8b077">
+    <summary>drupal-block:search</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 35, at most 70, 2% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    <ul class="note"><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-5191e5c1">
+    <summary>class:logos-social-wrapper</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 29, at most 29, 2% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-cefb2b27">
+    <summary>class:form-item</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 27, at most 55, 2% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-af4ff7e9">
+    <summary>class:cms-popular-search-terms</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>17, families <code>pf-b87c441f</code> <code>pf-c8e3619a</code></dd>
+      <dt>Elements</dt><dd>median 21, at most 42, 1% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 17 of 17 pages, in 2 page families.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-5d13d269">
+    <summary>drupal-region:content</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>16, families <code>pf-b87c441f</code></dd>
+      <dt>Elements</dt><dd>median 41, at most 97, 3% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 16 of 17 pages.</li></ul>
+    
+    <ul class="note"><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-deea6def">
+    <summary>drupal-node:dynamic-list-item:full</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>16, families <code>pf-b87c441f</code></dd>
+      <dt>Elements</dt><dd>median 33, at most 89, 2% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 16 of 17 pages.</li></ul>
+    
+    <ul class="note"><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-61dc9b4c">
+    <summary>class:footer-social</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>16, families <code>pf-b87c441f</code></dd>
+      <dt>Elements</dt><dd>median 23, at most 23, 1% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 16 of 17 pages.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-c7c78e17">
+    <summary>class:cms-evo-unstyled-list</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>class-heuristic (low confidence)</dd>
+      <dt>Pages</dt><dd>16, families <code>pf-b87c441f</code></dd>
+      <dt>Elements</dt><dd>median 21, at most 21, 1% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 16 of 17 pages.</li></ul>
+    
+    <ul class="note"><li>Recognised from a class name only; check that it is one component.</li><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-f1a55849">
+    <summary>drupal-paragraph:dynamic-list-information</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>16, families <code>pf-b87c441f</code></dd>
+      <dt>Elements</dt><dd>median 17, at most 37, 1% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 16 of 17 pages.</li></ul>
+    
+    <ul class="note"><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+<details id="cmp-4349549a">
+    <summary>drupal-region:cms-header-primary</summary>
+    <dl class="meta">
+      <dt>Recognised by</dt><dd>drupal (high confidence)</dd>
+      <dt>Pages</dt><dd>16, families <code>pf-b87c441f</code></dd>
+      <dt>Elements</dt><dd>median 9, at most 9, 1% of a page</dd>
+      
+      
+      
+    </dl>
+    <ul><li>On 16 of 17 pages.</li></ul>
+    
+    <ul class="note"><li>No occurrence was among the largest recorded on its pages, so there is no position, media or evidence for it.</li></ul>
+  </details>
+  
+  <ul class="note"><li>Components are recognised from the markup. No figure here is a component’s energy: Firefox’s power counters cover whole processes. Whether changing a component saves energy is for a measured comparison (compare), run with and without the change.</li><li>Stylesheets, web fonts and CSS background images are not tied to components. Scripts are tied to one only when the element that loads them sits inside it; bundled and global scripts stay unattributed.</li><li>Firefox CPU categories are page-level. web-energy diagnose &lt;url&gt; shows them for one representative page.</li><li>At most 24 occurrences are recorded per page (the largest, plus smaller ones holding media or animations); counts and sizes cover every occurrence.</li><li>Lighthouse did not run, so there is no element or script evidence. Add --lighthouse to a crawl for it.</li></ul>
+</section>
+
+<section aria-labelledby="compare-h">
+  <h2 id="compare-h">Modelled CO2e versus observed energy</h2>
+  <p class="note">
+    Presented side by side in their own units. These columns are deliberately
+    <strong>not</strong> summed or converted into one another.
+  </p>
+  <div class="scroll">
+  <table>
+    <caption>Model and measurement, per step</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th>
+        <th scope="col">Transfer (KB)</th>
+        <th scope="col">CO2.js total (mg)</th>
+        <th scope="col">CO2.js device segment (mg)</th>
+        <th scope="col">Observed energy (mWh)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">https://www.cms.gov/</th>
+        <td>1201.6</td>
+        <td>177.023</td>
+        <td>97.864</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r11251cp</th>
+        <td>534.9</td>
+        <td>75.832</td>
+        <td>43.567</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/research-statistics-data-and-systems/statistics-trends-and-reports/reports/research-reports-items/cms1243161</th>
+        <td>621.0</td>
+        <td>88.911</td>
+        <td>50.577</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/research-statistics-data-and-systems/computer-data-and-systems/medicaiddatasourcesgeninfo/max-validation-reports-items/cms1238581</th>
+        <td>454.3</td>
+        <td>63.607</td>
+        <td>36.997</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/regulations-guidance/transmittals/2024-transmittals/r12497bp</th>
+        <td>532.2</td>
+        <td>75.437</td>
+        <td>43.345</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/research-statistics-data-and-systems/research/healthcarefinancingreview/list-of-past-articles-items/cms1192033</th>
+        <td>454.6</td>
+        <td>63.663</td>
+        <td>37.027</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/coordination-of-benefits-and-recovery/workers-compensation-medicare-set-aside-arrangements/wcmsap/wcmsap-items/alerts</th>
+        <td>454.2</td>
+        <td>63.598</td>
+        <td>36.992</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/provider-enrollment-and-certification/surveycertificationgeninfo/policy-and-memos-to-states-and-regions-items/cms1253857</th>
+        <td>454.4</td>
+        <td>63.634</td>
+        <td>37.011</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/data-research/statistics-trends-and-reports/medicare-advantagepart-d-contract-and-enrollment-data/ma-contract-service-area-state/county/ma-contract-service-area-2023-10</th>
+        <td>454.1</td>
+        <td>63.577</td>
+        <td>36.980</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/research-statistics-data-and-systems/downloadable-public-use-files/cost-reports/hha-20-fy-2023</th>
+        <td>454.0</td>
+        <td>63.565</td>
+        <td>36.974</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/coverage/investigational-device-exemption-ide-studies/approved/g230050-nct05650658</th>
+        <td>620.8</td>
+        <td>88.878</td>
+        <td>50.559</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023</th>
+        <td>621.3</td>
+        <td>88.959</td>
+        <td>50.602</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/payment/part-b-drugs/asp-education-outreach/product-data-template</th>
+        <td>454.2</td>
+        <td>63.594</td>
+        <td>36.990</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic</th>
+        <td>454.5</td>
+        <td>63.644</td>
+        <td>37.017</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/medicare/audits-compliance/part-c-d/pharmaceutical-manufacturer-enforcement-actions/p1571-primal-critical-care-pharmaceutical-manufacturers-cmp-determination-notice-letter</th>
+        <td>620.9</td>
+        <td>88.901</td>
+        <td>50.571</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/httpswwwcmsgovresearch-statistics-data-and-systemsdownloadable-public-use-filescost-reportscost/2021-1</th>
+        <td>454.1</td>
+        <td>63.584</td>
+        <td>36.985</td>
+        <td>—</td>
+      </tr><tr>
+        <th scope="row">https://www.cms.gov/regulations-and-guidance/guidance/transmittals/transmittals/r12028msp</th>
+        <td>454.3</td>
+        <td>63.612</td>
+        <td>36.999</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Not enough measured runs to report correlations.</p>
+</section>
+
+
+
+<section aria-labelledby="dist-h">
+  <h2 id="dist-h">Distributions</h2>
+  <p class="note">Full descriptive statistics, given as a table rather than a chart image.</p>
+  <div class="scroll">
+  <table>
+    <caption>Incremental energy per step (mWh)</caption>
+    <thead>
+      <tr>
+        <th scope="col">Step</th><th scope="col">n</th><th scope="col">min</th>
+        <th scope="col">p25</th><th scope="col">median</th><th scope="col">p75</th>
+        <th scope="col">p95</th><th scope="col">max</th><th scope="col">sd</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="9">No energy data.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+
+
+
+
+<section aria-labelledby="webnrg-h">
+  <h2 id="webnrg-h">Lab check: webNRG</h2>
+  <p>Green Metrics Tool lab run: Playwright Firefox in a container on a dedicated machine, warm Squid cache, RAPL CPU package energy for the page load plus 5 s idle, no idle subtraction. Not comparable as a ratio with this scanner's own figures; shown beside them. Machine: Micro Benchmarking - TX1330 M2 [PREMIUM].
+    Every webNRG result is public on <a href="https://metrics.green-coding.io/">metrics.green-coding.io</a>.</p>
+  <div class="scroll">
+  <table>
+    <caption>webNRG figures for the Visit page and idle for 5 s phase</caption>
+    <thead><tr><th scope="col">Page</th><th scope="col">CPU energy</th><th scope="col">CPU power</th>
+      <th scope="col">Transfer</th><th scope="col">webNRG grades</th><th scope="col">Status</th></tr></thead>
+    <tbody><tr><th scope="row"><a href="https://metrics.green-coding.io/stats.html?id=52463e94-6a35-413b-bb52-2ed75e79ecd1">https://www.cms.gov</a></th>
+        <td>8.31 mWh</td><td>4.58 W</td>
+        <td>1687 kB</td>
+        <td>rendering C, transfer D</td>
+        <td>reused (2026-11-04)</td></tr><tr><th scope="row"><a href="https://website-tester.green-coding.io/details.html?page=https%3A%2F%2Fwww.cms.gov%2Fdata-research%2Fcms-information-technology%2Fhipaa-eligibility-transaction-system%2Fmcare-notifications%2Fmedicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023">https://www.cms.gov/data-research/cms-information-technology/hipaa-eligibility-transaction-system/mcare-notifications/medicare-hets-270-271-information-bulletin-upcoming-r2023q300-system-release-august-18-2023</a></th>
+        <td>—</td><td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>requested, not finished yet</td></tr><tr><th scope="row"><a href="https://website-tester.green-coding.io/details.html?page=https%3A%2F%2Fwww.cms.gov%2Fresearch-statistics-data-and-systems%2Fstatistics-trends-and-reports%2Freports%2Fresearch-reports-items%2Fcms1243161">https://www.cms.gov/research-statistics-data-and-systems/statistics-trends-and-reports/reports/research-reports-items/cms1243161</a></th>
+        <td>—</td><td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>requested, not finished yet</td></tr></tbody>
+  </table>
+  </div>
+</section>
+
+<section aria-labelledby="env-h">
+  <h2 id="env-h">Environment</h2>
+  <dl class="meta">
+    <dt>OS</dt><dd>linux 7.0.0-1017-azure (x64)</dd>
+    <dt>CPU count</dt><dd>4</dd>
+    <dt>Firefox</dt><dd>153.0</dd>
+    <dt>Playwright</dt><dd>1.62.1</dd>
+    <dt>CO2.js</dt><dd>0.19.0</dd>
+    <dt>Energy adapter</dt><dd>auto</dd>
+    <dt>Browser mode</dt><dd>headless</dd>
+    <dt>Viewport</dt><dd>1280×800</dd>
+    <dt>Power source</dt><dd>unknown</dd>
+    <dt>Low Power Mode</dt><dd>unknown</dd>
+  </dl>
+  
+</section>
+
+<section aria-labelledby="method-h">
+  <h2 id="method-h">Methodology</h2>
+  <p>
+    Energy is attributed to a step by <strong>time window</strong>: the harness records
+    wall-clock boundaries and integrates Firefox's power counters over that range.
+    Any concurrent browser activity inside the window is included. Counter samples are
+    picowatt-hours, converted with <code>joules = pWh × 1e-12 × 3600</code>.
+  </p>
+  <p>
+    Baseline correction retains all three values — raw measured energy, the estimated idle
+    energy, and the incremental difference. Negative incremental values are reported as-is
+    and flagged as noisy rather than clamped to zero.
+  </p>
+  <p>
+    Class C is opt-in. It is omitted entirely unless a grid intensity was declared for the
+    session, and it is derived from Class B only — the CO2.js estimate is never converted,
+    summed or averaged with anything. See <code>docs/methodology.md</code>.
+  </p>
+</section>
+</body>
+</html>

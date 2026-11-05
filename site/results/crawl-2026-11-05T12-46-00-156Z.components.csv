@@ -1,0 +1,61 @@
+component_id,signature,kind,method,confidence,pages,reach,families,occurrences,nodes_median,nodes_max,share_of_page,images,eager_offscreen_images,videos,autoplay_videos,iframes,canvases,running_animations,endless_animations,third_party_hosts,lighthouse_findings,lighthouse_audits,example_page,example_selector,signals
+cmp-ba3882d0,class:menu,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,578,3034,3034,1.894,,,,,,,,,,0,,https://www.cms.gov/,#block-cmsglobalprimarymenu2 > ul.menu,"On 17 of 17 pages, in 2 page families. Its 34 occurrences on a page hold 189% of the page’s elements (median 3034)."
+cmp-76f7c2a0,class:menu-item,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,1088,2424,2424,1.513,,,,,,,,,,0,,https://www.cms.gov/,#block-cmsglobalprimarymenu2 > ul.menu > li.menu-item:nth-of-type(1),"On 17 of 17 pages, in 2 page families. Its 64 occurrences on a page hold 151% of the page’s elements (median 2424)."
+cmp-1d1d0dbb,class:dialog-off-canvas-main-canvas,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,17,1554,1909,0.975,6,2,0,0,0,0,,,,0,,https://www.cms.gov/,div.dialog-off-canvas-main-canvas,"On 17 of 17 pages, in 2 page families. Holds 98% of a page’s elements (median 1554). 2 images below the first screen without loading=""lazy""."
+cmp-e92e319d,class:ds-l-container,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,90,1538,1864,0.965,3,2,0,0,0,0,,,,0,,https://www.cms.gov/,div.header-main-menu-wrapper > div.ds-l-container,"On 17 of 17 pages, in 2 page families. Its 5 occurrences on a page hold 97% of the page’s elements (median 1538). 2 images below the first screen without loading=""lazy""."
+cmp-dd31db22,class:ds-l-row,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,125,1523,1873,0.955,,,,,,,,,,0,,https://www.cms.gov/,div.header-main-menu-wrapper > div.ds-l-container > div.ds-l-row,"On 17 of 17 pages, in 2 page families. Its 7 occurrences on a page hold 96% of the page’s elements (median 1523)."
+cmp-20967d16,class:header,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,17,1367,1367,0.853,1,0,0,0,0,0,,,,0,,https://www.cms.gov/,#header,"On 17 of 17 pages, in 2 page families. Holds 85% of a page’s elements (median 1367)."
+cmp-4ab89d12,class:header-main-menu-wrapper,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,17,1245,1245,0.777,,,,,,,,,,0,,https://www.cms.gov/,div.header-main-menu-wrapper,"On 17 of 17 pages, in 2 page families. Holds 78% of a page’s elements (median 1245)."
+cmp-a99136de,drupal-region:cms-header-navigation,component,drupal,high,17,1,pf-b87c441f pf-c8e3619a,17,1241,1241,0.775,,,,,,,,,,0,,https://www.cms.gov/,div.region-cms-header-navigation,"On 17 of 17 pages, in 2 page families. Holds 78% of a page’s elements (median 1241)."
+cmp-e07f195e,class:menu-wrapper,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,442,604,604,0.377,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families. Its 26 occurrences on a page hold 38% of the page’s elements (median 604)."
+cmp-040f4727,drupal-region:cms-footer,component,drupal,high,17,1,pf-b87c441f pf-c8e3619a,17,82,82,0.051,,,,,,,,,,0,,https://www.cms.gov/data-research/research/medicare-current-beneficiary-survey/data-briefs-tutorials/mcbs-vaccinations-against-flu-infographic,div.region-cms-footer,"On 17 of 17 pages, in 2 page families."
+cmp-37257afe,class:header-top-wrapper,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,17,59,59,0.037,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-123d0ef6,drupal-block:system,component,drupal,high,17,1,pf-b87c441f pf-c8e3619a,50,49,403,0.031,3,0,0,0,0,0,,,,0,,https://www.cms.gov/,#block-cms-evo-content,"On 17 of 17 pages, in 2 page families."
+cmp-1ce7f245,element:ds-usa-banner,component,framework,high,17,1,pf-b87c441f pf-c8e3619a,17,45,45,0.028,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-bac31f86,drupal-region:cms-header-secondary,component,drupal,high,17,1,pf-b87c441f pf-c8e3619a,17,45,45,0.028,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-a68b834d,class:ds-c-usa-banner,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,17,43,43,0.027,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-13f8b077,drupal-block:search,component,drupal,high,17,1,pf-b87c441f pf-c8e3619a,18,35,70,0.022,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-5191e5c1,class:logos-social-wrapper,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,17,29,29,0.018,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-cefb2b27,class:form-item,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,18,27,55,0.017,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-af4ff7e9,class:cms-popular-search-terms,component,class-heuristic,low,17,1,pf-b87c441f pf-c8e3619a,18,21,42,0.013,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-5d13d269,drupal-region:content,component,drupal,high,16,0.941,pf-b87c441f,16,41,97,0.025,,,,,,,,,,0,,,,On 16 of 17 pages.
+cmp-deea6def,drupal-node:dynamic-list-item:full,component,drupal,high,16,0.941,pf-b87c441f,16,33,89,0.02,,,,,,,,,,0,,,,On 16 of 17 pages.
+cmp-61dc9b4c,class:footer-social,component,class-heuristic,low,16,0.941,pf-b87c441f,16,23,23,0.014,,,,,,,,,,0,,,,On 16 of 17 pages.
+cmp-c7c78e17,class:cms-evo-unstyled-list,component,class-heuristic,low,16,0.941,pf-b87c441f,16,21,21,0.013,,,,,,,,,,0,,,,On 16 of 17 pages.
+cmp-f1a55849,drupal-paragraph:dynamic-list-information,component,drupal,high,16,0.941,pf-b87c441f,16,17,37,0.011,,,,,,,,,,0,,,,On 16 of 17 pages.
+cmp-4349549a,drupal-region:cms-header-primary,component,drupal,high,16,0.941,pf-b87c441f,16,9,9,0.006,,,,,,,,,,0,,,,On 16 of 17 pages.
+cmp-a2b2696c,drupal-block:core,component,drupal,high,16,0.941,pf-b87c441f,16,4,4,0.002,,,,,,,,,,0,,,,On 16 of 17 pages.
+cmp-5e384835,drupal-region:cms-page-menu-block-header,component,drupal,high,16,0.941,pf-b87c441f,16,1,1,0.001,,,,,,,,,,0,,,,On 16 of 17 pages.
+cmp-16403d35,drupal-paragraph:data-profile-oeda-2,component,drupal,high,4,0.235,pf-b87c441f,4,8,13,0.005,,,,,,,,,,0,,,,On 4 of 17 pages.
+cmp-c76ceddc,drupal-paragraph:data-profile-osora-cm,component,drupal,high,3,0.176,pf-b87c441f,3,31,33,0.019,,,,,,,,,,0,,,,On 3 of 17 pages.
+cmp-1a21fd03,drupal-paragraph:data-profile-ccsq,component,drupal,high,2,0.118,pf-b87c441f,2,20,23,0.012,,,,,,,,,,0,,,,On 2 of 17 pages.
+cmp-a8981b4a,drupal-paragraph:data-profile-oeda,component,drupal,high,2,0.118,pf-b87c441f,2,19,31,0.012,,,,,,,,,,0,,,,On 2 of 17 pages.
+cmp-53309647,drupal-node:cms-homepage:full,component,drupal,high,1,0.059,pf-c8e3619a,1,393,393,0.201,3,0,0,0,0,0,,,,0,,https://www.cms.gov/,#block-cms-evo-content > div > div,
+cmp-043abc77,drupal-block:layout-builder,component,drupal,high,1,0.059,pf-c8e3619a,8,134,134,0.069,,,,,,,,,,0,,,,
+cmp-552e755f,class:agency-priorities,component,class-heuristic,low,1,0.059,pf-c8e3619a,1,109,109,0.056,,,,,,,,,,0,,,,
+cmp-f9379afa,class:responsive-tabs-wrapper,component,class-heuristic,low,1,0.059,pf-c8e3619a,1,105,105,0.054,,,,,,,,,,0,,,,
+cmp-1368a328,drupal-block:block-content,component,drupal,high,1,0.059,pf-c8e3619a,1,100,100,0.051,,,,,,,,,,0,,,,
+cmp-a54f62e4,class:shared-image-container,component,class-heuristic,low,1,0.059,pf-c8e3619a,1,92,92,0.047,,,,,,,,,,0,,,,
+cmp-98b0df5a,class:light-gray-background,component,class-heuristic,low,1,0.059,pf-c8e3619a,1,89,89,0.046,,,,,,,,,,0,,,,
+cmp-6d7f7013,drupal-block:views,component,drupal,high,1,0.059,pf-c8e3619a,1,85,85,0.044,,,,,,,,,,0,,,,
+cmp-3c788c23,drupal-paragraph:responsive-tabs,component,drupal,high,1,0.059,pf-c8e3619a,5,80,80,0.041,,,,,,,,,,0,,,,
+cmp-276cb0e2,drupal-view:cms_news,component,drupal,high,1,0.059,pf-c8e3619a,1,76,76,0.039,,,,,,,,,,0,,,,
+cmp-01b53bc2,class:view-content,component,class-heuristic,low,1,0.059,pf-c8e3619a,1,75,75,0.038,,,,,,,,,,0,,,,
+cmp-906225f7,class:item-list,component,class-heuristic,low,1,0.059,pf-c8e3619a,1,74,74,0.038,,,,,,,,,,0,,,,
+cmp-efd60f06,class:views-field,component,class-heuristic,low,1,0.059,pf-c8e3619a,6,66,66,0.034,,,,,,,,,,0,,,,
+cmp-67662fab,class:light-blue-background,component,class-heuristic,low,1,0.059,pf-c8e3619a,1,39,39,0.02,,,,,,,,,,0,,,,
+cmp-cca510f6,class:program-websites,component,class-heuristic,low,1,0.059,pf-c8e3619a,1,31,31,0.016,,,,,,,,,,0,,,,
+cmp-8c669514,class:cms-accented-block,component,class-heuristic,low,1,0.059,pf-b87c441f,1,24,24,0.015,,,,,,,,,,0,,,,
+cmp-829ec8b0,drupal-paragraph:data-profile-cm-plans,component,drupal,high,1,0.059,pf-b87c441f,1,16,16,0.01,,,,,,,,,,0,,,,
+cmp-dc7ba2ed,class:xxxxxxxxxxx,component,class-heuristic,low,1,0.059,pf-b87c441f,1,14,14,0.008,,,,,,,,,,0,,,,
+cmp-5f00e85f,class:xxxxxxxxxxxxxxxx,component,class-heuristic,low,1,0.059,pf-b87c441f,1,13,13,0.008,,,,,,,,,,0,,,,
+cmp-7567e9ef,drupal-paragraph:data-profile-ofm,component,drupal,high,1,0.059,pf-b87c441f,1,13,13,0.008,,,,,,,,,,0,,,,
+cmp-ac381589,drupal-paragraph:data-profile-cm-fees,component,drupal,high,1,0.059,pf-b87c441f,1,13,13,0.008,,,,,,,,,,0,,,,
+cmp-5e658723,drupal-paragraph:data-profile-oit,component,drupal,high,1,0.059,pf-b87c441f,1,11,11,0.007,,,,,,,,,,0,,,,
+cmp-297dd7ee,drupal-paragraph:data-profile-cm-oeda-enrollment,component,drupal,high,1,0.059,pf-b87c441f,1,7,7,0.004,,,,,,,,,,0,,,,
+cmp-0112d187,landmark:banner,region,landmark,medium,17,1,pf-b87c441f pf-c8e3619a,17,1367,1367,0.853,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families. Holds 85% of a page’s elements (median 1367)."
+cmp-b78aa2cb,landmark:navigation,region,landmark,medium,17,1,pf-b87c441f pf-c8e3619a,135,1334,1334,0.833,,,,,,,,,,0,,https://www.cms.gov/,#block-cmsglobalprimarymenu2,"On 17 of 17 pages, in 2 page families. Its 8 occurrences on a page hold 83% of the page’s elements (median 1334)."
+cmp-bfcb5e82,landmark:contentinfo,region,landmark,medium,17,1,pf-b87c441f pf-c8e3619a,17,136,136,0.085,2,2,0,0,0,0,,,,0,,https://www.cms.gov/,footer,"On 17 of 17 pages, in 2 page families. 2 images below the first screen without loading=""lazy""."
+cmp-41c377f0,landmark:main,region,landmark,medium,17,1,pf-b87c441f pf-c8e3619a,17,48,413,0.03,3,0,0,0,0,0,,,,0,,https://www.cms.gov/,#skipNavTarget,"On 17 of 17 pages, in 2 page families."
+cmp-e7afe885,landmark:region,region,landmark,medium,17,1,pf-b87c441f pf-c8e3619a,17,43,43,0.027,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
+cmp-76cab8f1,landmark:search,region,landmark,medium,17,1,pf-b87c441f pf-c8e3619a,18,35,70,0.022,,,,,,,,,,0,,,,"On 17 of 17 pages, in 2 page families."
