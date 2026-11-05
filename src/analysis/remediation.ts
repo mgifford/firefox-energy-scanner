@@ -26,7 +26,8 @@ export interface Remediation {
   references: string[];
 }
 
-const COMPARE = 'Run the same journey with and without the change through `web-energy compare` (interleaved, 10 or more runs each), on a machine that measures energy.';
+const COMPARE =
+  'Measure it with `web-energy experiment --from <result.json> --item <n>` (interleaved, 10 or more runs per side) on a machine that measures energy, or `web-energy compare` between two builds.';
 
 export const REMEDIATIONS: Record<string, Remediation> = {
   'stop-endless-animation': {
@@ -54,7 +55,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     title: 'Honour prefers-reduced-motion',
     action: 'Wrap motion in @media (prefers-reduced-motion: no-preference), and give a static alternative.',
     rationale: 'People who ask for less motion should get it, and a page with motion off does less rendering work.',
-    verify: 'Run the journey with the reduced-motion preference on and off (an experiment variant).',
+    verify: 'Run `web-energy experiment <url> --kind reduced-motion`: it also shows whether the page responds to the preference.',
     experiment: 'reduced-motion',
     references: ['WCAG 2.3.3 Animation from Interactions'],
   },

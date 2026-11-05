@@ -10,6 +10,7 @@ import { webnrgSection } from './webnrg-html.js';
 import { familiesSection } from './families-html.js';
 import { componentsSection } from './components-html.js';
 import { investigationSection, historySection } from './investigation-html.js';
+import { experimentSection } from './experiment-html.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -235,6 +236,8 @@ ${
 </section>`
     : ''
 }
+
+${experimentSection(result.experiment)}
 
 ${investigationSection(result)}
 

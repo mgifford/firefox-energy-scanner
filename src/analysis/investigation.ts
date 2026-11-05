@@ -51,6 +51,8 @@ export interface InvestigationItem {
   where: { page: string; selector?: string; rect?: { x: number; y: number; width: number; height: number }; belowFold?: boolean }[];
   /** Lighthouse audits behind it. */
   audits: string[];
+  /** Scripts: the full script URL (the title may be shortened). */
+  url?: string;
 }
 
 export interface InvestigationQueue {
@@ -127,6 +129,7 @@ function scriptItems(unattributed: UnattributedEvidence[], of: number): Omit<Inv
     byScript.set(key, s);
   }
   return [...byScript].map(([key, s]) => ({
+    url: /\((https?:[^)]+)\)$/.exec(s.target)?.[1] ?? s.target,
     kind: 'script' as const,
     id: `script-${stableHash(key)}`,
     title: s.target.length > 90 ? `…${s.target.slice(-89)}` : s.target,

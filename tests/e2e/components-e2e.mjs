@@ -143,6 +143,28 @@ try {
   const second = readdirSync(out).filter((f) => f.endsWith('.json')).sort().pop();
   const history = second && second !== json ? JSON.parse(readFileSync(join(out, second), 'utf8')).history : undefined;
   check(again.status === 0 && history?.previous?.file === json && history?.pagesInBoth === 3, `the second scan compared itself with the first (${JSON.stringify(history?.previous)}, ${history?.pagesInBoth} pages in both)`);
+
+  // An experiment for the queue's first item, written out before anything runs.
+  const dry = await exec('node', ['dist/cli/index.js', 'experiment', '--from', join(out, json), '--item', '1', '--dry-run']);
+  annotate('notice', `experiment spec: ${dry.stdout.replace(/\n/g, ' | ').slice(0, 400)}`);
+  check(dry.status === 0 && /kind: pause-animations/.test(dry.stdout) && /selector: .*carousel/.test(dry.stdout), 'the queue item became a pause-animations experiment scoped to the carousel');
+
+  // Run it in Firefox. The variant is installed in the journey's setup(), so
+  // this also shows setup() runs. No energy here: the change must apply, the
+  // checks must hold, and no energy difference may be claimed.
+  const expOut = mkdtempSync(join(tmpdir(), 'experiment-'));
+  const exp = await exec('node', [
+    'dist/cli/index.js', 'experiment', `${SITE}/`, '--kind', 'pause-animations', '--selector', 'div.carousel',
+    '--idle', '500', '--runs', '2', '--warmups', '0', '--headless', '--no-energy', '--out', expOut,
+  ]);
+  const expFile = readdirSync(expOut).find((f) => f.endsWith('.json'));
+  const x = expFile ? JSON.parse(readFileSync(join(expOut, expFile), 'utf8')).experiment : undefined;
+  annotate('notice', `experiment: status ${exp.status} | ${JSON.stringify(x?.applied)} | ${JSON.stringify(x?.differences?.map((d) => [d.step, d.verdict]))}`);
+  if (exp.status !== 0 && exp.status !== 2) console.log(exp.stdout, exp.stderr);
+  check(exp.status === 0 && x?.applied?.ok === true, `the experiment paused the carousel's animation in Firefox (${x?.applied?.note})`);
+  check(x?.order?.length === 4 && x.order.filter((s) => s === 'a').length === 2, `runs were interleaved, two per side (${x?.order?.join(' ')})`);
+  check((x?.differences ?? []).length > 0 && x.differences.every((d) => d.verdict === 'not-measured'), 'without energy, no energy difference was claimed');
+  check(readdirSync(expOut).some((f) => f.endsWith('.experiment.csv')), 'an experiment CSV was written');
 } finally {
   server.close();
 }
