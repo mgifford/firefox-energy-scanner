@@ -122,7 +122,19 @@ describe('extractEvidence (Lighthouse 13)', () => {
     const composited = e.nodes.find((n) => n.audit === 'non-composited-animations')!;
     expect(composited.detail).toMatch(/Unsupported CSS Property: width/);
     expect(e.nodes.find((n) => n.detail === 'Most children')).toMatchObject({ value: 60, unit: 'count' });
-    expect(e.scripts.find((s) => s.audit === 'bootup-time' && s.url.endsWith('/js/app.js'))).toMatchObject({ unit: 'ms' });
+    expect(e.scripts.find((s) => s.audit === 'bootup-time' && s.url.endsWith('/js/app.js'))).toMatchObject({ unit: 'ms', kind: 'finding' });
+  });
+
+  it('tells problems from context: the LCP element and a passing DOM audit are context', () => {
+    const e = extractEvidence(lhr());
+    const kind = (audit: string) => [...new Set(e.nodes.filter((n) => n.audit === audit).map((n) => n.kind))];
+    expect(kind('non-composited-animations')).toEqual(['finding']); // informative, yet each row is a problem
+    expect(kind('unsized-images')).toEqual(['finding']);
+    expect(kind('lcp-breakdown-insight')).toEqual(['context']);
+    expect(kind('dom-size-insight')).toEqual(['context']); // the fixture page passes
+    const failingDom = lhr();
+    failingDom.audits['dom-size-insight']!.score = 0;
+    expect(extractEvidence(failingDom).nodes.filter((n) => n.audit === 'dom-size-insight').every((n) => n.kind === 'finding')).toBe(true);
     expect(e.scripts.some((s) => s.url === 'Unattributable')).toBe(true);
   });
 
@@ -180,7 +192,11 @@ describe('buildInventory', () => {
     expect(c.evidence.every((e) => e.boundary === 'chromium-lab')).toBe(true);
     // ?page=2 is another page: the home page's evidence is not copied to it.
     expect(new Set(inv().components.flatMap((x) => x.evidence.map((e) => e.page)))).toEqual(new Set([urls[0]]));
-    expect(rec('drupal-node:article:teaser').evidence[0]).toMatchObject({ audit: 'lcp-breakdown-insight' });
+    expect(rec('drupal-node:article:teaser').evidence[0]).toMatchObject({ audit: 'lcp-breakdown-insight', kind: 'context' });
+    // Context is kept as a caution, not counted as a problem.
+    const teaser = rec('drupal-node:article:teaser');
+    expect(teaser.signals.join(' ')).toMatch(/keep that element’s image eager/);
+    expect(teaser.signals.some((s) => s.startsWith('Lighthouse (Chromium): largest contentful'))).toBe(false);
   });
 
   it('ties scripts only to the component that loads them, and says why the rest are unattributed', () => {

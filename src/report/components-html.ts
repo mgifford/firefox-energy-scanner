@@ -40,7 +40,7 @@ function detailsFor(c: ComponentRecord): string {
       <tbody>${c.evidence
         .map(
           (e) =>
-            `<tr><td class="text">${link(e.page, shortPath(e.page))}</td><td class="text">${esc(e.detail ?? e.title)}${e.target ? `<br><code class="note">${esc(e.target.slice(0, 120))}</code>` : ''}</td>` +
+            `<tr><td class="text">${link(e.page, shortPath(e.page))}</td><td class="text">${esc(e.detail ?? e.title)}${e.kind === 'context' ? ' <span class="note">(context, not a problem)</span>' : ''}${e.target ? `<br><code class="note">${esc(e.target.slice(0, 120))}</code>` : ''}</td>` +
             `<td>${value(e.value, e.unit)}</td><td class="text">${esc(MATCHED[e.matchedBy] ?? e.matchedBy)}</td></tr>`,
         )
         .join('')}</tbody></table></div>`

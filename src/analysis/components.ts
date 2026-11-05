@@ -41,6 +41,8 @@ export interface ComponentEvidence {
   boundary: 'chromium-lab';
   audit: string;
   title: string;
+  /** A problem Lighthouse reports, or context it reports either way (the LCP element). */
+  kind: 'finding' | 'context';
   page: string;
   detail?: string;
   value?: number;
@@ -54,6 +56,7 @@ export interface UnattributedEvidence {
   page: string;
   audit: string;
   title: string;
+  kind: 'finding' | 'context';
   detail?: string;
   value?: number;
   unit?: 'ms' | 'bytes' | 'score' | 'count';
@@ -255,6 +258,7 @@ export function buildInventory(
       const base = {
         audit: e.audit,
         title: e.title,
+        kind: e.kind,
         ...(e.detail ? { detail: e.detail } : {}),
         ...(e.value !== undefined ? { value: e.value } : {}),
         ...(e.unit ? { unit: e.unit } : {}),
@@ -270,6 +274,7 @@ export function buildInventory(
       const base = {
         audit: s.audit,
         title: s.title,
+        kind: s.kind,
         ...(s.detail ? { detail: s.detail } : {}),
         value: s.value,
         unit: s.unit,
@@ -361,8 +366,11 @@ export function buildInventory(
     if (media.iframes) signals.push(`${media.iframes} iframe${media.iframes === 1 ? '' : 's'}${thirdPartyHosts.length ? ` (${thirdPartyHosts.slice(0, 3).join(', ')})` : ''}.`);
     if (media.eagerOffscreenImages) signals.push(`${media.eagerOffscreenImages} image${media.eagerOffscreenImages === 1 ? '' : 's'} below the first screen without loading="lazy".`);
     if (media.canvases) signals.push(`${media.canvases} canvas element${media.canvases === 1 ? '' : 's'}.`);
+    if (a.evidence.some((e) => e.audit.startsWith('lcp-'))) {
+      signals.push('Holds the largest contentful paint element (Lighthouse, Chromium): keep that element’s image eager, never lazy.');
+    }
     const byAudit = new Map<string, { title: string; pages: Set<string> }>();
-    for (const e of a.evidence) {
+    for (const e of a.evidence.filter((x) => x.kind === 'finding')) {
       const k = e.detail ?? e.title;
       const b = byAudit.get(k) ?? { title: k, pages: new Set<string>() };
       b.pages.add(e.page);

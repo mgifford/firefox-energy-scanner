@@ -76,6 +76,17 @@ instead of being computed again by a second trace pipeline:
 | Forced synchronous layouts, by source location | `forced-reflow-insight` |
 | Third-party main-thread time | `third-parties-insight` |
 
+Each piece of evidence is either a **finding** or **context**:
+
+- A finding is something Lighthouse reports as a problem: a non-composited animation, a
+  layout shift, an unsized or oversized image, a long task, a forced reflow, or a script or
+  DOM-size audit that fails.
+- Context is what it reports either way: the LCP element, or the deepest node of a page
+  whose DOM-size audit passes.
+
+Only findings count as evidence of a problem. The LCP element becomes a caution: keep that
+image eager.
+
 How evidence is tied to a component:
 
 - **node-path**: the element's path starts with the occurrence's path. The deepest

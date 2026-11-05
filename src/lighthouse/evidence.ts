@@ -15,9 +15,17 @@
 
 import type { Lhr, LhrAudit } from './summary.js';
 
+/**
+ * finding: something Lighthouse reports as a problem (a non-composited
+ * animation, a layout shift, a failing audit). context: what it reports
+ * either way (the LCP element, the deepest node of a page that passes).
+ */
+export type EvidenceKind = 'finding' | 'context';
+
 export interface LighthouseNodeEvidence {
   audit: string;
   title: string;
+  kind: EvidenceKind;
   /** DevTools node path, as recorded by Lighthouse in Chromium's DOM. */
   path: string;
   selector?: string;
@@ -32,6 +40,7 @@ export interface LighthouseNodeEvidence {
 export interface LighthouseScriptEvidence {
   audit: string;
   title: string;
+  kind: EvidenceKind;
   /** Script URL, or "Unattributable" when Chromium could not name one. */
   url: string;
   value: number;
@@ -66,6 +75,20 @@ const MAX_SCRIPTS = 20;
 const MIN_SCRIPT_MS = 50;
 
 const finite = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+/** Lighthouse's pass mark; informative and not-applicable audits have no score. */
+const failing = (a: LhrAudit | undefined) => typeof a?.score === 'number' && a.score < 0.9;
+
+/**
+ * Every row of these audits is a problem in itself, whatever the audit's
+ * score (non-composited-animations is informative, yet each row is one).
+ * The LCP element is context; DOM-size rows are findings only when the
+ * audit fails.
+ */
+function nodeKind(audit: string, a: LhrAudit): EvidenceKind {
+  if (audit.startsWith('lcp-')) return 'context';
+  if (audit === 'dom-size-insight') return failing(a) ? 'finding' : 'context';
+  return 'finding';
+}
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
@@ -109,6 +132,7 @@ function nodeOf(audit: string, a: LhrAudit, node: Obj, item: Obj | undefined): L
   return {
     audit,
     title: a.title,
+    kind: nodeKind(audit, a),
     path,
     ...(selector ? { selector } : {}),
     ...(snippet ? { snippet: snippet.slice(0, 160) } : {}),
@@ -162,6 +186,7 @@ function scriptsIn(lhr: Lhr): LighthouseScriptEvidence[] {
     out.push({
       audit: 'bootup-time',
       title: bootup!.title,
+      kind: failing(bootup) ? 'finding' : 'context',
       url,
       value: Math.round(total),
       unit: 'ms',
@@ -184,6 +209,8 @@ function scriptsIn(lhr: Lhr): LighthouseScriptEvidence[] {
     out.push({
       audit: 'long-tasks',
       title: lhr.audits['long-tasks']!.title,
+      // A long task is over 50 ms by definition: a problem whatever the audit's mode.
+      kind: 'finding',
       url,
       value: Math.round(t.ms),
       unit: 'ms',
@@ -206,6 +233,7 @@ function scriptsIn(lhr: Lhr): LighthouseScriptEvidence[] {
       out.push({
         audit: 'forced-reflow-insight',
         title: reflow!.title,
+        kind: 'finding',
         url,
         value: Math.round(ms),
         unit: 'ms',
@@ -223,7 +251,7 @@ function scriptsIn(lhr: Lhr): LighthouseScriptEvidence[] {
     if (!entity || ms === undefined || ms < MIN_SCRIPT_MS) continue;
     const sub = isObj(r['subItems']) && Array.isArray(r['subItems']['items']) ? (r['subItems']['items'] as unknown[]).filter(isObj) : [];
     const url = sub.map((s) => str(s['url'])).find(Boolean) ?? entity;
-    out.push({ audit: 'third-parties-insight', title: third!.title, url, value: Math.round(ms), unit: 'ms', detail: 'third-party main-thread time', entity });
+    out.push({ audit: 'third-parties-insight', title: third!.title, kind: failing(third) ? 'finding' : 'context', url, value: Math.round(ms), unit: 'ms', detail: 'third-party main-thread time', entity });
   }
 
   return out.sort((a, b) => b.value - a.value).slice(0, MAX_SCRIPTS);
