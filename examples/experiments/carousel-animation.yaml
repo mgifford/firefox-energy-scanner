@@ -1,0 +1,19 @@
+# Does stopping the carousel's animation save client energy on this page?
+#
+# Run: node dist/cli/index.js experiment --spec examples/experiments/carousel-animation.yaml
+# Needs a machine that measures energy (see docs/local-energy.md); elsewhere
+# it still checks the change applies and the page keeps working.
+name: carousel-animation
+url: https://example.org/
+kind: pause-animations
+# The component's selector, as the investigation queue or HTML report gives it.
+selector: div.hero-carousel
+# The page load, then this long an idle window, where an animation costs.
+idle_ms: 10000
+# Checks that must hold on both sides: the change must not break the page.
+assertions:
+  - role: main
+  - role: link
+    name: Contact
+runs: 10
+warmups: 2

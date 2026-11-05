@@ -40,6 +40,12 @@ import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
+import { buildReport, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
+import { emptyCounts } from '../experiments/variants.js';
+import { specFromQueue } from '../experiments/from-queue.js';
+import { checkJourneySource } from '../experiments/journey-lint.js';
+import { experimentCsv } from '../report/experiment-csv.js';
+import { stringify as toYaml } from 'yaml';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import {
@@ -92,6 +98,9 @@ Usage:
   web-energy families <result.json>    [--json] [--write]
   web-energy components <result.json>  [--json] [--write]
   web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
+  web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
+                         [--journey <file>] [--idle <ms>] [--dry-run] [--save-spec <file.yaml>]
+  web-energy journey-check <file...>
   web-energy profile --journey <file> [--step <name>]
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
@@ -885,6 +894,145 @@ async function cmdInvestigate(args: Args): Promise<number> {
     if (has(args, 'write')) console.log(`\nWrote the queue into ${file} and regenerated its HTML and CSV files.`);
   }
   return 0;
+}
+
+/**
+ * An energy experiment: the page as served against the page with one change,
+ * interleaved, through the benchmark runner. Reports a measured difference
+ * only, and only when the change applied.
+ */
+async function cmdExperiment(args: Args): Promise<number> {
+  let spec: ExperimentSpec;
+  let from: { file: string; rank: number; id: string; title: string } | undefined;
+  const specFile = one(args, 'spec');
+  const fromFile = one(args, 'from');
+  if (specFile) {
+    spec = await loadSpec(resolve(specFile));
+  } else if (fromFile) {
+    const rank = Number.parseInt(one(args, 'item') ?? '1', 10);
+    const source = JSON.parse(await readFile(resolve(fromFile), 'utf8')) as BenchmarkResult;
+    if (!source.investigation) attachInvestigation(source);
+    const built = specFromQueue(source, rank);
+    spec = built.spec;
+    const item = source.investigation!.items.find((i) => i.rank === rank)!;
+    from = { file: fromFile.split('/').pop() ?? fromFile, rank, id: item.id, title: item.title };
+    console.log(`Item ${rank}: ${item.title}\n  ${built.note}`);
+  } else {
+    const url = args._[1];
+    if (!url || !one(args, 'kind')) {
+      console.error('experiment requires --spec <file>, --from <result.json> --item <n>, or <url> --kind <kind>');
+      return 1;
+    }
+    spec = parseSpec({
+      name: one(args, 'name') ?? `${one(args, 'kind')}`,
+      url,
+      kind: one(args, 'kind'),
+      ...(one(args, 'selector') ? { selector: one(args, 'selector') } : {}),
+      ...(args.flags.get('host') ? { hosts: args.flags.get('host') } : {}),
+      ...(args.flags.get('block-url') ? { urls: args.flags.get('block-url') } : {}),
+      ...(one(args, 'keep-eager') ? { keep_eager: Number.parseInt(one(args, 'keep-eager')!, 10) } : {}),
+      ...(one(args, 'idle') ? { idle_ms: Number.parseInt(one(args, 'idle')!, 10) } : {}),
+      ...(one(args, 'journey') ? { journey: one(args, 'journey') } : {}),
+    });
+  }
+
+  const saveTo = one(args, 'save-spec');
+  if (saveTo) {
+    await writeFile(resolve(saveTo), toYaml(spec));
+    console.log(`Wrote the experiment to ${saveTo}`);
+  }
+  if (has(args, 'dry-run')) {
+    console.log(toYaml(spec));
+    return 0;
+  }
+
+  const config = await buildConfig(args);
+  if (spec.runs !== undefined) config.benchmark.runs = spec.runs;
+  if (spec.warmups !== undefined) config.benchmark.warmups = spec.warmups;
+  const inner = spec.journey ? await loadJourney(resolve(spec.journey)) : undefined;
+  const seed = one(args, 'seed') ?? spec.seed ?? newSessionId();
+  const order = interleavedOrder(config.benchmark.runs, seed);
+  const state: { a: SideState; b: SideState } = {
+    a: { counts: emptyCounts(), probes: [], assertionFailures: [], runs: 0 },
+    b: { counts: emptyCounts(), probes: [], assertionFailures: [], runs: 0 },
+  };
+  const steps: { a: StepResult[]; b: StepResult[] } = { a: [], b: [] };
+  const seen = { a: false, b: false };
+  let firefoxVersion = 'unknown';
+  const warnings: string[] = [];
+  console.log(`Experiment ${spec.name}: ${spec.url}\nInterleaved order (seed ${seed}): ${order.join(' ')}`);
+  for (const [i, side] of order.entries()) {
+    process.stderr.write(`\rRun ${i + 1}/${order.length} -> ${side === 'a' ? 'baseline' : 'variant'}`.padEnd(50));
+    // Each side's first run carries the warm-ups, so neither side starts cold.
+    const warmups = seen[side] ? 0 : config.benchmark.warmups;
+    seen[side] = true;
+    const outcome = await runBenchmark({
+      config: { ...config, benchmark: { ...config.benchmark, runs: 1, warmups } },
+      baseUrl: spec.url,
+      journey: sideJourney(spec, inner, side === 'b', state[side]),
+      scenarioName: side === 'a' ? 'baseline' : 'variant',
+    });
+    firefoxVersion = outcome.firefoxVersion;
+    warnings.push(...outcome.warnings);
+    steps[side].push(...outcome.steps);
+  }
+  process.stderr.write('\n');
+
+  const report = buildReport(spec, state, steps, seed, order, from);
+  const energyAvailable = [...steps.a, ...steps.b].some((s) => s.energy?.raw.sampleCount);
+  const result: BenchmarkResult = {
+    schemaVersion: SCHEMA_VERSION,
+    session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'compare', seed, orderings: order },
+    capabilities: await capabilitiesFor(energyAvailable, energyScopeOf([...steps.a, ...steps.b])),
+    environment: await collectEnvironment({
+      energyAdapter: config.energy.adapter,
+      headed: config.browser.headed,
+      viewport: config.browser.viewport,
+      firefoxVersion,
+      collectHostname: config.output.collect_hostname,
+    }),
+    targets: [
+      { url: spec.url, label: 'baseline' },
+      { url: spec.url, label: 'variant' },
+    ],
+    configuration: config,
+    scenarios: [...steps.a, ...steps.b],
+    experiment: report,
+    warnings: [...new Set(warnings)],
+  };
+  const base = await writeOutputs(result, config);
+  if (config.output.csv) await writeFile(`${base}.experiment.csv`, experimentCsv(result));
+
+  console.log(`\nChange: ${report.description}`);
+  console.log(`Applied: ${report.applied.ok ? 'yes' : 'NO'}. ${report.applied.note}`);
+  if (report.assertions.checked) {
+    console.log(`Checks: baseline ${report.assertions.baseline.length ? `failed ${report.assertions.baseline.join('; ')}` : 'passed'}; variant ${report.assertions.variant.length ? `failed ${report.assertions.variant.join('; ')}` : 'passed'}.`);
+  }
+  if (report.accessibility.changed.length) console.log(`Accessibility structure changed: ${report.accessibility.changed.join(', ')}`);
+  for (const d of report.differences) {
+    const e = d.energy;
+    console.log(`\n  ${d.step}: ${e ? `${e.medianMwh[0].toFixed(3)} -> ${e.medianMwh[1].toFixed(3)} mWh (IQR ${e.iqrMwh[0].toFixed(3)} / ${e.iqrMwh[1].toFixed(3)})` : 'energy not measured'}`);
+    console.log(`    ${d.reading}`);
+  }
+  console.log(`\nWrote ${base}.{json,csv,html} and ${base}.experiment.csv`);
+  return report.applied.ok ? 0 : 2;
+}
+
+/** Check journey files against the rules for benchmark journeys. */
+async function cmdJourneyCheck(args: Args): Promise<number> {
+  const files = args._.slice(1);
+  if (!files.length) {
+    console.error('journey-check requires one or more journey files');
+    return 1;
+  }
+  let errors = 0;
+  for (const f of files) {
+    const issues = checkJourneySource(await readFile(resolve(f), 'utf8'));
+    errors += issues.filter((i) => i.level === 'error').length;
+    console.log(`${f}: ${issues.length ? `${issues.length} issue${issues.length === 1 ? '' : 's'}` : 'ok'}`);
+    for (const i of issues) console.log(`  ${i.level === 'error' ? 'error  ' : 'warning'} ${i.line ? `line ${i.line}: ` : ''}${i.message} (${i.rule})`);
+  }
+  return errors ? 1 : 0;
 }
 
 /** Build the component inventory of a stored result. */
@@ -1971,6 +2119,8 @@ async function main(): Promise<number> {
       case 'families': return await cmdFamilies(args);
       case 'components': return await cmdComponents(args);
       case 'investigate': return await cmdInvestigate(args);
+      case 'experiment': return await cmdExperiment(args);
+      case 'journey-check': return await cmdJourneyCheck(args);
       case 'profile': return await cmdProfile(args);
       case 'triage': return await cmdTriage(args);
       case 'matrix': return await cmdMatrix(args);

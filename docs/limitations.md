@@ -84,7 +84,8 @@ pages that were not. Pages built alike can still cost differently. See
 The component inventory records what each component holds and which Lighthouse findings
 fall inside it. It gives no component an energy figure, because none is measured per
 element. A component's effect on energy is only ever a measured difference between two
-runs, with and without a change. See [component-inventory.md](component-inventory.md).
+runs, with and without a change: an experiment ([experiments.md](experiments.md)).
+See [component-inventory.md](component-inventory.md).
 
 ### No causal explanation
 

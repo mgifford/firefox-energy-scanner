@@ -308,6 +308,17 @@ remedy, its rationale and the measured comparison that would check it, plus page
 drawn from recorded positions. **Since the last scan** compares the scan with the previous
 scan of the same site. See [docs/investigation-report.md](docs/investigation-report.md).
 
+To find out whether a change **measurably reduces client energy**, run an **experiment**:
+the page as served against the page with one change (animations paused, reduced motion,
+lazy images, no autoplay, a host or script refused, an element hidden). The runs are
+interleaved and the change is applied symmetrically. The result says whether the change
+applied and the page still passed its checks, and reports the measured difference with
+both sides' spread. `--from <result.json> --item <n>` builds the experiment for an item of
+the queue. See [docs/experiments.md](docs/experiments.md).
+
+Journeys can be drafted with Playwright MCP and checked with `web-energy journey-check`;
+they always run without a model. See [docs/journeys-with-mcp.md](docs/journeys-with-mcp.md).
+
 ### compare
 
 Runs are **interleaved** (`A B B A …`) from a stored seed, so drift in thermal state,
@@ -357,6 +368,8 @@ canvas charts) are generated alongside.
 - [docs/page-families.md](docs/page-families.md) — grouping a crawl's pages by how they are built, and adaptive sampling
 - [docs/component-inventory.md](docs/component-inventory.md) — recurring components and the Lighthouse evidence tied to them
 - [docs/investigation-report.md](docs/investigation-report.md) — the investigation queue, remedies, page maps and history
+- [docs/experiments.md](docs/experiments.md) — measuring whether a change reduces client energy
+- [docs/journeys-with-mcp.md](docs/journeys-with-mcp.md) — writing journeys with Playwright MCP, and the rules they follow
 
 ## Licence
 

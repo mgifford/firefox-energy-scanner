@@ -197,6 +197,12 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
     // before any navigation.
     await installLcpObserver(session.getPage());
 
+    // The journey's setup (a login, a cookie choice, an experiment's variant)
+    // runs once, outside every measured window and before the idle baseline,
+    // so its work is neither measured nor in the baseline.
+    const setupArgs = { page: session.getPage(), context: session.getContext(), baseUrl, env: process.env };
+    if (options.journey?.setup) await options.journey.setup(setupArgs);
+
     // Idle baseline, captured inside the same session so the browser and
     // environment match the measured workload as closely as possible.
     if (config.energy.baseline && useEnergy) {
@@ -248,6 +254,8 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
         await session.getPage().waitForTimeout(config.benchmark.settle_ms);
       }
     }
+
+    if (options.journey?.teardown) await options.journey.teardown(setupArgs);
 
     // Capture records before closing, then close so Firefox flushes the
     // profile at shutdown. Energy can only be resolved after that point.
