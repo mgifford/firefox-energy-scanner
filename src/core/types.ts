@@ -333,5 +333,10 @@ export interface BenchmarkResult {
    * Derived from the scenarios above, so it can be rebuilt from any result.
    */
   families?: import('../analysis/families.js').FamilyReport;
+  /**
+   * Components the pages are built from, which recur, and the Lighthouse
+   * evidence tied to them. Structure and Chromium lab evidence, never energy.
+   */
+  components?: import('../analysis/components.js').ComponentInventory;
   warnings: string[];
 }

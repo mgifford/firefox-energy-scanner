@@ -24,7 +24,7 @@ import { loadMatrix, triageMatrix, baselineOf } from './matrix.js';
 import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
 import { attributeEnergy } from '../energy/attribution.js';
 import { buildFindings } from '../report/findings.js';
-import { collectTwigTemplates } from '../drupal/twig-debug.js';
+import { collectTwigTemplates, templatesForInstances } from '../drupal/twig-debug.js';
 import { BrowserSession, waitForStablePage } from '../collect/session.js';
 import { readFile } from 'node:fs/promises';
 import { parseScanRequest } from './issue-parser.js';
@@ -35,6 +35,8 @@ import { readableFailure } from '../core/failures.js';
 import { friendlyError } from './errors.js';
 import { toHtml } from '../report/html.js';
 import { buildFamilies, type FamilyReport } from '../analysis/families.js';
+import { buildInventory, type ComponentInventory } from '../analysis/components.js';
+import { componentsCsv } from '../report/components-csv.js';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import {
@@ -85,6 +87,7 @@ Usage:
   web-energy compare --a <url> --b <url> --journey <file> [options]
   web-energy report <result.json>
   web-energy families <result.json>    [--json] [--write]
+  web-energy components <result.json>  [--json] [--write]
   web-energy profile --journey <file> [--step <name>]
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
@@ -505,6 +508,7 @@ async function writeOutputs(result: BenchmarkResult, config: Config): Promise<st
 
   if (config.output.json) await writeFile(`${base}.json`, JSON.stringify(result, null, 2));
   if (config.output.csv) await writeFile(`${base}.csv`, toCsv(result));
+  if (config.output.csv && result.components) await writeFile(`${base}.components.csv`, componentsCsv(result));
   if (config.output.html) await writeFile(`${base}.html`, toHtml(result));
   return base;
 }
@@ -623,6 +627,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   await attachLighthouse(args, config, result, urls, 'measure');
   await attachCrux(result, crux);
   await attachWebnrg(args, result, urls, 'measure');
+  attachInventory(result);
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
@@ -727,12 +732,14 @@ async function cmdCrawl(args: Args): Promise<number> {
   await attachLighthouse(args, config, result, [start], 'crawl');
   await attachCrux(result, crux);
   await attachWebnrg(args, result, [start], 'crawl');
+  attachInventory(result);
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.crux) printCrux(result.crux);
   if (result.webnrg) printWebnrg(result.webnrg);
   if (result.families) printFamilies(result.families);
+  if (result.components) printComponents(result.components);
   console.log(`\n${describeSampling(outcome.sampling)}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
@@ -774,6 +781,59 @@ function printFamilies(report: FamilyReport): void {
     for (const o of f.outliers.slice(0, 3)) console.log(`      outlier: ${o.url} ${o.metric} ${o.value} (${o.ratio}× the family median)`);
   }
   if (report.families.length > 12) console.log(`  …and ${report.families.length - 12} more`);
+}
+
+/** The component inventory, once families and Lighthouse are in the result. */
+function attachInventory(result: BenchmarkResult): void {
+  const inventory = buildInventory(result.scenarios, {
+    ...(result.families ? { families: result.families } : {}),
+    ...(result.lighthouse ? { lighthouse: result.lighthouse } : {}),
+  });
+  if (inventory) result.components = inventory;
+}
+
+function printComponents(inv: ComponentInventory): void {
+  const recurring = inv.components.filter((c) => c.kind === 'component' && (c.pages > 1 || c.signals.length > 0)).slice(0, 10);
+  if (!recurring.length) return;
+  console.log(`\nComponents worth a look (${inv.components.length} recognised on ${inv.pages} pages; structure and Lighthouse evidence, not energy):`);
+  for (const c of recurring) {
+    console.log(`  ${c.id}  ${c.signature}  [${c.confidence}]`);
+    for (const s of c.signals.slice(0, 4)) console.log(`      ${s}`);
+  }
+}
+
+/** Build the component inventory of a stored result. */
+async function cmdComponents(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('components requires a result JSON file');
+    return 1;
+  }
+  const result = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  if (!result.families) {
+    const families = buildFamilies(result.scenarios, result.sampling?.listed !== undefined ? { listed: result.sampling.listed } : {});
+    if (families) result.families = families;
+  }
+  attachInventory(result);
+  if (!result.components) {
+    console.error('No page in this result recorded component occurrences (results made before they were recorded have none).');
+    return 1;
+  }
+  if (has(args, 'write')) {
+    const stem = resolve(file).replace(/\.json$/, '');
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+    await writeFile(`${stem}.html`, toHtml(result));
+    await writeFile(`${stem}.csv`, toCsv(result));
+    await writeFile(`${stem}.components.csv`, componentsCsv(result));
+  }
+  if (has(args, 'json')) {
+    console.log(JSON.stringify(result.components, null, 2));
+  } else {
+    printComponents(result.components);
+    for (const l of result.components.limitations) console.log(`\n${l}`);
+    if (has(args, 'write')) console.log(`\nWrote the inventory into ${file} and regenerated its HTML and CSV files.`);
+  }
+  return 0;
 }
 
 /**
@@ -1692,6 +1752,25 @@ async function cmdDiagnose(args: Args): Promise<number> {
     console.log('');
   }
 
+  const instances = anatomy?.structure?.instances ?? [];
+  if (instances.length > 0) {
+    const templates = twig?.enabled ? templatesForInstances(instances, twig) : [];
+    console.log('Largest components (structure, not energy)');
+    for (const i of instances.filter((x) => x.method !== 'landmark').slice(0, 10)) {
+      const extras = [
+        i.animations?.infinite ? `${i.animations.infinite} endless animation(s)` : '',
+        i.media?.autoplayVideos ? `${i.media.autoplayVideos} autoplay video(s)` : '',
+        i.media?.iframes ? `${i.media.iframes} iframe(s)` : '',
+        i.media?.eagerOffscreenImages ? `${i.media.eagerOffscreenImages} eager offscreen image(s)` : '',
+      ].filter(Boolean);
+      const template = templates.find((t) => t.nodePath === i.nodePath);
+      console.log(`  ${i.signature.slice(0, 40).padEnd(42)}${String(i.nodes).padStart(6)} nodes  ${i.selector.slice(0, 50)}`);
+      if (template) console.log(`      rendered by ${template.template}`);
+      if (extras.length) console.log(`      ${extras.join(', ')}`);
+    }
+    console.log('');
+  }
+
   if (twig?.enabled && twig.templates.length > 0) {
     console.log('Twig templates (Drupal)');
     console.log('  template                        renders   owns   within');
@@ -1805,6 +1884,7 @@ async function main(): Promise<number> {
       case 'compare': return await cmdCompare(args);
       case 'report': return await cmdReport(args);
       case 'families': return await cmdFamilies(args);
+      case 'components': return await cmdComponents(args);
       case 'profile': return await cmdProfile(args);
       case 'triage': return await cmdTriage(args);
       case 'matrix': return await cmdMatrix(args);

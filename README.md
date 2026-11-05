@@ -296,6 +296,12 @@ representative page and its outliers. A family is a grouping for investigation, 
 measurement. `web-energy families <result.json>` rebuilds them for any stored result. See
 [docs/page-families.md](docs/page-families.md).
 
+A **component inventory** lists the components the pages are built from, which recur,
+what each holds (elements, media, animations, scripts), and, with `--lighthouse`, the
+Lighthouse findings that fall inside each one, matched by DOM node path. It is evidence
+for where to look, never a component's energy. See
+[docs/component-inventory.md](docs/component-inventory.md).
+
 ### compare
 
 Runs are **interleaved** (`A B B A …`) from a stored seed, so drift in thermal state,
@@ -343,6 +349,7 @@ canvas charts) are generated alongside.
 - [docs/crux.md](docs/crux.md) — optional CrUX field data from real Chrome users
 - [docs/webnrg.md](docs/webnrg.md) — optional webNRG lab figures from Green Coding's cluster
 - [docs/page-families.md](docs/page-families.md) — grouping a crawl's pages by how they are built, and adaptive sampling
+- [docs/component-inventory.md](docs/component-inventory.md) — recurring components and the Lighthouse evidence tied to them
 
 ## Licence
 

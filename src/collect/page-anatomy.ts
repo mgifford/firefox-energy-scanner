@@ -63,6 +63,54 @@ export interface ComponentSignature {
 }
 
 /**
+ * One occurrence of a component on a page: where it is and what it holds.
+ * Structure, not cost: nothing here says how much energy the element uses.
+ */
+export interface ComponentInstance {
+  signature: string;
+  method: ComponentSignature['method'];
+  /** A CSS selector that matched only this element when it was recorded. */
+  selector: string;
+  /**
+   * DevTools node path ("1,HTML,1,BODY,0,DIV"), as Lighthouse reports it, so
+   * Lighthouse's element findings can be matched to the component they fall in.
+   */
+  nodePath: string;
+  /** Signatures of the components it sits inside, outermost first. */
+  ancestry: string[];
+  /** ARIA role, explicit or implied by the element. */
+  role?: string;
+  /** Accessible name, or the first heading inside it; at most 60 characters. */
+  name?: string;
+  /** Elements in it, itself included. */
+  nodes: number;
+  /** Deepest nesting below it. */
+  depth: number;
+  /** Position and size in CSS pixels, relative to the top of the document. */
+  rect: { x: number; y: number; width: number; height: number };
+  /** Starts below the first screenful. */
+  belowFold: boolean;
+  media?: {
+    images: number;
+    /** Images below the first screenful without loading="lazy". */
+    eagerOffscreenImages: number;
+    videos: number;
+    /** Videos set to autoplay or playing when recorded. */
+    autoplayVideos: number;
+    iframes: number;
+    canvases: number;
+  };
+  /** Images, video, iframes and external scripts inside it: at most 6, plus how many there were. */
+  resources?: { url: string; kind: 'image' | 'video' | 'iframe' | 'script' }[];
+  resourceCount?: number;
+  inlineScripts?: number;
+  /** Web Animations API: animations whose target is inside it. */
+  animations?: { running: number; infinite: number; names: string[] };
+  /** An ARIA live region, or one inside it. */
+  liveRegion?: boolean;
+}
+
+/**
  * The page's structure as a fingerprint: landmarks, components, framework
  * roots and Drupal hints. Read from the DOM after the measured window, so it
  * adds nothing to the energy figure. It says what a page is made of, not what
@@ -75,6 +123,12 @@ export interface PageStructure {
   components: ComponentSignature[];
   /** Framework roots found: react, next, vue, angular, svelte, web-components, drupal. */
   frameworks: string[];
+  /**
+   * The largest component occurrences, plus any holding media or animations:
+   * where on the page each one is and what it contains. At most 24. Absent
+   * in results made before it existed.
+   */
+  instances?: ComponentInstance[];
   drupal?: {
     /** page-node-type-*, or the path-* class, with numbers replaced by :id. */
     pageTemplate?: string;
@@ -228,11 +282,16 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
       const idDigits = (s: string) => s.replace(/\d+/g, ':id');
 
       const sigs = new Map<string, { signature: string; method: string; count: number; nodes: number }>();
+      // Every element that got a signature, for instances and their ancestry.
+      // A landmark and a component on one element: the component names it.
+      const elSig = new Map<Element, { signature: string; method: string; nodes: number }>();
       const add = (signature: string, method: string, el: Element) => {
         const entry = sigs.get(signature) ?? { signature, method, count: 0, nodes: 0 };
+        const nodes = el.getElementsByTagName('*').length + 1;
         entry.count++;
-        entry.nodes += el.getElementsByTagName('*').length + 1;
+        entry.nodes += nodes;
         sigs.set(signature, entry);
+        if (!elSig.has(el) || elSig.get(el)!.method === 'landmark') elSig.set(el, { signature, method, nodes });
       };
       const landmarks: string[] = [];
       const frameworks = new Set<string>();
@@ -312,12 +371,205 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
           ...(libraries ? { libraries } : {}),
         };
       }
+      // --- Instances: where the largest components are, and what they hold --
+      // Lighthouse's getNodePath, so its element findings can be matched here.
+      const nodePath = (node: Node): string => {
+        const index = (n: Node): number | string => {
+          if (n.nodeType === 11) return 'a';
+          let i = 0;
+          let prev: Node | null = n;
+          while ((prev = prev.previousSibling)) {
+            if (prev.nodeType === 3 && (prev.nodeValue ?? '').trim().length === 0) continue;
+            i++;
+          }
+          return i;
+        };
+        const parentOf = (n: Node): Node | null => (n.nodeType === 11 ? (n as ShadowRoot).host : n.parentNode);
+        const path: string[] = [];
+        let cur: Node | null = node;
+        while (cur && parentOf(cur)) {
+          path.push(`${index(cur)},${cur.nodeName}`);
+          cur = parentOf(cur);
+        }
+        return path.reverse().join(',');
+      };
+      const esc = (s: string) => (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, '\\$&'));
+      const unique = (sel: string) => {
+        try {
+          return document.querySelectorAll(sel).length === 1;
+        } catch {
+          return false;
+        }
+      };
+      const selectorOf = (el: Element): string => {
+        const parts: string[] = [];
+        let cur: Element | null = el;
+        while (cur && parts.length < 8) {
+          if (cur.id && unique(`#${esc(cur.id)}`)) {
+            parts.unshift(`#${esc(cur.id)}`);
+            break;
+          }
+          let part = cur.tagName.toLowerCase();
+          if (cur === document.body || cur === document.documentElement) {
+            parts.unshift(part);
+            break;
+          }
+          const cls = Array.from(cur.classList).find((c) => /^[a-zA-Z][\w-]*$/.test(c) && !isUtility(c));
+          if (cls) part += `.${esc(cls)}`;
+          const parent: Element | null = cur.parentElement;
+          if (parent) {
+            const sameTag = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName);
+            const sameSel = cls ? sameTag.filter((c) => c.classList.contains(cls)) : sameTag;
+            if (sameSel.length > 1) part += `:nth-of-type(${sameTag.indexOf(cur) + 1})`;
+          }
+          parts.unshift(part);
+          if (unique(parts.join(' > '))) break;
+          cur = parent;
+        }
+        return parts.join(' > ');
+      };
+      const IMPLICIT: Record<string, string> = {
+        article: 'article', ul: 'list', ol: 'list', table: 'table', dialog: 'dialog', figure: 'figure',
+        img: 'img', button: 'button', details: 'group', fieldset: 'group',
+      };
+      const roleOf = (el: Element): string | undefined =>
+        el.getAttribute('role') ?? landmarkOf(el) ?? (el.tagName === 'A' && el.hasAttribute('href') ? 'link' : IMPLICIT[el.tagName.toLowerCase()]);
+      const clip = (s: string | null | undefined) => {
+        const t = (s ?? '').replace(/\s+/g, ' ').trim();
+        return t ? (t.length > 60 ? `${t.slice(0, 59)}…` : t) : undefined;
+      };
+      const nameOf = (el: Element): string | undefined => {
+        const label = clip(el.getAttribute('aria-label'));
+        if (label) return label;
+        const ids = el.getAttribute('aria-labelledby');
+        if (ids) {
+          const text = clip(ids.split(/\s+/).map((id) => document.getElementById(id)?.textContent ?? '').join(' '));
+          if (text) return text;
+        }
+        // A heading names sectioning content only; the first heading in <main> is not its name.
+        const sectioning = ['article', 'region', 'complementary', 'dialog', 'group'].includes(roleOf(el) ?? '') || el.tagName === 'SECTION';
+        return (sectioning ? clip(el.querySelector('h1, h2, h3, h4')?.textContent) : undefined) ?? clip(el.getAttribute('title'));
+      };
+      const depthBelow = (el: Element): number => {
+        let max = 0;
+        for (const child of Array.from(el.children)) max = Math.max(max, 1 + depthBelow(child));
+        return max;
+      };
+
+      let animations: Animation[] = [];
+      try {
+        animations = document.getAnimations();
+      } catch {
+        /* no Web Animations API */
+      }
+      const animationTarget = (a: Animation): Element | undefined => {
+        const t = (a.effect as KeyframeEffect | null)?.target;
+        return t instanceof Element ? t : undefined;
+      };
+      const animated = animations.map((a) => ({ a, target: animationTarget(a) })).filter((x) => x.target);
+      const viewportHeight = window.innerHeight || 0;
+      const LIVE = '[aria-live]:not([aria-live="off"]), [role="status"], [role="alert"], [role="log"], [role="marquee"], [role="timer"]';
+      const hasActivity = (el: Element) =>
+        !!el.querySelector('video, iframe, canvas') || animated.some((x) => el.contains(x.target!));
+
+      // The largest first, at most three of any one signature (a list of 60
+      // teasers is one component, counted in `components`); then up to six
+      // smaller ones holding media or animations.
+      const ranked = [...elSig].sort((a, b) => b[1].nodes - a[1].nodes);
+      const perSignature = new Map<string, number>();
+      const room = (sig: string) => (perSignature.get(sig) ?? 0) < 3;
+      const chosen: typeof ranked = [];
+      const rest: typeof ranked = [];
+      for (const entry of ranked) {
+        if (chosen.length < 18 && room(entry[1].signature)) {
+          chosen.push(entry);
+          perSignature.set(entry[1].signature, (perSignature.get(entry[1].signature) ?? 0) + 1);
+        } else rest.push(entry);
+      }
+      for (const entry of rest) {
+        if (chosen.length >= 24) break;
+        if (room(entry[1].signature) && hasActivity(entry[0])) {
+          chosen.push(entry);
+          perSignature.set(entry[1].signature, (perSignature.get(entry[1].signature) ?? 0) + 1);
+        }
+      }
+      const instances: ComponentInstance[] = chosen.map(([el, info]) => {
+        const r = el.getBoundingClientRect();
+        const top = r.top + window.scrollY;
+        const imgs = Array.from(el.querySelectorAll('img'));
+        const videos = Array.from(el.querySelectorAll('video'));
+        const media = {
+          images: imgs.length,
+          eagerOffscreenImages: imgs.filter((i) => i.loading !== 'lazy' && i.getBoundingClientRect().top + window.scrollY >= viewportHeight).length,
+          videos: videos.length,
+          autoplayVideos: videos.filter((v) => v.autoplay || (!v.paused && !v.ended)).length,
+          iframes: el.querySelectorAll('iframe').length,
+          canvases: el.querySelectorAll('canvas').length,
+        };
+        const urls: { url: string; kind: 'image' | 'video' | 'iframe' | 'script' }[] = [];
+        const push = (url: string | null | undefined, kind: 'image' | 'video' | 'iframe' | 'script') => {
+          if (url && /^https?:/i.test(url) && !urls.some((u) => u.url === url)) urls.push({ url, kind });
+        };
+        // Iframes, scripts and video first: one each costs more than an image.
+        for (const f of Array.from(el.querySelectorAll('iframe'))) push((f as HTMLIFrameElement).src, 'iframe');
+        for (const s of Array.from(el.querySelectorAll('script[src]'))) push((s as HTMLScriptElement).src, 'script');
+        for (const v of videos) push(v.currentSrc || v.src || v.poster, 'video');
+        for (const i of imgs) push(i.currentSrc || i.src, 'image');
+        const inside = animated.filter((x) => el.contains(x.target!));
+        const names = [
+          ...new Set(
+            inside.map(({ a }) =>
+              (a as unknown as { animationName?: string }).animationName ??
+              (a as unknown as { transitionProperty?: string }).transitionProperty ??
+              a.id ??
+              '',
+            ),
+          ),
+        ].filter(Boolean).slice(0, 5);
+        const ancestry: string[] = [];
+        for (let p = el.parentElement; p && ancestry.length < 6; p = p.parentElement) {
+          const s = elSig.get(p);
+          if (s) ancestry.unshift(s.signature);
+        }
+        const inlineScripts = Array.from(el.querySelectorAll('script:not([src])')).length;
+        const role = roleOf(el);
+        const name = nameOf(el);
+        const live = el.matches(LIVE) || !!el.querySelector(LIVE);
+        return {
+          signature: info.signature,
+          method: info.method as ComponentSignature['method'],
+          selector: selectorOf(el),
+          nodePath: nodePath(el),
+          ancestry,
+          ...(role ? { role } : {}),
+          ...(name ? { name } : {}),
+          nodes: info.nodes,
+          depth: depthBelow(el),
+          rect: { x: Math.round(r.left + window.scrollX), y: Math.round(top), width: Math.round(r.width), height: Math.round(r.height) },
+          belowFold: top >= viewportHeight,
+          ...(Object.values(media).some((v) => v > 0) ? { media } : {}),
+          ...(urls.length ? { resources: urls.slice(0, 6), resourceCount: urls.length } : {}),
+          ...(inlineScripts ? { inlineScripts } : {}),
+          ...(inside.length
+            ? {
+                animations: {
+                  running: inside.filter(({ a }) => a.playState === 'running').length,
+                  infinite: inside.filter(({ a }) => a.effect?.getTiming().iterations === Infinity).length,
+                  names,
+                },
+              }
+            : {}),
+          ...(live ? { liveRegion: true } : {}),
+        };
+      });
+
       const structure: PageStructure = {
         landmarks,
         components: [...sigs.values()]
           .sort((a, b) => b.nodes - a.nodes || (a.signature < b.signature ? -1 : 1))
           .slice(0, 40) as ComponentSignature[],
         frameworks: [...frameworks].sort(),
+        instances,
         ...(drupal ? { drupal } : {}),
       };
 

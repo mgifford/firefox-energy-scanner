@@ -1,4 +1,5 @@
 import { median } from '../core/stats.js';
+import { extractEvidence, type LighthouseEvidence } from './evidence.js';
 
 /**
  * Reduce Lighthouse reports (LHRs) to what this tool publishes.
@@ -120,6 +121,8 @@ export interface LighthouseRunSummary {
   /** Failing audits in the non-performance categories, by category. */
   failingAudits: Partial<Record<LighthouseCategory, { id: string; title: string }[]>>;
   work: LighthouseWork;
+  /** Element and script findings, for matching to components. */
+  evidence?: LighthouseEvidence;
   benchmarkIndex?: number;
   warnings: string[];
 }
@@ -141,6 +144,8 @@ export interface LighthouseUrlResult {
   recommendations: LighthouseRecommendation[];
   failingAudits: Partial<Record<LighthouseCategory, { id: string; title: string }[]>>;
   work: LighthouseWork;
+  /** From the median run, like the recommendations. */
+  evidence?: LighthouseEvidence;
   warnings: string[];
 }
 
@@ -365,6 +370,7 @@ export function summarizeLhr(lhr: Lhr, requestedUrl: string): LighthouseRunSumma
     recommendations: lhr.runtimeError ? [] : extractRecommendations(lhr),
     failingAudits,
     work: lhr.runtimeError ? {} : safely(() => extractWork(lhr), {}),
+    ...(lhr.runtimeError ? {} : { evidence: safely(() => extractEvidence(lhr), { nodes: [], scripts: [] }) }),
     ...(benchmarkIndex !== undefined ? { benchmarkIndex: Math.round(benchmarkIndex) } : {}),
     warnings: (lhr.runWarnings ?? []).map(clean),
   };
@@ -451,6 +457,7 @@ export function combineRuns(requestedUrl: string, all: LighthouseRunSummary[]): 
     recommendations: pick.recommendations,
     failingAudits: pick.failingAudits,
     work: pick.work,
+    ...(pick.evidence ? { evidence: pick.evidence } : {}),
     warnings: [...new Set(runs.flatMap((r) => r.warnings))],
   };
 }

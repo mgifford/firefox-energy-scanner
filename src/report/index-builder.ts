@@ -131,6 +131,24 @@ export function indexFamilies(report: import('../analysis/families.js').FamilyRe
   };
 }
 
+export interface IndexComponents {
+  pages: number;
+  lighthousePages: number;
+  top: { id: string; signature: string; confidence: string; pages: number; signals: string[]; evidence: number }[];
+}
+
+/** The components that recur or carry a signal, at most ten, for the index. */
+export function indexComponents(inv: import('../analysis/components.js').ComponentInventory): IndexComponents {
+  return {
+    pages: inv.pages,
+    lighthousePages: inv.lighthousePages,
+    top: inv.components
+      .filter((c) => c.kind === 'component' && (c.pages > 1 || c.signals.length > 0))
+      .slice(0, 10)
+      .map((c) => ({ id: c.id, signature: c.signature, confidence: c.confidence, pages: c.pages, signals: c.signals.slice(0, 3), evidence: c.evidence.length })),
+  };
+}
+
 export interface IndexEntry {
   id: string;
   file: string;
@@ -162,6 +180,8 @@ export interface IndexEntry {
   sampling?: Omit<import('../core/types.js').CrawlSampling, 'reasons'>;
   /** Page families, summarised: medians of measured pages only. Full detail stays in the result file. */
   families?: IndexFamilies;
+  /** Components worth a look, summarised. Structure and Chromium lab evidence, never energy. */
+  components?: IndexComponents;
   /** webNRG lab figures for a few of the scan's pages, as recorded. */
   webnrg?: import('../webnrg/run.js').WebnrgSummary;
   /** Run-level Lighthouse context; per-URL results sit on each scenario. */
@@ -351,6 +371,7 @@ export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry 
     ...(result.webnrg ? { webnrg: result.webnrg } : {}),
     ...(result.sampling ? { sampling: withoutReasons(result.sampling) } : {}),
     ...(result.families ? { families: indexFamilies(result.families) } : {}),
+    ...(result.components ? { components: indexComponents(result.components) } : {}),
     warnings: result.warnings,
   };
 }

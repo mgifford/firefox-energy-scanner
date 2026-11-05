@@ -161,6 +161,10 @@ Consequences, recorded in every result as `attribution: "time-window"`:
   is included.
 - Steps are measured as half-open intervals so adjacent steps never double count.
 
+No energy is attributed to elements or components. The component inventory
+([component-inventory.md](component-inventory.md)) records structure and Lighthouse
+evidence; a component's energy is only ever a measured difference between two runs.
+
 Power counters are summed across the **parent process and every content process**, each
 normalised to its own time origin. Omitting content processes attributes none of the
 page's JavaScript work, which produces physically impossible results — this was caught

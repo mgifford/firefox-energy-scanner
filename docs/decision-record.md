@@ -594,3 +594,33 @@ would be exact but changes the markup and the server's work, so families never r
 **Adaptive is opt-in.** Re-scans compare like with like only while a site gives the same
 pages, so `--sample` keeps its output (pinned by a test). `--adaptive` is seeded too, and
 records why each page was picked and what the sample cannot stand for.
+
+## TDR-015: Components get evidence, not energy; Lighthouse is the trace attribution
+
+**Decision:** Each page records up to 24 component occurrences (selector, DevTools node
+path, role and name, size, position, media, resources, animations). A component
+inventory groups them across pages and ties Lighthouse's element and script findings to
+them. No component is given an energy figure.
+
+**Why no energy per component.** Firefox's power counters cover whole processes and its
+profile has no DOM references. Apportioning a page's energy to elements by size or CPU
+share would be a model presented as a measurement. Component energy is reported only as
+a measured difference between two runs of the same workload (PR 4).
+
+**Why Lighthouse, not a new trace pipeline.** Lighthouse 13's insight audits already
+derive layout shifts, non-composited animations, the LCP element, DOM-size nodes, forced
+reflows, long tasks, script CPU and third-party time from a Chromium trace, and it is
+already an optional, tested part of this tool. Parsing traces again would duplicate it
+and add a second set of definitions to keep consistent. Style and paint stay page-level
+because Lighthouse reports them so.
+
+**Matching by node path.** Lighthouse identifies elements by DevTools node path, so
+Firefox records the same path for each occurrence. A finding belongs to the deepest
+occurrence that contains it. When positions differ between the browsers, element names
+alone are accepted only if one occurrence fits. Everything else is listed as
+unattributed, with a reason. A cross-browser end-to-end test proves that a finding from
+Chrome lands on the component recorded in Firefox.
+
+**Signals, not a score.** Records carry plain statements ("1 animation that never
+stops") and an identification confidence. There is no combined score to rank by;
+prioritisation, and how it is explained, comes with the investigation report (PR 3).

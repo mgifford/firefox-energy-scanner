@@ -8,6 +8,7 @@ import { lighthouseSection } from './lighthouse-html.js';
 import { cruxSection } from './crux-html.js';
 import { webnrgSection } from './webnrg-html.js';
 import { familiesSection } from './families-html.js';
+import { componentsSection } from './components-html.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -219,6 +220,8 @@ ${
 }
 
 ${familiesSection(result.families, result.sampling)}
+
+${componentsSection(result.components)}
 
 <section aria-labelledby="compare-h">
   <h2 id="compare-h">Modelled CO2e versus observed energy</h2>

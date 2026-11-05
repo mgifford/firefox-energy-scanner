@@ -1,0 +1,557 @@
+{
+ "lighthouseVersion": "13.5.0",
+ "requestedUrl": "http://127.0.0.1:8099/",
+ "finalDisplayedUrl": "http://127.0.0.1:8099/",
+ "categories": {},
+ "audits": {
+  "cls-culprits-insight": {
+   "id": "cls-culprits-insight",
+   "title": "Layout shift culprits",
+   "score": 1,
+   "scoreDisplayMode": "numeric",
+   "metricSavings": {
+    "CLS": 0
+   },
+   "details": {
+    "type": "list",
+    "items": []
+   },
+   "guidanceLevel": 3
+  },
+  "layout-shifts": {
+   "id": "layout-shifts",
+   "title": "Avoid large layout shifts",
+   "score": null,
+   "scoreDisplayMode": "notApplicable",
+   "metricSavings": {
+    "CLS": 0
+   },
+   "details": {
+    "type": "table",
+    "headings": [
+     {
+      "key": "node",
+      "valueType": "node",
+      "subItemsHeading": {
+       "key": "extra"
+      },
+      "label": "Element"
+     },
+     {
+      "key": "score",
+      "valueType": "numeric",
+      "subItemsHeading": {
+       "key": "cause",
+       "valueType": "text"
+      },
+      "granularity": 0.001,
+      "label": "Layout shift score"
+     }
+    ],
+    "items": []
+   },
+   "guidanceLevel": 2
+  },
+  "non-composited-animations": {
+   "id": "non-composited-animations",
+   "title": "Avoid non-composited animations",
+   "score": 1,
+   "scoreDisplayMode": "informative",
+   "displayValue": "1 animated element found",
+   "metricSavings": {
+    "CLS": 0
+   },
+   "details": {
+    "type": "table",
+    "headings": [
+     {
+      "key": "node",
+      "valueType": "node",
+      "subItemsHeading": {
+       "key": "failureReason",
+       "valueType": "text"
+      },
+      "label": "Element"
+     },
+     {
+      "key": null,
+      "valueType": "text",
+      "subItemsHeading": {
+       "key": "animation",
+       "valueType": "text"
+      },
+      "label": "Name"
+     }
+    ],
+    "items": [
+     {
+      "node": {
+       "type": "node",
+       "lhId": "page-1-DIV",
+       "path": "1,HTML,1,BODY,1,MAIN,0,DIV,0,DIV",
+       "selector": "body.path-frontpage > main > div.hero-carousel > div.pulse",
+       "boundingRect": {
+        "top": 1481,
+        "bottom": 1501,
+        "left": 8,
+        "right": 115,
+        "width": 107,
+        "height": 20
+       },
+       "snippet": "<div class=\"pulse\" style=\"width:100px;height:20px;background:red\">",
+       "nodeLabel": "body.path-frontpage > main > div.hero-carousel > div.pulse"
+      },
+      "subItems": {
+       "type": "subitems",
+       "items": [
+        {
+         "failureReason": "Unsupported CSS Property: width",
+         "animation": "pulse"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "guidanceLevel": 2
+  },
+  "lcp-breakdown-insight": {
+   "id": "lcp-breakdown-insight",
+   "title": "LCP breakdown",
+   "score": 1,
+   "scoreDisplayMode": "informative",
+   "metricSavings": {
+    "LCP": 0
+   },
+   "details": {
+    "type": "list",
+    "items": [
+     {
+      "type": "table",
+      "headings": [
+       {
+        "key": "label",
+        "valueType": "text",
+        "label": "Subpart"
+       },
+       {
+        "key": "duration",
+        "valueType": "ms",
+        "label": "Duration"
+       }
+      ],
+      "items": [
+       {
+        "subpart": "timeToFirstByte",
+        "label": "Time to first byte",
+        "duration": 130.143
+       },
+       {
+        "subpart": "elementRenderDelay",
+        "label": "Element render delay",
+        "duration": 2184.115
+       }
+      ]
+     },
+     {
+      "type": "node",
+      "lhId": "page-0-H2",
+      "path": "1,HTML,1,BODY,1,MAIN,2,SECTION,0,ARTICLE,0,H2",
+      "selector": "main > section.view > article.node > h2",
+      "boundingRect": {
+       "top": 1746,
+       "bottom": 1799,
+       "left": 8,
+       "right": 972,
+       "width": 964,
+       "height": 53
+      },
+      "snippet": "<h2>",
+      "nodeLabel": "Story 0"
+     }
+    ]
+   },
+   "guidanceLevel": 3
+  },
+  "lcp-discovery-insight": {
+   "id": "lcp-discovery-insight",
+   "title": "LCP request discovery",
+   "score": null,
+   "scoreDisplayMode": "notApplicable",
+   "guidanceLevel": 3
+  },
+  "dom-size-insight": {
+   "id": "dom-size-insight",
+   "title": "Optimize DOM size",
+   "score": 1,
+   "scoreDisplayMode": "numeric",
+   "numericValue": 376,
+   "numericUnit": "element",
+   "metricSavings": {
+    "INP": 0
+   },
+   "details": {
+    "type": "table",
+    "headings": [
+     {
+      "key": "statistic",
+      "valueType": "text",
+      "label": "Statistic"
+     },
+     {
+      "key": "node",
+      "valueType": "node",
+      "label": "Element"
+     },
+     {
+      "key": "value",
+      "valueType": "numeric",
+      "label": "Value"
+     }
+    ],
+    "items": [
+     {
+      "statistic": "Total elements",
+      "value": {
+       "type": "numeric",
+       "granularity": 1,
+       "value": 376
+      }
+     },
+     {
+      "statistic": "DOM depth",
+      "node": {
+       "type": "node",
+       "lhId": "page-3-A",
+       "path": "1,HTML,1,BODY,0,HEADER,0,NAV,0,UL,0,LI,0,A",
+       "selector": "nav > ul > li > a",
+       "boundingRect": {
+        "top": 26,
+        "bottom": 72,
+        "left": 48,
+        "right": 60,
+        "width": 12,
+        "height": 46
+       },
+       "snippet": "<a href=\"#\">",
+       "nodeLabel": "l"
+      },
+      "value": {
+       "type": "numeric",
+       "granularity": 1,
+       "value": 6
+      }
+     },
+     {
+      "statistic": "Most children",
+      "node": {
+       "type": "node",
+       "lhId": "page-2-SECTION",
+       "path": "1,HTML,1,BODY,1,MAIN,2,SECTION",
+       "selector": "body.path-frontpage > main > section.view",
+       "boundingRect": {
+        "top": 1746,
+        "bottom": 23435,
+        "left": 8,
+        "right": 972,
+        "width": 964,
+        "height": 21689
+       },
+       "snippet": "<section aria-label=\"News\" class=\"view view-id-frontpage\">",
+       "nodeLabel": "Story 0\n\nText 0\n\nStory 1\n\nText 1\n\nStory 2\n\nText 2\n\nStory 3\n\nText 3\n\nStory 4\n\nTe…"
+      },
+      "value": {
+       "type": "numeric",
+       "granularity": 1,
+       "value": 60
+      }
+     }
+    ]
+   },
+   "guidanceLevel": 3
+  },
+  "image-delivery-insight": {
+   "id": "image-delivery-insight",
+   "title": "Improve image delivery",
+   "score": 1,
+   "scoreDisplayMode": "metricSavings",
+   "metricSavings": {
+    "FCP": 0,
+    "LCP": 0
+   },
+   "details": {
+    "type": "table",
+    "headings": [
+     {
+      "key": "node",
+      "valueType": "node",
+      "label": ""
+     },
+     {
+      "key": "url",
+      "valueType": "url",
+      "label": "URL",
+      "subItemsHeading": {
+       "key": "reason",
+       "valueType": "text"
+      }
+     },
+     {
+      "key": "totalBytes",
+      "valueType": "bytes",
+      "label": "Resource Size"
+     },
+     {
+      "key": "wastedBytes",
+      "valueType": "bytes",
+      "label": "Est Savings",
+      "subItemsHeading": {
+       "key": "wastedBytes",
+       "valueType": "bytes"
+      }
+     }
+    ],
+    "items": []
+   },
+   "guidanceLevel": 3
+  },
+  "unsized-images": {
+   "id": "unsized-images",
+   "title": "Image elements do not have explicit `width` and `height`",
+   "score": 0.5,
+   "scoreDisplayMode": "metricSavings",
+   "metricSavings": {
+    "CLS": 0
+   },
+   "details": {
+    "type": "table",
+    "headings": [
+     {
+      "key": "node",
+      "valueType": "node",
+      "label": ""
+     },
+     {
+      "key": "url",
+      "valueType": "url",
+      "label": "URL"
+     }
+    ],
+    "items": [
+     {
+      "url": "http://127.0.0.1:8099/img/hero.svg",
+      "node": {
+       "type": "node",
+       "lhId": "1-0-IMG",
+       "path": "1,HTML,1,BODY,1,MAIN,0,DIV,1,IMG",
+       "selector": "body.path-frontpage > main > div.hero-carousel > img",
+       "boundingRect": {
+        "top": 1501,
+        "bottom": 1701,
+        "left": 8,
+        "right": 308,
+        "width": 300,
+        "height": 200
+       },
+       "snippet": "<img src=\"/img/hero.svg\" alt=\"hero\">",
+       "nodeLabel": "hero"
+      }
+     }
+    ]
+   },
+   "guidanceLevel": 4
+  },
+  "bootup-time": {
+   "id": "bootup-time",
+   "title": "Reduce JavaScript execution time",
+   "score": 0,
+   "scoreDisplayMode": "metricSavings",
+   "numericValue": 2090.0639999999976,
+   "numericUnit": "millisecond",
+   "displayValue": "2.1 s",
+   "metricSavings": {
+    "TBT": 500
+   },
+   "details": {
+    "type": "table",
+    "headings": [
+     {
+      "key": "url",
+      "valueType": "url",
+      "label": "URL"
+     },
+     {
+      "key": "total",
+      "granularity": 1,
+      "valueType": "ms",
+      "label": "Total CPU Time"
+     },
+     {
+      "key": "scripting",
+      "granularity": 1,
+      "valueType": "ms",
+      "label": "Script Evaluation"
+     },
+     {
+      "key": "scriptParseCompile",
+      "granularity": 1,
+      "valueType": "ms",
+      "label": "Script Parse"
+     }
+    ],
+    "items": [
+     {
+      "url": "http://127.0.0.1:8099/",
+      "total": 2463.103999999994,
+      "scripting": 1280.7999999999936,
+      "scriptParseCompile": 2.124
+     },
+     {
+      "url": "Unattributable",
+      "total": 906.1319999999942,
+      "scripting": 15.5239999999999,
+      "scriptParseCompile": 0
+     },
+     {
+      "url": "http://127.0.0.1:8099/js/app.js",
+      "total": 816.0360000000039,
+      "scripting": 791.048000000004,
+      "scriptParseCompile": 0.5680000000000001
+     }
+    ],
+    "summary": {
+     "wastedMs": 2090.0639999999976
+    },
+    "sortedBy": [
+     "total"
+    ]
+   },
+   "guidanceLevel": 1
+  },
+  "long-tasks": {
+   "id": "long-tasks",
+   "title": "Avoid long main-thread tasks",
+   "score": 1,
+   "scoreDisplayMode": "informative",
+   "displayValue": "3 long tasks found",
+   "metricSavings": {
+    "TBT": 500
+   },
+   "details": {
+    "type": "table",
+    "headings": [
+     {
+      "key": "url",
+      "valueType": "url",
+      "label": "URL"
+     },
+     {
+      "key": "startTime",
+      "valueType": "ms",
+      "granularity": 1,
+      "label": "Start Time"
+     },
+     {
+      "key": "duration",
+      "valueType": "ms",
+      "granularity": 1,
+      "label": "Duration"
+     }
+    ],
+    "items": [
+     {
+      "url": "http://127.0.0.1:8099/js/app.js",
+      "duration": 811.9999999999991,
+      "startTime": 1482.0865
+     },
+     {
+      "url": "http://127.0.0.1:8099/",
+      "duration": 697.9999999999999,
+      "startTime": 784.0865
+     },
+     {
+      "url": "Unattributable",
+      "duration": 172,
+      "startTime": 601.0865
+     }
+    ],
+    "sortedBy": [
+     "duration"
+    ],
+    "skipSumming": [
+     "startTime"
+    ]
+   },
+   "guidanceLevel": 1
+  },
+  "forced-reflow-insight": {
+   "id": "forced-reflow-insight",
+   "title": "Forced reflow",
+   "score": 1,
+   "scoreDisplayMode": "numeric",
+   "details": {
+    "type": "list",
+    "items": [
+     {
+      "type": "table",
+      "headings": [
+       {
+        "key": "source",
+        "valueType": "source-location",
+        "label": "Source"
+       },
+       {
+        "key": "reflowTime",
+        "valueType": "ms",
+        "granularity": 1,
+        "label": "Total reflow time"
+       }
+      ],
+      "items": []
+     }
+    ]
+   },
+   "guidanceLevel": 3
+  },
+  "third-parties-insight": {
+   "id": "third-parties-insight",
+   "title": "3rd parties",
+   "score": 1,
+   "scoreDisplayMode": "numeric",
+   "details": {
+    "type": "table",
+    "headings": [
+     {
+      "key": "entity",
+      "valueType": "text",
+      "label": "3rd party",
+      "subItemsHeading": {
+       "key": "url",
+       "valueType": "url"
+      }
+     },
+     {
+      "key": "transferSize",
+      "granularity": 1,
+      "valueType": "bytes",
+      "label": "Transfer size",
+      "subItemsHeading": {
+       "key": "transferSize"
+      }
+     },
+     {
+      "key": "mainThreadTime",
+      "granularity": 1,
+      "valueType": "ms",
+      "label": "Main thread time",
+      "subItemsHeading": {
+       "key": "mainThreadTime"
+      }
+     }
+    ],
+    "items": []
+   },
+   "guidanceLevel": 3
+  }
+ }
+}

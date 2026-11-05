@@ -722,6 +722,19 @@ jobs:
                 (fam.families.length > 8 ? `\n\n…and ${fam.families.length - 8} more in the full results.` : '') +
                 '\n\n_Medians of the pages measured in each family; not extrapolated to pages that were not._\n'
               : '';
+            // Components worth a look: structure and Lighthouse (Chromium)
+            // evidence, folded away so the comment stays short. Never energy.
+            const comps = entry && entry.components;
+            const componentsBlock = comps && comps.top && comps.top.length
+              ? '\n<details><summary><strong>Components worth a look</strong> (' + comps.top.length + ')</summary>\n\n' +
+                comps.top.slice(0, 6).map((c) =>
+                  `- ${code(c.signature)} (${c.confidence} confidence)` +
+                  // Signals can quote the page (animation names, hosts): no links, markup or pings.
+                  (c.signals.length ? '\n' + c.signals.map((s) => `  - ${s.replace(/[\\[\]()<>*_`|#!]/g, '\\$&').replace(/@/g, '@\u200b')}`).join('\n') : ''),
+                ).join('\n') +
+                '\n\n_Recognised from the markup; Lighthouse findings come from Chromium. None of this is a component’s energy: ' +
+                'that needs a measured comparison with and without the change._\n\n</details>\n'
+              : '';
             // Notes can quote the issue body; break @mentions so they ping nobody.
             const parserNotes = (process.env.PARSER_NOTES || '').trim().replace(/@/g, '@\u200b');
 
@@ -823,7 +836,7 @@ jobs:
             // Conditionals yield null when omitted; '' entries are deliberate
             // blank lines. filter(Boolean) dropped both, which collapsed every
             // paragraph break in the comment.
-            ].filter((line) => line !== null).join('\n') + familiesBlock + findingsBlock + lighthouseBlock + webnrgBlock + footprintBlock +
+            ].filter((line) => line !== null).join('\n') + familiesBlock + componentsBlock + findingsBlock + lighthouseBlock + webnrgBlock + footprintBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
               'scan again** — edit the request body first if you want different settings._';
 
