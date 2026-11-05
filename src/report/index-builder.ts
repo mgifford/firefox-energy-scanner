@@ -131,6 +131,82 @@ export function indexFamilies(report: import('../analysis/families.js').FamilyRe
   };
 }
 
+export interface IndexComponents {
+  pages: number;
+  lighthousePages: number;
+  top: { id: string; signature: string; confidence: string; pages: number; signals: string[]; evidence: number }[];
+}
+
+/** The components that recur or carry a signal, at most ten, for the index. */
+export function indexComponents(inv: import('../analysis/components.js').ComponentInventory): IndexComponents {
+  return {
+    pages: inv.pages,
+    lighthousePages: inv.lighthousePages,
+    top: inv.components
+      .filter((c) => c.kind === 'component' && (c.pages > 1 || c.signals.length > 0))
+      .slice(0, 10)
+      .map((c) => ({ id: c.id, signature: c.signature, confidence: c.confidence, pages: c.pages, signals: c.signals.slice(0, 3), evidence: c.evidence.length })),
+  };
+}
+
+export interface IndexInvestigation {
+  order: string[];
+  top: {
+    rank: number;
+    kind: string;
+    title: string;
+    evidence: string;
+    because: string[];
+    pages: number;
+    of: number;
+    remedy?: string;
+    confidence: string;
+  }[];
+}
+
+export interface IndexHistory {
+  previousFile: string;
+  previousTimestamp: string;
+  pagesInBoth: number;
+  medianTransferBytes?: [number, number];
+  medianDomNodes?: [number, number];
+  families?: [number, number];
+  componentsAppeared: number;
+  componentsGone: number;
+  energy: string;
+}
+
+export function indexInvestigation(q: import('../analysis/investigation.js').InvestigationQueue): IndexInvestigation {
+  return {
+    order: q.order,
+    top: q.items.slice(0, 8).map((i) => ({
+      rank: i.rank,
+      kind: i.kind,
+      title: i.title,
+      evidence: i.evidence,
+      because: i.because.slice(0, 3),
+      pages: i.reach.pages,
+      of: i.reach.of,
+      ...(i.remediation[0] ? { remedy: i.remediation[0].title } : {}),
+      confidence: i.confidence,
+    })),
+  };
+}
+
+export function indexHistory(h: import('../analysis/history.js').HistoryReport): IndexHistory {
+  return {
+    previousFile: h.previous.file,
+    previousTimestamp: h.previous.timestamp,
+    pagesInBoth: h.pagesInBoth,
+    ...(h.medians.transferBytes ? { medianTransferBytes: h.medians.transferBytes } : {}),
+    ...(h.medians.domNodes ? { medianDomNodes: h.medians.domNodes } : {}),
+    ...(h.families ? { families: h.families } : {}),
+    componentsAppeared: h.components?.appeared.length ?? 0,
+    componentsGone: h.components?.gone.length ?? 0,
+    energy: h.energy.note,
+  };
+}
+
 export interface IndexEntry {
   id: string;
   file: string;
@@ -162,6 +238,12 @@ export interface IndexEntry {
   sampling?: Omit<import('../core/types.js').CrawlSampling, 'reasons'>;
   /** Page families, summarised: medians of measured pages only. Full detail stays in the result file. */
   families?: IndexFamilies;
+  /** Components worth a look, summarised. Structure and Chromium lab evidence, never energy. */
+  components?: IndexComponents;
+  /** The first items of the investigation queue, in its stated order. */
+  investigation?: IndexInvestigation;
+  /** Since the previous scan of the same site, summarised. Indicative. */
+  history?: IndexHistory;
   /** webNRG lab figures for a few of the scan's pages, as recorded. */
   webnrg?: import('../webnrg/run.js').WebnrgSummary;
   /** Run-level Lighthouse context; per-URL results sit on each scenario. */
@@ -351,6 +433,9 @@ export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry 
     ...(result.webnrg ? { webnrg: result.webnrg } : {}),
     ...(result.sampling ? { sampling: withoutReasons(result.sampling) } : {}),
     ...(result.families ? { families: indexFamilies(result.families) } : {}),
+    ...(result.components ? { components: indexComponents(result.components) } : {}),
+    ...(result.investigation ? { investigation: indexInvestigation(result.investigation) } : {}),
+    ...(result.history ? { history: indexHistory(result.history) } : {}),
     warnings: result.warnings,
   };
 }

@@ -50,6 +50,11 @@ export interface TemplateRegion {
   nodesExclusive: number;
   /** How many times this template was rendered on the page. */
   occurrences: number;
+  /**
+   * DevTools node paths of the first element each rendering produced (at most
+   * five), so components recorded in the same page can be matched to it.
+   */
+  rootPaths?: string[];
 }
 
 export interface TwigDebugReport {
@@ -152,7 +157,24 @@ export async function collectTwigTemplates(page: {
         comment = walker.nextNode() as Comment | null;
       }
 
-      return { regions: closed, totalElements: elements.length };
+      // Lighthouse's node path format, as page-anatomy records for components.
+      const nodePath = (node: Node): string => {
+        const path: string[] = [];
+        let cur: Node | null = node;
+        while (cur && cur.parentNode) {
+          let i = 0;
+          let prev: Node | null = cur;
+          while ((prev = prev.previousSibling)) {
+            if (prev.nodeType === 3 && (prev.nodeValue ?? '').trim().length === 0) continue;
+            i++;
+          }
+          path.push(`${i},${cur.nodeName}`);
+          cur = cur.parentNode;
+        }
+        return path.reverse().join(',');
+      };
+      const withRoots = closed.map((r) => (r.start < r.end && elements[r.start] ? { ...r, rootPath: nodePath(elements[r.start]!) } : r));
+      return { regions: withRoots, totalElements: elements.length };
     });
 
     if (raw.regions.length === 0) {
@@ -170,6 +192,7 @@ export interface RawRegion {
   hook?: string;
   start: number;
   end: number;
+  rootPath?: string;
 }
 
 /**
@@ -204,6 +227,7 @@ export function summarizeRegions(regions: RawRegion[]): TwigDebugReport {
       existing.nodesExclusive += exclusive;
       existing.occurrences += 1;
       if (!existing.hook && r.hook) existing.hook = r.hook;
+      if (r.rootPath && (existing.rootPaths ?? []).length < 5) existing.rootPaths = [...(existing.rootPaths ?? []), r.rootPath];
     } else {
       byTemplate.set(r.template, {
         template: r.template,
@@ -212,6 +236,7 @@ export function summarizeRegions(regions: RawRegion[]): TwigDebugReport {
         nodesInclusive: inclusive,
         nodesExclusive: exclusive,
         occurrences: 1,
+        ...(r.rootPath ? { rootPaths: [r.rootPath] } : {}),
       });
     }
   }
@@ -229,4 +254,31 @@ export function summarizeRegions(regions: RawRegion[]): TwigDebugReport {
       'performance, so these figures identify WHICH templates own the markup — they ' +
       'must not be used as benchmark numbers.',
   };
+}
+
+/**
+ * The Twig template whose output starts at each component occurrence, by
+ * node path: Drupal's node, block, paragraph and view templates each wrap
+ * their output in one element, the one the component signature reads.
+ * Development only: Twig debug changes the markup and the server's work.
+ */
+export function templatesForInstances(
+  instances: { signature: string; nodePath: string }[],
+  report: TwigDebugReport,
+): { signature: string; nodePath: string; template: string; name: string }[] {
+  const byPath = new Map<string, TemplateRegion>();
+  // When an outer template adds no wrapper, its output and an inner one's
+  // start at the same element. The innermost (smaller output) is the one that
+  // wrote that element.
+  const size = (t: TemplateRegion) => t.nodesInclusive / Math.max(1, t.occurrences);
+  for (const t of report.templates) {
+    for (const p of t.rootPaths ?? []) {
+      const prev = byPath.get(p);
+      if (!prev || size(t) < size(prev)) byPath.set(p, t);
+    }
+  }
+  return instances.flatMap((i) => {
+    const t = byPath.get(i.nodePath);
+    return t ? [{ signature: i.signature, nodePath: i.nodePath, template: t.template, name: t.name }] : [];
+  });
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { firefox } from 'playwright';
 import {
   defaultConfig,
@@ -24,7 +24,7 @@ import { loadMatrix, triageMatrix, baselineOf } from './matrix.js';
 import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
 import { attributeEnergy } from '../energy/attribution.js';
 import { buildFindings } from '../report/findings.js';
-import { collectTwigTemplates } from '../drupal/twig-debug.js';
+import { collectTwigTemplates, templatesForInstances } from '../drupal/twig-debug.js';
 import { BrowserSession, waitForStablePage } from '../collect/session.js';
 import { readFile } from 'node:fs/promises';
 import { parseScanRequest } from './issue-parser.js';
@@ -35,6 +35,17 @@ import { readableFailure } from '../core/failures.js';
 import { friendlyError } from './errors.js';
 import { toHtml } from '../report/html.js';
 import { buildFamilies, type FamilyReport } from '../analysis/families.js';
+import { buildInventory, type ComponentInventory } from '../analysis/components.js';
+import { componentsCsv } from '../report/components-csv.js';
+import { queueCsv } from '../report/queue-csv.js';
+import { buildInvestigation } from '../analysis/investigation.js';
+import { compareWithPrevious, findPrevious } from '../analysis/history.js';
+import { buildReport, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
+import { emptyCounts } from '../experiments/variants.js';
+import { specFromQueue } from '../experiments/from-queue.js';
+import { checkJourneySource } from '../experiments/journey-lint.js';
+import { experimentCsv } from '../report/experiment-csv.js';
+import { stringify as toYaml } from 'yaml';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import {
@@ -85,6 +96,11 @@ Usage:
   web-energy compare --a <url> --b <url> --journey <file> [options]
   web-energy report <result.json>
   web-energy families <result.json>    [--json] [--write]
+  web-energy components <result.json>  [--json] [--write]
+  web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
+  web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
+                         [--journey <file>] [--idle <ms>] [--dry-run] [--save-spec <file.yaml>]
+  web-energy journey-check <file...>
   web-energy profile --journey <file> [--step <name>]
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
@@ -114,6 +130,8 @@ Options:
                          sections: one page from each common section, about a
                          fifth from rare ones, the rest in proportion to size.
                          Also seeded, so a re-scan gets the same pages.
+  --no-history           Do not compare with the previous scan of the same site
+                         in the output directory.
   --also <url>           Crawl: also measure this page of the same site, right
                          after the start page (repeatable).
   --authenticated        Use Drupal auth from environment variables
@@ -505,6 +523,8 @@ async function writeOutputs(result: BenchmarkResult, config: Config): Promise<st
 
   if (config.output.json) await writeFile(`${base}.json`, JSON.stringify(result, null, 2));
   if (config.output.csv) await writeFile(`${base}.csv`, toCsv(result));
+  if (config.output.csv && result.components) await writeFile(`${base}.components.csv`, componentsCsv(result));
+  if (config.output.csv && result.investigation) await writeFile(`${base}.queue.csv`, queueCsv(result));
   if (config.output.html) await writeFile(`${base}.html`, toHtml(result));
   return base;
 }
@@ -623,6 +643,9 @@ async function cmdMeasure(args: Args): Promise<number> {
   await attachLighthouse(args, config, result, urls, 'measure');
   await attachCrux(result, crux);
   await attachWebnrg(args, result, urls, 'measure');
+  attachInventory(result);
+  attachInvestigation(result);
+  if (!has(args, 'no-history')) await attachHistory(result, resolve(config.output.directory));
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
@@ -727,12 +750,17 @@ async function cmdCrawl(args: Args): Promise<number> {
   await attachLighthouse(args, config, result, [start], 'crawl');
   await attachCrux(result, crux);
   await attachWebnrg(args, result, [start], 'crawl');
+  attachInventory(result);
+  attachInvestigation(result);
+  if (!has(args, 'no-history')) await attachHistory(result, resolve(config.output.directory));
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.crux) printCrux(result.crux);
   if (result.webnrg) printWebnrg(result.webnrg);
   if (result.families) printFamilies(result.families);
+  if (result.investigation) printInvestigation(result);
+  else if (result.components) printComponents(result.components);
   console.log(`\n${describeSampling(outcome.sampling)}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
@@ -774,6 +802,271 @@ function printFamilies(report: FamilyReport): void {
     for (const o of f.outliers.slice(0, 3)) console.log(`      outlier: ${o.url} ${o.metric} ${o.value} (${o.ratio}× the family median)`);
   }
   if (report.families.length > 12) console.log(`  …and ${report.families.length - 12} more`);
+}
+
+/** The component inventory, once families and Lighthouse are in the result. */
+function attachInventory(result: BenchmarkResult): void {
+  const inventory = buildInventory(result.scenarios, {
+    ...(result.families ? { families: result.families } : {}),
+    ...(result.lighthouse ? { lighthouse: result.lighthouse } : {}),
+  });
+  if (inventory) result.components = inventory;
+}
+
+function printComponents(inv: ComponentInventory): void {
+  const recurring = inv.components.filter((c) => c.kind === 'component' && (c.pages > 1 || c.signals.length > 0)).slice(0, 10);
+  if (!recurring.length) return;
+  console.log(`\nComponents worth a look (${inv.components.length} recognised on ${inv.pages} pages; structure and Lighthouse evidence, not energy):`);
+  for (const c of recurring) {
+    console.log(`  ${c.id}  ${c.signature}  [${c.confidence}]`);
+    for (const s of c.signals.slice(0, 4)) console.log(`      ${s}`);
+  }
+}
+
+function attachInvestigation(result: BenchmarkResult): void {
+  const queue = buildInvestigation(result);
+  if (queue) result.investigation = queue;
+}
+
+/** Changes since the previous scan of the same site in the output directory. */
+async function attachHistory(result: BenchmarkResult, dir: string): Promise<void> {
+  const previous = await findPrevious(dir, result);
+  if (previous) result.history = compareWithPrevious(result, previous.result, previous.file);
+}
+
+function printInvestigation(result: BenchmarkResult): void {
+  const q = result.investigation;
+  if (!q?.items.length) return;
+  console.log('\nInvestigate first (a sort order, not a score; nothing here is an energy figure):');
+  for (const i of q.items.slice(0, 8)) {
+    console.log(`  ${String(i.rank).padStart(2)}. ${i.title.slice(0, 70)}  [${i.evidence}, ${i.reach.pages} of ${i.reach.of} pages]`);
+    console.log(`      ${i.because.slice(0, 2).join('; ')}`);
+    if (i.remediation[0]) console.log(`      -> ${i.remediation[0].title}`);
+  }
+  if (result.history) {
+    const h = result.history;
+    const t = h.medians.transferBytes;
+    console.log(
+      `\nSince the last scan (${h.previous.timestamp.slice(0, 10)}): ${h.pagesInBoth} pages in both` +
+        (t ? `, median transfer ${Math.round(t[0] / 1024)} -> ${Math.round(t[1] / 1024)} KB` : '') +
+        `. ${h.energy.note}`,
+    );
+  }
+}
+
+/** Families, inventory, queue and history for a stored result. */
+async function cmdInvestigate(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('investigate requires a result JSON file');
+    return 1;
+  }
+  const result = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  if (!result.families) {
+    const families = buildFamilies(result.scenarios, result.sampling?.listed !== undefined ? { listed: result.sampling.listed } : {});
+    if (families) result.families = families;
+  }
+  attachInventory(result);
+  attachInvestigation(result);
+  const previousFile = one(args, 'previous');
+  if (previousFile) {
+    const previous = JSON.parse(await readFile(resolve(previousFile), 'utf8')) as BenchmarkResult;
+    result.history = compareWithPrevious(result, previous, previousFile.split('/').pop() ?? previousFile);
+  } else {
+    await attachHistory(result, dirname(resolve(file)));
+  }
+  if (!result.investigation) {
+    console.error('Nothing to queue: no component carries a structural fact or Lighthouse finding, and no page stands out from its family.');
+    return 1;
+  }
+  if (has(args, 'write')) {
+    const stem = resolve(file).replace(/\.json$/, '');
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+    await writeFile(`${stem}.html`, toHtml(result));
+    await writeFile(`${stem}.csv`, toCsv(result));
+    if (result.components) await writeFile(`${stem}.components.csv`, componentsCsv(result));
+    await writeFile(`${stem}.queue.csv`, queueCsv(result));
+  }
+  if (has(args, 'json')) {
+    console.log(JSON.stringify({ investigation: result.investigation, history: result.history }, null, 2));
+  } else {
+    printInvestigation(result);
+    if (has(args, 'write')) console.log(`\nWrote the queue into ${file} and regenerated its HTML and CSV files.`);
+  }
+  return 0;
+}
+
+/**
+ * An energy experiment: the page as served against the page with one change,
+ * interleaved, through the benchmark runner. Reports a measured difference
+ * only, and only when the change applied.
+ */
+async function cmdExperiment(args: Args): Promise<number> {
+  let spec: ExperimentSpec;
+  let from: { file: string; rank: number; id: string; title: string } | undefined;
+  const specFile = one(args, 'spec');
+  const fromFile = one(args, 'from');
+  if (specFile) {
+    spec = await loadSpec(resolve(specFile));
+  } else if (fromFile) {
+    const rank = Number.parseInt(one(args, 'item') ?? '1', 10);
+    const source = JSON.parse(await readFile(resolve(fromFile), 'utf8')) as BenchmarkResult;
+    if (!source.investigation) attachInvestigation(source);
+    const built = specFromQueue(source, rank);
+    spec = built.spec;
+    const item = source.investigation!.items.find((i) => i.rank === rank)!;
+    from = { file: fromFile.split('/').pop() ?? fromFile, rank, id: item.id, title: item.title };
+    console.log(`Item ${rank}: ${item.title}\n  ${built.note}`);
+  } else {
+    const url = args._[1];
+    if (!url || !one(args, 'kind')) {
+      console.error('experiment requires --spec <file>, --from <result.json> --item <n>, or <url> --kind <kind>');
+      return 1;
+    }
+    spec = parseSpec({
+      name: one(args, 'name') ?? `${one(args, 'kind')}`,
+      url,
+      kind: one(args, 'kind'),
+      ...(one(args, 'selector') ? { selector: one(args, 'selector') } : {}),
+      ...(args.flags.get('host') ? { hosts: args.flags.get('host') } : {}),
+      ...(args.flags.get('block-url') ? { urls: args.flags.get('block-url') } : {}),
+      ...(one(args, 'keep-eager') ? { keep_eager: Number.parseInt(one(args, 'keep-eager')!, 10) } : {}),
+      ...(one(args, 'idle') ? { idle_ms: Number.parseInt(one(args, 'idle')!, 10) } : {}),
+      ...(one(args, 'journey') ? { journey: one(args, 'journey') } : {}),
+    });
+  }
+
+  const saveTo = one(args, 'save-spec');
+  if (saveTo) {
+    await writeFile(resolve(saveTo), toYaml(spec));
+    console.log(`Wrote the experiment to ${saveTo}`);
+  }
+  if (has(args, 'dry-run')) {
+    console.log(toYaml(spec));
+    return 0;
+  }
+
+  const config = await buildConfig(args);
+  if (spec.runs !== undefined) config.benchmark.runs = spec.runs;
+  if (spec.warmups !== undefined) config.benchmark.warmups = spec.warmups;
+  const inner = spec.journey ? await loadJourney(resolve(spec.journey)) : undefined;
+  const seed = one(args, 'seed') ?? spec.seed ?? newSessionId();
+  const order = interleavedOrder(config.benchmark.runs, seed);
+  const state: { a: SideState; b: SideState } = {
+    a: { counts: emptyCounts(), probes: [], assertionFailures: [], runs: 0 },
+    b: { counts: emptyCounts(), probes: [], assertionFailures: [], runs: 0 },
+  };
+  const steps: { a: StepResult[]; b: StepResult[] } = { a: [], b: [] };
+  const seen = { a: false, b: false };
+  let firefoxVersion = 'unknown';
+  const warnings: string[] = [];
+  console.log(`Experiment ${spec.name}: ${spec.url}\nInterleaved order (seed ${seed}): ${order.join(' ')}`);
+  for (const [i, side] of order.entries()) {
+    process.stderr.write(`\rRun ${i + 1}/${order.length} -> ${side === 'a' ? 'baseline' : 'variant'}`.padEnd(50));
+    // Each side's first run carries the warm-ups, so neither side starts cold.
+    const warmups = seen[side] ? 0 : config.benchmark.warmups;
+    seen[side] = true;
+    const outcome = await runBenchmark({
+      config: { ...config, benchmark: { ...config.benchmark, runs: 1, warmups } },
+      baseUrl: spec.url,
+      journey: sideJourney(spec, inner, side === 'b', state[side]),
+      scenarioName: side === 'a' ? 'baseline' : 'variant',
+    });
+    firefoxVersion = outcome.firefoxVersion;
+    warnings.push(...outcome.warnings);
+    steps[side].push(...outcome.steps);
+  }
+  process.stderr.write('\n');
+
+  const report = buildReport(spec, state, steps, seed, order, from);
+  const energyAvailable = [...steps.a, ...steps.b].some((s) => s.energy?.raw.sampleCount);
+  const result: BenchmarkResult = {
+    schemaVersion: SCHEMA_VERSION,
+    session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'compare', seed, orderings: order },
+    capabilities: await capabilitiesFor(energyAvailable, energyScopeOf([...steps.a, ...steps.b])),
+    environment: await collectEnvironment({
+      energyAdapter: config.energy.adapter,
+      headed: config.browser.headed,
+      viewport: config.browser.viewport,
+      firefoxVersion,
+      collectHostname: config.output.collect_hostname,
+    }),
+    targets: [
+      { url: spec.url, label: 'baseline' },
+      { url: spec.url, label: 'variant' },
+    ],
+    configuration: config,
+    scenarios: [...steps.a, ...steps.b],
+    experiment: report,
+    warnings: [...new Set(warnings)],
+  };
+  const base = await writeOutputs(result, config);
+  if (config.output.csv) await writeFile(`${base}.experiment.csv`, experimentCsv(result));
+
+  console.log(`\nChange: ${report.description}`);
+  console.log(`Applied: ${report.applied.ok ? 'yes' : 'NO'}. ${report.applied.note}`);
+  if (report.assertions.checked) {
+    console.log(`Checks: baseline ${report.assertions.baseline.length ? `failed ${report.assertions.baseline.join('; ')}` : 'passed'}; variant ${report.assertions.variant.length ? `failed ${report.assertions.variant.join('; ')}` : 'passed'}.`);
+  }
+  if (report.accessibility.changed.length) console.log(`Accessibility structure changed: ${report.accessibility.changed.join(', ')}`);
+  for (const d of report.differences) {
+    const e = d.energy;
+    console.log(`\n  ${d.step}: ${e ? `${e.medianMwh[0].toFixed(3)} -> ${e.medianMwh[1].toFixed(3)} mWh (IQR ${e.iqrMwh[0].toFixed(3)} / ${e.iqrMwh[1].toFixed(3)})` : 'energy not measured'}`);
+    console.log(`    ${d.reading}`);
+  }
+  console.log(`\nWrote ${base}.{json,csv,html} and ${base}.experiment.csv`);
+  return report.applied.ok ? 0 : 2;
+}
+
+/** Check journey files against the rules for benchmark journeys. */
+async function cmdJourneyCheck(args: Args): Promise<number> {
+  const files = args._.slice(1);
+  if (!files.length) {
+    console.error('journey-check requires one or more journey files');
+    return 1;
+  }
+  let errors = 0;
+  for (const f of files) {
+    const issues = checkJourneySource(await readFile(resolve(f), 'utf8'));
+    errors += issues.filter((i) => i.level === 'error').length;
+    console.log(`${f}: ${issues.length ? `${issues.length} issue${issues.length === 1 ? '' : 's'}` : 'ok'}`);
+    for (const i of issues) console.log(`  ${i.level === 'error' ? 'error  ' : 'warning'} ${i.line ? `line ${i.line}: ` : ''}${i.message} (${i.rule})`);
+  }
+  return errors ? 1 : 0;
+}
+
+/** Build the component inventory of a stored result. */
+async function cmdComponents(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('components requires a result JSON file');
+    return 1;
+  }
+  const result = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  if (!result.families) {
+    const families = buildFamilies(result.scenarios, result.sampling?.listed !== undefined ? { listed: result.sampling.listed } : {});
+    if (families) result.families = families;
+  }
+  attachInventory(result);
+  if (!result.components) {
+    console.error('No page in this result recorded component occurrences (results made before they were recorded have none).');
+    return 1;
+  }
+  if (has(args, 'write')) {
+    const stem = resolve(file).replace(/\.json$/, '');
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+    await writeFile(`${stem}.html`, toHtml(result));
+    await writeFile(`${stem}.csv`, toCsv(result));
+    await writeFile(`${stem}.components.csv`, componentsCsv(result));
+  }
+  if (has(args, 'json')) {
+    console.log(JSON.stringify(result.components, null, 2));
+  } else {
+    printComponents(result.components);
+    for (const l of result.components.limitations) console.log(`\n${l}`);
+    if (has(args, 'write')) console.log(`\nWrote the inventory into ${file} and regenerated its HTML and CSV files.`);
+  }
+  return 0;
 }
 
 /**
@@ -1692,6 +1985,25 @@ async function cmdDiagnose(args: Args): Promise<number> {
     console.log('');
   }
 
+  const instances = anatomy?.structure?.instances ?? [];
+  if (instances.length > 0) {
+    const templates = twig?.enabled ? templatesForInstances(instances, twig) : [];
+    console.log('Largest components (structure, not energy)');
+    for (const i of instances.filter((x) => x.method !== 'landmark').slice(0, 10)) {
+      const extras = [
+        i.animations?.infinite ? `${i.animations.infinite} endless animation(s)` : '',
+        i.media?.autoplayVideos ? `${i.media.autoplayVideos} autoplay video(s)` : '',
+        i.media?.iframes ? `${i.media.iframes} iframe(s)` : '',
+        i.media?.eagerOffscreenImages ? `${i.media.eagerOffscreenImages} eager offscreen image(s)` : '',
+      ].filter(Boolean);
+      const template = templates.find((t) => t.nodePath === i.nodePath);
+      console.log(`  ${i.signature.slice(0, 40).padEnd(42)}${String(i.nodes).padStart(6)} nodes  ${i.selector.slice(0, 50)}`);
+      if (template) console.log(`      rendered by ${template.template}`);
+      if (extras.length) console.log(`      ${extras.join(', ')}`);
+    }
+    console.log('');
+  }
+
   if (twig?.enabled && twig.templates.length > 0) {
     console.log('Twig templates (Drupal)');
     console.log('  template                        renders   owns   within');
@@ -1805,6 +2117,10 @@ async function main(): Promise<number> {
       case 'compare': return await cmdCompare(args);
       case 'report': return await cmdReport(args);
       case 'families': return await cmdFamilies(args);
+      case 'components': return await cmdComponents(args);
+      case 'investigate': return await cmdInvestigate(args);
+      case 'experiment': return await cmdExperiment(args);
+      case 'journey-check': return await cmdJourneyCheck(args);
       case 'profile': return await cmdProfile(args);
       case 'triage': return await cmdTriage(args);
       case 'matrix': return await cmdMatrix(args);

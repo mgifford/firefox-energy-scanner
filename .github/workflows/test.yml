@@ -59,3 +59,26 @@ jobs:
         run: echo "127.0.0.1 site.test www.site.test looks-public.example.com" | sudo tee -a /etc/hosts
 
       - run: node tests/e2e/crawl-e2e.mjs
+
+  # The component inventory across two browsers: Firefox records components
+  # and their node paths, Lighthouse audits in Chrome, and its element
+  # findings must land on the right component. Needs the optional
+  # dependencies (Lighthouse), so a full install.
+  e2e-components:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps firefox
+      - run: npm run build
+
+      - name: Map the test site's host name to this machine
+        run: echo "127.0.0.1 www.site.test" | sudo tee -a /etc/hosts
+
+      - run: node tests/e2e/components-e2e.mjs

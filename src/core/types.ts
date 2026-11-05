@@ -333,5 +333,16 @@ export interface BenchmarkResult {
    * Derived from the scenarios above, so it can be rebuilt from any result.
    */
   families?: import('../analysis/families.js').FamilyReport;
+  /**
+   * Components the pages are built from, which recur, and the Lighthouse
+   * evidence tied to them. Structure and Chromium lab evidence, never energy.
+   */
+  components?: import('../analysis/components.js').ComponentInventory;
+  /** What to look at first, in a stated order; never a score or an energy figure. */
+  investigation?: import('../analysis/investigation.js').InvestigationQueue;
+  /** Changes since the previous scan of the same site, when one was found. Indicative. */
+  history?: import('../analysis/history.js').HistoryReport;
+  /** An energy experiment: baseline against one change, as a measured difference only. */
+  experiment?: import('../experiments/experiment.js').ExperimentReport;
   warnings: string[];
 }

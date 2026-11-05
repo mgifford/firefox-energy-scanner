@@ -79,6 +79,14 @@ figure, its medians cover only the pages measured in it, and nothing is extrapol
 pages that were not. Pages built alike can still cost differently. See
 [page-families.md](page-families.md).
 
+### Components are not given energy
+
+The component inventory records what each component holds and which Lighthouse findings
+fall inside it. It gives no component an energy figure, because none is measured per
+element. A component's effect on energy is only ever a measured difference between two
+runs, with and without a change: an experiment ([experiments.md](experiments.md)).
+See [component-inventory.md](component-inventory.md).
+
 ### No causal explanation
 
 The tool tells you *that* energy changed, not *why*. Use `web-energy profile` for a

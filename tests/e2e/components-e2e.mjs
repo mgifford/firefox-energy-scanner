@@ -1,0 +1,176 @@
+#!/usr/bin/env node
+/**
+ * End-to-end check of the component inventory across two browsers: Firefox
+ * records each page's components and their DevTools node paths, Lighthouse
+ * audits the heaviest page in Chrome, and its element findings must land on
+ * the component they fall in. That only works if both browsers number the
+ * same DOM the same way, which a unit test cannot show.
+ *
+ * The site: three pages built alike, each with an annotated carousel holding
+ * an endless animation of `width` (Chrome cannot composite it) and an image
+ * without width and height, inside a Drupal-style view of teasers.
+ *
+ * Usage: node tests/e2e/components-e2e.mjs   (after a full `npm ci`, npm run
+ * build and npx playwright install firefox; Chrome must be installed for
+ * Lighthouse, as it is on GitHub's Ubuntu runners). CI maps www.site.test to
+ * 127.0.0.1.
+ */
+import http from 'node:http';
+import { spawn } from 'node:child_process';
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const PORT = 8081;
+const SITE = `http://www.site.test:${PORT}`;
+
+const teasers = (n) =>
+  Array.from({ length: n }, (_, i) =>
+    `<article class="node node--type-article node--view-mode-teaser"><h2><a href="/news/${i}">Story ${i}</a></h2><p>Summary ${i}.</p></article>`,
+  ).join('');
+
+const page = (title) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title}</title>
+<style>.pulse{height:12px;background:#c00;animation:pulse 1.5s ease-in-out infinite alternate}@keyframes pulse{from{width:40px}to{width:240px}}</style>
+<script src="/js/site.js"></script></head>
+<body class="path-frontpage">
+<header class="site-header"><nav aria-label="Main"><ul><li><a href="/">Home</a></li><li><a href="/a">A</a></li></ul></nav></header>
+<main>
+<div class="carousel" data-component-id="demo:carousel" aria-label="Featured"><div class="pulse"></div><img src="/img/hero.svg" alt="Hero"></div>
+<section class="view view-id-frontpage" aria-label="Latest news">${teasers(30)}</section>
+</main>
+<footer><p>Footer</p></footer></body></html>`;
+
+const server = http.createServer((req, res) => {
+  const path = req.url.split('?')[0];
+  if (path === '/sitemap.xml') {
+    res.writeHead(200, { 'Content-Type': 'application/xml' });
+    return res.end(`<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${['/', '/a', '/b'].map((p) => `<url><loc>${SITE}${p}</loc></url>`).join('')}</urlset>`);
+  }
+  if (path === '/robots.txt') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    return res.end('User-agent: *\nAllow: /\n');
+  }
+  if (path.startsWith('/img/')) {
+    res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+    return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300"><rect width="600" height="300" fill="#39c"/></svg>');
+  }
+  if (path.startsWith('/js/')) {
+    res.writeHead(200, { 'Content-Type': 'text/javascript' });
+    return res.end('window.siteLoaded = true;');
+  }
+  if (['/', '/a', '/b'].includes(path)) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    return res.end(page(path === '/' ? 'Home' : `Page ${path.slice(1)}`));
+  }
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('not found');
+});
+
+const failures = [];
+const annotate = (level, message) => {
+  if (process.env.GITHUB_ACTIONS) console.log(`::${level} title=components-e2e::${message.replace(/\n/g, '%0A')}`);
+};
+const check = (ok, message) => {
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${message}`);
+  if (!ok) {
+    failures.push(message);
+    annotate('error', message);
+  }
+};
+
+function exec(cmd, args) {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += d));
+    child.stderr.on('data', (d) => (stderr += d));
+    const timer = setTimeout(() => child.kill('SIGKILL'), 8 * 60 * 1000);
+    child.on('close', (status) => {
+      clearTimeout(timer);
+      resolve({ status, stdout, stderr });
+    });
+  });
+}
+
+await new Promise((resolve) => server.listen(PORT, '127.0.0.1', resolve));
+try {
+  const out = mkdtempSync(join(tmpdir(), 'components-'));
+  const r = await exec('node', [
+    'dist/cli/index.js', 'crawl', `${SITE}/`, '--sample', '--max-pages', '3',
+    '--lighthouse', '--lighthouse-top', '1', '--lighthouse-runs', '1',
+    '--headless', '--no-energy', '--out', out,
+  ]);
+  if (r.status !== 0) {
+    console.log(r.stdout, r.stderr);
+    annotate('error', `crawl exited ${r.status}: ${(r.stderr || r.stdout).trim().slice(-800)}`);
+  }
+  const files = readdirSync(out);
+  const json = files.find((f) => f.endsWith('.json'));
+  const result = json ? JSON.parse(readFileSync(join(out, json), 'utf8')) : null;
+  check(!!result, 'the crawl wrote a result');
+
+  const pages = (result?.scenarios ?? []).filter((s) => s.valid);
+  const instances = pages[0]?.anatomy?.structure?.instances ?? [];
+  const carouselAt = instances.find((i) => i.signature === 'component:demo:carousel');
+  check(!!carouselAt && /^1,HTML,1,BODY,/.test(carouselAt.nodePath), `Firefox recorded the carousel and its node path (${carouselAt?.nodePath})`);
+  check(!!carouselAt?.animations?.infinite, `Firefox saw the carousel's endless animation (${JSON.stringify(carouselAt?.animations)})`);
+
+  const inv = result?.components;
+  const carousel = inv?.components?.find((c) => c.signature === 'component:demo:carousel');
+  check(carousel?.pages === 3 && carousel?.confidence === 'high', `the carousel recurs on all three pages (${carousel?.pages})`);
+  check(files.some((f) => f.endsWith('.components.csv')), 'a components CSV was written');
+
+  const lh = result?.lighthouse?.results?.[0];
+  annotate('notice', `lighthouse: ${lh?.error ?? 'ok'} | evidence: ${JSON.stringify(lh?.evidence?.nodes?.map((n) => [n.audit, n.path]))} | carousel: ${JSON.stringify(carousel?.evidence)}`);
+  check(!!lh && !lh.error, `Lighthouse ran in Chrome (${lh?.error ?? 'ok'})`);
+  check(!!carousel?.evidence?.some((e) => e.matchedBy === 'node-path' && ['non-composited-animations', 'unsized-images'].includes(e.audit)),
+    'a Lighthouse element finding from Chrome landed on the carousel recorded in Firefox, by node path');
+  check(!(carousel?.evidence ?? []).some((e) => /joule|mwh/i.test(JSON.stringify(e))), 'no evidence carries an energy unit');
+
+  // The investigation queue: the carousel has a structural fact (an endless
+  // animation) and a Lighthouse finding, so it comes first.
+  const first = result?.investigation?.items?.[0];
+  annotate('notice', `queue: ${JSON.stringify(result?.investigation?.items?.map((i) => [i.rank, i.title, i.evidence]))}`);
+  check(first?.title === 'component:demo:carousel' && first?.evidence === 'structure-and-lighthouse', `the carousel leads the investigation queue (${first?.title}, ${first?.evidence})`);
+  check(!!first?.remediation?.some((r) => r.id === 'stop-endless-animation'), 'its remedy is to stop the endless animation');
+  check(files.some((f) => f.endsWith('.queue.csv')), 'a queue CSV was written');
+  const html = json ? readFileSync(join(out, json.replace(/\.json$/, '.html')), 'utf8') : '';
+  check(/<figure class="page-map"[\s\S]*<svg aria-hidden="true"/.test(html), 'the HTML report has a page map, with a text equivalent');
+
+  // A second scan into the same folder compares with the first.
+  const again = await exec('node', ['dist/cli/index.js', 'crawl', `${SITE}/`, '--sample', '--max-pages', '3', '--headless', '--no-energy', '--out', out]);
+  const second = readdirSync(out).filter((f) => f.endsWith('.json')).sort().pop();
+  const history = second && second !== json ? JSON.parse(readFileSync(join(out, second), 'utf8')).history : undefined;
+  check(again.status === 0 && history?.previous?.file === json && history?.pagesInBoth === 3, `the second scan compared itself with the first (${JSON.stringify(history?.previous)}, ${history?.pagesInBoth} pages in both)`);
+
+  // An experiment for the queue's first item, written out before anything runs.
+  const dry = await exec('node', ['dist/cli/index.js', 'experiment', '--from', join(out, json), '--item', '1', '--dry-run']);
+  annotate('notice', `experiment spec: ${dry.stdout.replace(/\n/g, ' | ').slice(0, 400)}`);
+  check(dry.status === 0 && /kind: pause-animations/.test(dry.stdout) && /selector: .*carousel/.test(dry.stdout), 'the queue item became a pause-animations experiment scoped to the carousel');
+
+  // Run it in Firefox. The variant is installed in the journey's setup(), so
+  // this also shows setup() runs. No energy here: the change must apply, the
+  // checks must hold, and no energy difference may be claimed.
+  const expOut = mkdtempSync(join(tmpdir(), 'experiment-'));
+  const exp = await exec('node', [
+    'dist/cli/index.js', 'experiment', `${SITE}/`, '--kind', 'pause-animations', '--selector', 'div.carousel',
+    '--idle', '500', '--runs', '2', '--warmups', '0', '--headless', '--no-energy', '--out', expOut,
+  ]);
+  const expFile = readdirSync(expOut).find((f) => f.endsWith('.json'));
+  const x = expFile ? JSON.parse(readFileSync(join(expOut, expFile), 'utf8')).experiment : undefined;
+  annotate('notice', `experiment: status ${exp.status} | ${JSON.stringify(x?.applied)} | ${JSON.stringify(x?.differences?.map((d) => [d.step, d.verdict]))}`);
+  if (exp.status !== 0 && exp.status !== 2) console.log(exp.stdout, exp.stderr);
+  check(exp.status === 0 && x?.applied?.ok === true, `the experiment paused the carousel's animation in Firefox (${x?.applied?.note})`);
+  check(x?.order?.length === 4 && x.order.filter((s) => s === 'a').length === 2, `runs were interleaved, two per side (${x?.order?.join(' ')})`);
+  check((x?.differences ?? []).length > 0 && x.differences.every((d) => d.verdict === 'not-measured'), 'without energy, no energy difference was claimed');
+  check(readdirSync(expOut).some((f) => f.endsWith('.experiment.csv')), 'an experiment CSV was written');
+} finally {
+  server.close();
+}
+
+if (failures.length) {
+  console.log(`\n${failures.length} check(s) failed.`);
+  process.exit(1);
+}
+console.log('\nAll component checks passed.');
