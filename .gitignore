@@ -18,3 +18,5 @@ profiles/
 # concurrent scans each rewrote it and conflicted on push.
 /site/results/index.json
 .mcp-output/
+# macOS folder metadata.
+.DS_Store

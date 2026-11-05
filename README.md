@@ -146,6 +146,15 @@ npx playwright install firefox
 npm run build
 ```
 
+Then run any command in one of three ways:
+
+```bash
+node dist/cli/index.js doctor          # the built CLI
+npm run web-energy -- doctor           # rebuilds first, so it is never stale after a git pull
+npm link                               # once: puts `web-energy` on your PATH
+web-energy doctor
+```
+
 Lighthouse is an optional dependency (Node.js 22.19+). Use `npm install --omit=optional`
 to skip it if you only need the Firefox measurements.
 
