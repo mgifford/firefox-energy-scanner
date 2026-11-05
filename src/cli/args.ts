@@ -12,9 +12,9 @@ export interface Args {
  * would read the URL as the flag's value and drop it from the targets.
  */
 export const BOOLEAN_FLAGS = new Set([
-  'authenticated', 'crux', 'crux-url', 'green-hosting', 'headed', 'headless', 'help', 'json',
+  'adaptive', 'authenticated', 'crux', 'crux-url', 'green-hosting', 'headed', 'headless', 'help', 'json',
   'lighthouse', 'lookup-only', 'no-energy', 'public-only', 'sample', 'triage-only', 'webnrg',
-  'webnrg-lookup-only',
+  'webnrg-lookup-only', 'write',
 ]);
 
 export function parseArgs(argv: string[]): Args {

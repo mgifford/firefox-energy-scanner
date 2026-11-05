@@ -117,6 +117,7 @@ export class StepRunner {
           animatedElements: full.animatedElements,
           heaviestSubtrees: full.heaviestSubtrees,
           ...(full.lcpElement ? { lcpElement: full.lcpElement } : {}),
+          ...(full.structure ? { structure: full.structure } : {}),
         };
         findings = buildFindings(full, undefined).map((f) => ({
           id: f.id,

@@ -73,8 +73,10 @@ const crawlSchema = z
      * links: follow links outward from the start page.
      * sitemap: a seeded sample of the pages the site's sitemap lists, falling
      * back to links when there is no usable sitemap.
+     * adaptive: like sitemap, but spread across the site's URL sections, with
+     * some pages kept for rare sections (see adaptiveSample).
      */
-    strategy: z.enum(['links', 'sitemap']).default('links'),
+    strategy: z.enum(['links', 'sitemap', 'adaptive']).default('links'),
     respect_robots: z.boolean().default(true),
     delay_ms: z.number().int().min(0).default(250),
   })

@@ -28,9 +28,17 @@ const PORT = 8080;
 const WWW = `http://www.site.test:${PORT}`;
 const BARE = `http://site.test:${PORT}`;
 
-const page = (title, links) =>
-  `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title}</title></head>` +
-  `<body><main><h1>${title}</h1><ul>${links.map((l) => `<li><a href="${l}">${l}</a></li>`).join('')}</ul></main></body></html>`;
+// Pages are built like a small Drupal site, so page families have something
+// to group: basic pages, and news articles with their own script.
+const page = (title, links, type = 'page') =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title}</title>` +
+  `<script src="/js/site.js"></script>${type === 'article' ? '<script src="/js/article.js"></script>' : ''}</head>` +
+  `<body class="path-node page-node-type-${type}">` +
+  `<header class="site-header"><nav aria-label="Main"><ul><li><a href="/en/">Home</a></li><li><a href="/en/about">About</a></li></ul></nav></header>` +
+  `<main><article class="node node--type-${type} node--view-mode-full"><h1>${title}</h1>` +
+  (type === 'article' ? `<div class="paragraph paragraph--type--text">${'<p>Story text.</p>'.repeat(12)}</div>` : '') +
+  `<ul>${links.map((l) => `<li><a href="${l}">${l}</a></li>`).join('')}</ul></article></main>` +
+  `<footer><p>Site footer</p></footer></body></html>`;
 
 const PAGES = {
   '/en/': page('Home', ['/en/about', `${WWW}/en/contact`, `${BARE}/en/about`, '/fr/', '/docs/report.pdf', 'https://example.org/']),
@@ -40,12 +48,16 @@ const PAGES = {
   '/fr/': page('Accueil', ['/en/']),
   // Linked from nowhere: only the sitemap names it.
   '/en/hidden': page('Hidden', ['/en/']),
+  // Only the sitemap names these too: one template, three pages.
+  '/en/news/budget': page('Budget news', ['/en/'], 'article'),
+  '/en/news/office': page('Office news', ['/en/'], 'article'),
+  '/en/news/award': page('Award news', ['/en/'], 'article'),
 };
 
 // Lists the hidden page, a stylesheet and another site, as real sitemaps do.
 const SITEMAP =
   '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
-  ['/en/', '/en/about', '/en/contact', '/en/hidden', '/fr/', '/assets/theme.min.css']
+  ['/en/', '/en/about', '/en/contact', '/en/hidden', '/fr/', '/en/news/budget', '/en/news/office', '/en/news/award', '/assets/theme.min.css']
     .map((p) => `<url><loc>${WWW}${p}</loc></url>`)
     .join('') +
   '<url><loc>https://example.org/elsewhere</loc></url></urlset>';
@@ -67,6 +79,10 @@ const server = http.createServer((req, res) => {
   if (path === '/sitemap.xml') {
     res.writeHead(200, { 'Content-Type': 'application/xml' });
     return res.end(SITEMAP);
+  }
+  if (path.startsWith('/js/')) {
+    res.writeHead(200, { 'Content-Type': 'text/javascript' });
+    return res.end(`window.loaded = (window.loaded || 0) + 1;`);
   }
   if (path === '/docs/report.pdf') {
     res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="report.pdf"' });
@@ -159,6 +175,32 @@ try {
   check(samplePaths.includes('/en/hidden'), 'the sample reached a page only the sitemap names');
   check(!samplePaths.some((p) => p.endsWith('.css')), 'the sample skipped the stylesheet the sitemap lists');
   check(!(sampled?.scenarios ?? []).some((s) => s.step.includes('example.org')), 'the sample stayed on the site');
+
+  // Page structure, recorded in Firefox, and the families built from it.
+  const about = (sampled?.scenarios ?? []).find((s) => s.valid && /\/en\/about$/.test(s.url ?? ''));
+  const structure = about?.anatomy?.structure;
+  check(['banner', 'navigation', 'main', 'contentinfo'].every((l) => structure?.landmarks?.includes(l)),
+    `page structure records the landmarks (${JSON.stringify(structure?.landmarks)})`);
+  check(!!structure?.components?.some((c) => c.signature === 'drupal-node:page:full') && structure?.drupal?.pageTemplate === 'page-node-type-page',
+    `page structure names the Drupal component and template (${JSON.stringify(structure?.components?.slice(0, 4))})`);
+  const fam = sampled?.families;
+  const familyOf = (p) => fam?.pageFamily?.[`${WWW}${p}`];
+  annotate('notice', `families: ${JSON.stringify(fam?.families?.map((f) => [f.label, f.pages.length]))}`);
+  check(!!fam && fam.families.length >= 2, `the sample was grouped into page families (${fam?.families?.length ?? 0})`);
+  check(!!familyOf('/en/news/budget') && familyOf('/en/news/budget') === familyOf('/en/news/office') && familyOf('/en/news/office') === familyOf('/en/news/award'),
+    'the three news articles are one family');
+  check(familyOf('/en/news/budget') !== familyOf('/en/about'), 'articles and basic pages are different families');
+  check(Object.values(sampled?.sampling?.reasons ?? {}).includes('random'), 'the result says why each page was picked');
+
+  // 3b. An adaptive sample: one page from each URL section before any second
+  // one, and the lone /fr/ page kept as a rare section. Started at /en/ so the
+  // start page is not also a sitemap pick.
+  const adaptive = await run(['crawl', `${WWW}/en/`, '--adaptive', '--max-pages', '5'], mkdtempSync(join(tmpdir(), 'adaptive-')));
+  const sections = (adaptive?.sampling?.strata ?? []).filter((s) => s.picked > 0).map((s) => s.section).sort();
+  annotate('notice', `adaptive: ${JSON.stringify(adaptive?.sampling?.strata)}`);
+  check(adaptive?.sampling?.method === 'adaptive', `the adaptive sample came from the sitemap (${adaptive?.sampling?.method})`);
+  check(JSON.stringify(sections) === JSON.stringify(['/', '/en', '/en/news']), `the adaptive sample covered every URL section (${sections.join(', ')})`);
+  check(adaptive?.sampling?.reasons?.[`${WWW}/fr`] === 'rare-section', `the lone /fr/ page was kept as a rare section (${JSON.stringify(adaptive?.sampling?.reasons)})`);
 
   // 4. Public-only mode, as hosted scans run: local names and addresses are
   // refused, by name or after resolving, and a public site still works.

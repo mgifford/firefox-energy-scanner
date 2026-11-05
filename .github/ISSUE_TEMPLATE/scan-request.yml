@@ -85,6 +85,22 @@ body:
       required: false
 
   - type: dropdown
+    id: sampling
+    attributes:
+      label: Page sampling
+      description: >
+        How a site sample is chosen from its sitemap. Both are seeded, so a re-scan of the
+        same site gets the same pages. "Spread across sections" takes one page from each
+        part of the site (by URL), keeps some for rare parts, and groups the results into
+        page families. Same as typing SAMPLE:adaptive in the title.
+      options:
+        - Random sample (the default)
+        - Spread across sections (adaptive)
+      default: 0
+    validations:
+      required: false
+
+  - type: dropdown
     id: where
     attributes:
       label: Where to run

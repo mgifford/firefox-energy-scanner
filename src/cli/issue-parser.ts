@@ -50,6 +50,8 @@ export interface ScanRequest {
   runs: number;
   /** Crawl mode only. */
   maxPages: number;
+  /** Crawl mode only: how the sample is chosen from the sitemap. */
+  sampling: 'random' | 'adaptive';
   include?: string;
   viewport: { width: number; height: number };
   lighthouse: LighthouseChoice;
@@ -246,20 +248,23 @@ function urlWords(text: string, bareDomains: boolean): string[] {
  * The simple instructions open-scans reads from a title or body, where they
  * apply to an energy scan: `PAGES:20` (or `PAGE:`) and `VIEWPORT:mobile`
  * (a preset, or WIDTHxHEIGHT). Others, such as engine names, `TIME:` or
- * `BROWSER:`, have no meaning here and are ignored.
+ * `BROWSER:`, have no meaning here and are ignored. This tool adds one of its
+ * own: `SAMPLE:adaptive` (or `SAMPLING:`) spreads a site sample across sections.
  */
-export function readKeywords(text: string): { pages?: number; viewport?: string } {
+export function readKeywords(text: string): { pages?: number; viewport?: string; sampling?: 'random' | 'adaptive' } {
   const pages = /\bpages?:\s*(\d+)/i.exec(text);
   const viewport = /\bviewport:\s*([a-z-]+|\d+\s*[x×]\s*\d+)/i.exec(text);
+  const sampling = /\bsampl(?:e|ing):\s*(adaptive|random)\b/i.exec(text);
   return {
     ...(pages ? { pages: Number(pages[1]) } : {}),
     ...(viewport ? { viewport: viewport[1]! } : {}),
+    ...(sampling ? { sampling: sampling[1]!.toLowerCase() as 'random' | 'adaptive' } : {}),
   };
 }
 
 /** Remove the keywords, so they are never read as part of an address. */
 function withoutKeywords(text: string): string {
-  return text.replace(/\b(?:pages?|viewport|time|browser|colorscheme):\s*\S+/gi, ' ');
+  return text.replace(/\b(?:pages?|viewport|time|browser|colorscheme|sample|sampling):\s*\S+/gi, ' ');
 }
 
 /** URLs named in a "SCAN: …" title, for requests opened without the form. */
@@ -485,6 +490,10 @@ export function parseScanRequest(body: string, title = ''): ScanRequest {
   }
 
   const viewport = parseViewport(extractSection(body, 'Viewport') ?? keywords.viewport);
+  const samplingField = extractSection(body, 'Page sampling');
+  const sampling: 'random' | 'adaptive' = samplingField
+    ? /adaptive|spread|section/i.test(samplingField) ? 'adaptive' : 'random'
+    : (keywords.sampling ?? 'random');
 
   const lighthouseRaw = extractSection(body, 'Lighthouse');
   const lighthouse = parseLighthouseChoice(lighthouseRaw);
@@ -513,7 +522,9 @@ export function parseScanRequest(body: string, title = ''): ScanRequest {
     mode === 'crawl'
       ? `Sampling up to ${maxPages} pages of ${urls[0] ?? 'the site'}, once each: the start page` +
         (listedInCrawl ? `, the ${Math.min(listedInCrawl, Math.max(0, maxPages - 1))} other listed page${listedInCrawl === 1 ? '' : 's'},` : '') +
-        ' and a sample of the pages its sitemap lists, or, without a sitemap, the pages it links to.'
+        (sampling === 'adaptive'
+          ? ' and a sample of the pages its sitemap lists, spread across the site’s sections and grouped into page families afterwards; without a sitemap, the pages it links to.'
+          : ' and a sample of the pages its sitemap lists, or, without a sitemap, the pages it links to.')
       : `Scanning ${urls.length} listed page${urls.length === 1 ? '' : 's'}.`,
   );
   if (lighthouse !== 'none') {
@@ -527,6 +538,7 @@ export function parseScanRequest(body: string, title = ''): ScanRequest {
     runner,
     runs,
     maxPages,
+    sampling,
     ...(include ? { include } : {}),
     viewport,
     lighthouse,

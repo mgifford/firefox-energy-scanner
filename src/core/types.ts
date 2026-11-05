@@ -153,6 +153,11 @@ export interface AnatomySummary {
   animatedElements: number;
   heaviestSubtrees?: { selector: string; nodes: number }[];
   lcpElement?: { selector: string; renderTimeMs: number; sizePx: number };
+  /**
+   * Landmarks, component signatures, frameworks and Drupal hints, used to
+   * group pages into families. Absent in results made before it existed.
+   */
+  structure?: import('../collect/page-anatomy.js').PageStructure;
 }
 
 export interface FindingSummary {
@@ -224,7 +229,13 @@ export interface SessionInfo {
 
 /** How a crawl chose its pages, so a reader knows what the sample stands for. */
 export interface CrawlSampling {
-  method: 'sitemap' | 'links';
+  /**
+   * sitemap: a seeded random sample of the sitemap's pages (the default with
+   * --sample). adaptive: a seeded sample spread across the site's URL
+   * sections, with rare sections kept as possible outliers. links: pages
+   * found by following links from the start page.
+   */
+  method: 'sitemap' | 'adaptive' | 'links';
   /** The sitemap the pages came from. */
   source?: string;
   /** Scannable pages the sitemap listed. */
@@ -233,7 +244,32 @@ export interface CrawlSampling {
   picked: number;
   /** Of those, pages the requester listed (after the start page). */
   requested?: number;
+  /**
+   * Adaptive samples only: the URL sections the listed pages fall into, how
+   * many pages each holds and how many were picked from it.
+   */
+  strata?: { section: string; sitemap?: string; listed: number; picked: number; rare: boolean }[];
+  /** Strata the listed pages fell into; only the largest and those picked from are kept above. */
+  strataTotal?: number;
+  /** Why each picked page was chosen, by URL. */
+  reasons?: Record<string, SampleReason>;
+  /** Child sitemaps read, and how many an index named, when it was an index. */
+  sitemapsRead?: number;
+  sitemapsListed?: number;
+  /** What the sample cannot stand for. Plain sentences, shown as given. */
+  limitations?: string[];
 }
+
+export type SampleReason = 'start' | 'requested' | 'random' | 'representative' | 'proportional' | 'rare-section' | 'linked';
+
+/**
+ * Pages that share a structure, grouped after a scan. Built from what each
+ * page's anatomy recorded: landmarks, component signatures, scripts and
+ * stylesheets, URL pattern and Drupal template hints. A family is a grouping
+ * for investigation, not a measurement; its figures are medians of the pages
+ * measured in it, never extrapolated to pages that were not.
+ */
+export type { PageFamily, FamilyReport } from '../analysis/families.js';
 
 export interface BenchmarkResult {
   schemaVersion: number;
@@ -292,5 +328,10 @@ export interface BenchmarkResult {
   webnrg?: import('../webnrg/run.js').WebnrgSummary;
   /** Crawls only: how the pages were chosen. */
   sampling?: CrawlSampling;
+  /**
+   * Pages grouped by shared structure, when two or more pages were scanned.
+   * Derived from the scenarios above, so it can be rebuilt from any result.
+   */
+  families?: import('../analysis/families.js').FamilyReport;
   warnings: string[];
 }

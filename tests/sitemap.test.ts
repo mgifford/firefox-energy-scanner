@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  adaptiveSample,
   parseRobotsSitemaps,
   parseSitemapXml,
   sampleFromSitemaps,
   seededSample,
   type Fetched,
 } from '../src/collect/sitemap.js';
-import { selectCrawlLinks } from '../src/collect/crawler.js';
+import { describeSample, selectCrawlLinks } from '../src/collect/crawler.js';
 import { pageKey, siteOf } from '../src/collect/urls.js';
 import { defaultConfig } from '../src/core/config.js';
 
@@ -31,10 +32,11 @@ function site(pages: Record<string, string>, redirectTo?: string) {
 }
 
 const crawl = defaultConfig().crawl;
-const options = (get: (u: string) => Promise<Fetched | undefined>, robotsSitemaps: string[] = [], maxPages = 5) => ({
+const options = (get: (u: string) => Promise<Fetched | undefined>, robotsSitemaps: string[] = [], maxPages = 5, strategy?: 'random' | 'adaptive') => ({
   get,
   robotsSitemaps,
   maxPages,
+  ...(strategy ? { strategy } : {}),
   siteOf,
   pageKey: (u: string) => pageKey(u),
   select: (locs: string[], sites: Set<string>) => selectCrawlLinks(locs, 'https://canada.ca/', sites, crawl),
@@ -62,6 +64,18 @@ describe('seededSample', () => {
     const a = seededSample(items, 10, 'a.org');
     expect(seededSample([...items].reverse(), 10, 'a.org')).toEqual(a);
     expect(new Set(a).size).toBe(10);
+  });
+
+  // The default sample must not move when sampling code changes: re-scans
+  // compare like with like only while the same site gives the same pages.
+  it('is unchanged from earlier releases', () => {
+    const pool = Array.from({ length: 40 }, (_, i) => `https://www.cms.gov/p/${(i * 7919) % 10007}`);
+    expect(seededSample(pool, 4, 'canada.ca')).toEqual([
+      'https://www.cms.gov/p/3666',
+      'https://www.cms.gov/p/7409',
+      'https://www.cms.gov/p/4965',
+      'https://www.cms.gov/p/2877',
+    ]);
   });
 
   it('gives another sample for another site, and everything when there are few', () => {
@@ -129,5 +143,124 @@ describe('sampleFromSitemaps', () => {
     expect(await sampleFromSitemaps('https://canada.ca/', options(site({}).get))).toBeUndefined();
     const onlyHome = site({ '/sitemap.xml': urlset(['https://canada.ca/']) });
     expect(await sampleFromSitemaps('https://canada.ca/', options(onlyHome.get))).toBeUndefined();
+  });
+});
+
+describe('adaptiveSample', () => {
+  /** A site with one huge section, two mid-sized ones and a few tiny ones. */
+  const groups = () =>
+    new Map<string, string[]>([
+      ['/guidance', Array.from({ length: 800 }, (_, i) => `https://a.org/guidance/t/r${i}`)],
+      ['/medicare', Array.from({ length: 150 }, (_, i) => `https://a.org/medicare/x/m${i}`)],
+      ['/news', Array.from({ length: 40 }, (_, i) => `https://a.org/news/n${i}`)],
+      ['/careers', ['https://a.org/careers/apply']],
+      ['/espanol', ['https://a.org/espanol/inicio', 'https://a.org/espanol/ayuda']],
+      ['/tools', ['https://a.org/tools/calculator']],
+    ]);
+
+  it('takes one page per common section first, keeps some for rare ones, then shares the rest by size', () => {
+    const { picks, picked, rare } = adaptiveSample(groups(), 10, 'a.org');
+    expect(picks).toHaveLength(10);
+    expect(picks.slice(0, 3).map((p) => [p.key, p.reason])).toEqual([
+      ['/guidance', 'representative'],
+      ['/medicare', 'representative'],
+      ['/news', 'representative'],
+    ]);
+    expect([...rare].sort()).toEqual(['/careers', '/espanol', '/tools']);
+    expect(picks.filter((p) => p.reason === 'rare-section')).toHaveLength(2);
+    // The largest section gets most of the proportional share.
+    expect(picked.get('/guidance')).toBeGreaterThan(picked.get('/medicare')!);
+    expect(new Set(picks.map((p) => p.url)).size).toBe(10);
+  });
+
+  it('is deterministic, and does not depend on the order pages are listed in', () => {
+    const a = adaptiveSample(groups(), 10, 'a.org').picks;
+    const reversed = new Map([...groups()].reverse().map(([k, v]) => [k, [...v].reverse()]));
+    expect(adaptiveSample(reversed, 10, 'a.org').picks).toEqual(a);
+    expect(adaptiveSample(groups(), 10, 'b.org').picks).not.toEqual(a);
+  });
+
+  it('keeps no rare share for a tiny budget, and stops when pages run out', () => {
+    expect(adaptiveSample(groups(), 3, 'a.org').picks.every((p) => p.reason === 'representative')).toBe(true);
+    const few = new Map([['/a', ['https://a.org/a/1']], ['/b', ['https://a.org/b/1', 'https://a.org/b/2']]]);
+    expect(adaptiveSample(few, 10, 'a.org').picks).toHaveLength(3);
+  });
+});
+
+describe('sampleFromSitemaps, adaptive', () => {
+  const sections = ['news', 'events', 'services'];
+  const locs = [
+    ...sections.flatMap((s, si) => Array.from({ length: 20 * (si + 1) }, (_, i) => `https://canada.ca/${s}/item-${i}`)),
+    'https://canada.ca/jobs/apply',
+  ];
+
+  it('spreads the sample across sections and records them', async () => {
+    const { get } = site({ '/sitemap.xml': urlset(locs) });
+    const sample = await sampleFromSitemaps('https://canada.ca/', options(get, [], 8, 'adaptive'));
+    expect(sample!.urls[0]).toBe('https://canada.ca/');
+    expect(sample!.urls).toHaveLength(8);
+    const sectionsHit = new Set(sample!.urls.slice(1).map((u) => new URL(u).pathname.split('/')[1]));
+    expect(sectionsHit).toEqual(new Set(['news', 'events', 'services', 'jobs']));
+    expect(sample!.reasons['https://canada.ca/jobs/apply']).toBe('rare-section');
+    expect(sample!.strata!.map((s) => [s.section, s.listed])).toEqual([['/services', 60], ['/events', 40], ['/news', 20], ['/jobs', 1]]);
+    expect(sample!.strata!.reduce((t, s) => t + s.picked, 0)).toBe(7);
+  });
+
+  it('leaves the default sample as it was', async () => {
+    const pages = { '/sitemap.xml': urlset(locs) };
+    const random = await sampleFromSitemaps('https://canada.ca/', options(site(pages).get, [], 8));
+    expect(random!.strata).toBeUndefined();
+    expect(Object.values(random!.reasons).every((r) => r === 'random')).toBe(true);
+    expect(random!.urls.slice(1)).toEqual(seededSample(locs, 7, 'canada.ca'));
+  });
+
+  it('splits strata by child sitemap and says how many children were read', async () => {
+    const children = ['post-sitemap.xml', 'page-sitemap.xml'];
+    const pages: Record<string, string> = { '/sitemap_index.xml': index(children.map((c) => `https://canada.ca/${c}`)) };
+    pages['/post-sitemap.xml'] = urlset(Array.from({ length: 30 }, (_, i) => `https://canada.ca/post-${i}`));
+    pages['/page-sitemap.xml'] = urlset(['https://canada.ca/about', 'https://canada.ca/contact', 'https://canada.ca/team']);
+    const sample = await sampleFromSitemaps('https://canada.ca/', options(site(pages).get, ['https://canada.ca/sitemap_index.xml'], 6, 'adaptive'));
+    expect(sample!.strata!.map((s) => s.sitemap).sort()).toEqual(['page-sitemap.xml', 'post-sitemap.xml']);
+    expect(sample!.urls.some((u) => /about|contact|team/.test(u))).toBe(true);
+    expect([sample!.sitemapsListed, sample!.sitemapsRead]).toEqual([2, 2]);
+  });
+});
+
+describe('describeSample', () => {
+  const keyOf = (u: string) => pageKey(u);
+
+  it('records why each measured page is there and what the sample cannot stand for', () => {
+    const s = describeSample({
+      sample: {
+        urls: ['https://a.org/', 'https://a.org/x/1', 'https://a.org/y/1'],
+        source: 'https://a.org/sitemap.xml',
+        listed: 40,
+        capped: false,
+        sitemapsListed: 9,
+        sitemapsRead: 3,
+        reasons: { 'https://a.org/x/1': 'representative', 'https://a.org/y/1': 'rare-section' },
+        strata: [
+          { section: '/x', listed: 39, picked: 1, rare: false, pages: ['https://a.org/x/1'] },
+          { section: '/y', listed: 1, picked: 1, rare: true, pages: ['https://a.org/y/1'] },
+        ],
+      },
+      adaptive: true,
+      // The rare page was cut by the page limit; a listed page took its place.
+      measured: ['https://a.org/', 'https://a.org/listed', 'https://a.org/x/1'],
+      startKey: keyOf('https://a.org/'),
+      extraKeys: new Set([keyOf('https://a.org/listed')]),
+      requested: 1,
+      keyOf,
+    });
+    expect(s.method).toBe('adaptive');
+    expect(s.reasons).toEqual({ 'https://a.org/': 'start', 'https://a.org/listed': 'requested', 'https://a.org/x/1': 'representative' });
+    expect(s.strata!.map((x) => x.picked)).toEqual([1, 0]);
+    expect(s.limitations!.join(' ')).toMatch(/names 9 sitemaps and 3 were read/);
+  });
+
+  it('says a link crawl leans towards the start page', () => {
+    const s = describeSample({ sample: undefined, adaptive: false, measured: ['https://a.org/', 'https://a.org/b'], startKey: 'a.org/', extraKeys: new Set(), requested: 0, keyOf });
+    expect(s).toMatchObject({ method: 'links', picked: 2, reasons: { 'https://a.org/': 'start', 'https://a.org/b': 'linked' } });
+    expect(s.limitations![0]).toMatch(/following links/);
   });
 });

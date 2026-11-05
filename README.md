@@ -287,7 +287,14 @@ for A/B comparison. Use them to find what to measure, then write a journey.
 
 `--sample` takes a sample of the pages the site's sitemap lists instead of following
 links, the start page first; the same site gives the same sample. Hosted scans of one URL
-use it.
+use it. `--adaptive` spreads the sample across the site's URL sections instead, keeping a
+few pages for rare ones.
+
+After a crawl, the pages are grouped into **page families** by how they are built
+(components, landmarks, scripts and stylesheets, Drupal template, URL pattern), each with a
+representative page and its outliers. A family is a grouping for investigation, not a
+measurement. `web-energy families <result.json>` rebuilds them for any stored result. See
+[docs/page-families.md](docs/page-families.md).
 
 ### compare
 
@@ -335,6 +342,7 @@ canvas charts) are generated alongside.
 - [docs/lighthouse.md](docs/lighthouse.md) — optional Lighthouse scores and recommendations
 - [docs/crux.md](docs/crux.md) — optional CrUX field data from real Chrome users
 - [docs/webnrg.md](docs/webnrg.md) — optional webNRG lab figures from Green Coding's cluster
+- [docs/page-families.md](docs/page-families.md) — grouping a crawl's pages by how they are built, and adaptive sampling
 
 ## Licence
 

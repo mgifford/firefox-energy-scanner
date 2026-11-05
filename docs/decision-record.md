@@ -564,3 +564,33 @@ each. Content sections of a sitemap index are now read first, and thin ones (att
 media, authors, users, tags, categories, archives) only when there is nothing else. The 16
 pages listed beside that crawl were dropped as "crawling starts from one URL"; listed pages
 of the same site are now measured first.
+
+## TDR-014: Page families group pages by structure; adaptive sampling is opt-in
+
+**Decision:** After a scan, the measured pages are grouped into page families from what
+each page's anatomy recorded: component signatures, landmarks, scripts and stylesheets,
+Drupal template and URL pattern. An opt-in adaptive sample (`--adaptive`) spreads a crawl
+across the site's URL sections. The default sample is unchanged.
+
+**Why families.** Issue #31 sampled 20 cms.gov pages and 15 of them were one template;
+the comment listed 20 rows that said the same thing 15 times. A reader needs to see which
+templates a sample covers, which page stands for each, and which pages stand out.
+
+**A grouping, not a measurement.** Families carry no energy figure and no score. Their
+numbers are medians of measured pages, never extrapolated to unmeasured ones. Grouping by
+structure says pages are built alike, not that they cost alike.
+
+**Deterministic and explainable.** A weighted Jaccard index over named feature sets and
+average-linkage clustering, not embeddings or a model: the same results give the same
+families, every signal is readable, and the method is short enough to state in the
+report. Family ids hash the structural features most members share, leaving out
+resources, whose aggregated names change on every deploy.
+
+**Prefer what the site states.** Component signatures come first from explicit
+annotations (`data-component-id`), then framework boundaries, then Drupal's class
+conventions, then landmarks, and only then a class-name guess, labelled as such. Twig debug
+would be exact but changes the markup and the server's work, so families never rely on it.
+
+**Adaptive is opt-in.** Re-scans compare like with like only while a site gives the same
+pages, so `--sample` keeps its output (pinned by a test). `--adaptive` is seeded too, and
+records why each page was picked and what the sample cannot stand for.

@@ -62,6 +62,7 @@ jobs:
       runner: ${{ steps.parse.outputs.runner }}
       runs: ${{ steps.parse.outputs.runs }}
       max_pages: ${{ steps.parse.outputs.max_pages }}
+      sampling: ${{ steps.parse.outputs.sampling }}
       include: ${{ steps.parse.outputs.include }}
       viewport_width: ${{ steps.parse.outputs.viewport_width }}
       viewport_height: ${{ steps.parse.outputs.viewport_height }}
@@ -149,6 +150,7 @@ jobs:
           set('runner', r.runner);
           set('runs', String(r.runs));
           set('max_pages', String(r.maxPages));
+          set('sampling', r.sampling);
           set('include', r.include ?? '');
           set('viewport_width', String(r.viewport.width));
           set('viewport_height', String(r.viewport.height));
@@ -300,6 +302,7 @@ jobs:
           SCAN_URLS: ${{ needs.prepare.outputs.urls }}
           SCAN_RUNS: ${{ needs.prepare.outputs.runs }}
           SCAN_MAX_PAGES: ${{ needs.prepare.outputs.max_pages }}
+          SCAN_SAMPLING: ${{ needs.prepare.outputs.sampling }}
           SCAN_INCLUDE: ${{ needs.prepare.outputs.include }}
           SCAN_VIEWPORT: ${{ needs.prepare.outputs.viewport_width }}x${{ needs.prepare.outputs.viewport_height }}
           SCAN_LIGHTHOUSE: ${{ needs.prepare.outputs.lighthouse }}
@@ -359,7 +362,8 @@ jobs:
                '--max-pages', process.env.SCAN_MAX_PAGES || '20',
                // A sample of the pages the sitemap lists, as open-scans takes;
                // following links only when there is no usable sitemap.
-               '--sample',
+               // Adaptive spreads it across the site's URL sections.
+               process.env.SCAN_SAMPLING === 'adaptive' ? '--adaptive' : '--sample',
                ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
                ...viewport, ...lighthouse, ...guard, ...webnrg, ...greenHosting,
                '--headless', '--out', 'site/results']
@@ -702,6 +706,22 @@ jobs:
                 '\n\nThese come from page structure and need no power hardware, so they are ' +
                 'valid on any runner.\n'
               : '';
+            // Page families: the measured pages grouped by how they are built.
+            // A grouping for investigation, not a cost, and nothing is
+            // extrapolated to pages that were not measured.
+            const fam = entry && entry.families;
+            const familiesBlock = fam && fam.families && fam.families.length
+              ? '\n### Page families\n\n' +
+                `${fam.pagesGrouped} pages group into **${fam.families.length}** famil${fam.families.length === 1 ? 'y' : 'ies'} by how they are built ` +
+                '(components, landmarks, scripts and stylesheets, template, URL pattern). Start with each family’s representative page.\n\n' +
+                '| Family | Pages | Representative | Median DOM nodes | Median transfer | Outliers |\n| --- | ---: | --- | ---: | ---: | ---: |\n' +
+                fam.families.slice(0, 8).map((f) =>
+                  `| ${code(f.label.length > 60 ? '…' + f.label.slice(-59) : f.label)} | ${f.pages} | ${code(f.representative.length > 70 ? '…' + f.representative.slice(-69) : f.representative)} | ` +
+                  `${f.medianDomNodes !== undefined ? f.medianDomNodes : '—'} | ${f.medianTransferBytes !== undefined ? Math.round(f.medianTransferBytes / 1024) + ' KB' : '—'} | ${f.outliers} |`,
+                ).join('\n') +
+                (fam.families.length > 8 ? `\n\n…and ${fam.families.length - 8} more in the full results.` : '') +
+                '\n\n_Medians of the pages measured in each family; not extrapolated to pages that were not._\n'
+              : '';
             // Notes can quote the issue body; break @mentions so they ping nobody.
             const parserNotes = (process.env.PARSER_NOTES || '').trim().replace(/@/g, '@\u200b');
 
@@ -723,6 +743,16 @@ jobs:
             const sampling = entry && entry.sampling;
             const coverage = notScanned.length && !isCrawl
               ? `\nScanned **${scannedCount}** of ${scannedCount + notScanned.length} listed URLs; the rest are listed under _Not scanned_ below.\n`
+              : sampling && sampling.method === 'adaptive'
+                ? `\n**Pages:** the start page` +
+                  (sampling.requested ? `, the ${sampling.requested} other pages listed,` : '') +
+                  ` and ${sampling.picked - 1 - (sampling.requested || 0)} of the ${sampling.listed} pages its sitemap lists, ` +
+                  `spread across ${(sampling.strata || []).filter((x) => x.picked > 0).length} of its ` +
+                  `${sampling.strataTotal || (sampling.strata || []).length} URL sections` +
+                  ((sampling.strata || []).some((x) => x.rare && x.picked > 0)
+                    ? `, ${(sampling.strata || []).filter((x) => x.rare && x.picked > 0).length} of them rare`
+                    : '') +
+                  '. The same site gives the same sample, so a re-scan compares like with like.\n'
               : sampling && sampling.method === 'sitemap'
                 ? `\n**Pages:** the start page` +
                   (sampling.requested ? `, the ${sampling.requested} other pages listed,` : '') +
@@ -793,7 +823,7 @@ jobs:
             // Conditionals yield null when omitted; '' entries are deliberate
             // blank lines. filter(Boolean) dropped both, which collapsed every
             // paragraph break in the comment.
-            ].filter((line) => line !== null).join('\n') + findingsBlock + lighthouseBlock + webnrgBlock + footprintBlock +
+            ].filter((line) => line !== null).join('\n') + familiesBlock + findingsBlock + lighthouseBlock + webnrgBlock + footprintBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
               'scan again** — edit the request body first if you want different settings._';
 
