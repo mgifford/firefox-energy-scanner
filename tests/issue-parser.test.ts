@@ -448,6 +448,21 @@ describe('open-scans instructions', () => {
     expect(parseScanRequest(body, 'SCAN: a PAGES:40').maxPages).toBe(12);
   });
 
+  it('reads SAMPLE:adaptive from the title, and keeps the random sample by default', () => {
+    const r = parseScanRequest('', 'SCAN: https://canada.ca SAMPLE:adaptive PAGES:8');
+    expect(r.urls).toEqual(['https://canada.ca']);
+    expect(r.sampling).toBe('adaptive');
+    expect(r.notes[0]).toMatch(/spread across the site’s sections/);
+    expect(parseScanRequest('', 'SCAN: https://canada.ca').sampling).toBe('random');
+    expect(parseScanRequest('', 'SCAN: https://canada.ca sampling: random').sampling).toBe('random');
+  });
+
+  it('reads the Page sampling field, which wins over the keyword', () => {
+    const field = (v: string) => `### URLs\n\nhttps://a.org\n\n### Page sampling\n\n${v}`;
+    expect(parseScanRequest(field('Spread across sections (adaptive)')).sampling).toBe('adaptive');
+    expect(parseScanRequest(field('Random sample (the default)'), 'SCAN: a SAMPLE:adaptive').sampling).toBe('random');
+  });
+
   it('reads URLs inside markdown links and href attributes, and unwraps Google links', () => {
     const body =
       'See [the home page](https://a.org/) and <a href="https://a.org/about">about</a>, ' +

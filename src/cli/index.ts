@@ -34,6 +34,7 @@ import { toCsv, groupByStep, failedSteps } from '../report/csv.js';
 import { readableFailure } from '../core/failures.js';
 import { friendlyError } from './errors.js';
 import { toHtml } from '../report/html.js';
+import { buildFamilies, type FamilyReport } from '../analysis/families.js';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import {
@@ -83,6 +84,7 @@ Usage:
   web-energy baseline                  [options]
   web-energy compare --a <url> --b <url> --journey <file> [options]
   web-energy report <result.json>
+  web-energy families <result.json>    [--json] [--write]
   web-energy profile --journey <file> [--step <name>]
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
@@ -108,6 +110,10 @@ Options:
                          up to --max-pages, the start page first. The same
                          site gives the same sample. Falls back to following
                          links when there is no usable sitemap.
+  --adaptive             Crawl: like --sample, but spread across the site's URL
+                         sections: one page from each common section, about a
+                         fifth from rare ones, the rest in proportion to size.
+                         Also seeded, so a re-scan gets the same pages.
   --also <url>           Crawl: also measure this page of the same site, right
                          after the start page (repeatable).
   --authenticated        Use Drupal auth from environment variables
@@ -239,6 +245,7 @@ async function buildConfig(args: Args): Promise<Config> {
       ...(args.flags.get('include') ? { include: args.flags.get('include')! } : {}),
       ...(args.flags.get('exclude') ? { exclude: args.flags.get('exclude')! } : {}),
       ...(has(args, 'sample') ? { strategy: 'sitemap' as const } : {}),
+      ...(has(args, 'adaptive') ? { strategy: 'adaptive' as const } : {}),
     },
     co2: {
       ...config.co2,
@@ -610,6 +617,8 @@ async function cmdMeasure(args: Args): Promise<number> {
     ...(grid ? { gridIntensity: grid } : {}),
     warnings: outcome.warnings,
   };
+  const families = buildFamilies(outcome.steps);
+  if (families) result.families = families;
 
   await attachLighthouse(args, config, result, urls, 'measure');
   await attachCrux(result, crux);
@@ -706,6 +715,7 @@ async function cmdCrawl(args: Args): Promise<number> {
     configuration: config,
     sampling: outcome.sampling,
     scenarios: outcome.steps,
+    ...withFamilies(outcome.steps, outcome.sampling.listed),
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
     ...(grid ? { gridIntensity: grid } : {}),
     warnings: [
@@ -722,18 +732,80 @@ async function cmdCrawl(args: Args): Promise<number> {
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.crux) printCrux(result.crux);
   if (result.webnrg) printWebnrg(result.webnrg);
+  if (result.families) printFamilies(result.families);
   console.log(`\n${describeSampling(outcome.sampling)}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
 }
 
 /** One sentence on how a crawl chose its pages. */
-function describeSampling(s: CrawlSampling): string {
+export function describeSampling(s: CrawlSampling): string {
   const listed = s.requested ? `, the ${s.requested} listed page${s.requested === 1 ? '' : 's'}` : '';
+  const sampled = s.picked - 1 - (s.requested ?? 0);
+  if (s.method === 'adaptive') {
+    const sections = s.strataTotal ?? s.strata?.length ?? 0;
+    const from = s.strata?.filter((x) => x.picked > 0).length ?? 0;
+    const rare = s.strata?.filter((x) => x.rare && x.picked > 0).length ?? 0;
+    return (
+      `Pages: the start page${listed} and ${sampled} of the ${s.listed} pages listed in ${s.source}, ` +
+      `spread across ${from} of its ${sections} URL section${sections === 1 ? '' : 's'}` +
+      (rare ? ` (${rare} of them rare)` : '') +
+      '. The same site gives the same sample.'
+    );
+  }
   return s.method === 'sitemap'
-    ? `Pages: the start page${listed} and a sample of ${s.picked - 1 - (s.requested ?? 0)} of the ${s.listed} pages ` +
+    ? `Pages: the start page${listed} and a sample of ${sampled} of the ${s.listed} pages ` +
         `listed in ${s.source}. The same site gives the same sample.`
     : `Pages: ${s.picked}: the start page${listed} and pages found by following its links.`;
+}
+
+/** Families for a result's pages, as a spreadable field: nothing when fewer than two pages have structure. */
+function withFamilies(steps: StepResult[], listed?: number): { families?: FamilyReport } {
+  const families = buildFamilies(steps, listed !== undefined ? { listed } : {});
+  return families ? { families } : {};
+}
+
+function printFamilies(report: FamilyReport): void {
+  console.log(`\nPage families (${report.families.length} from ${report.pagesGrouped} pages; grouped by structure, not cost):`);
+  for (const f of report.families.slice(0, 12)) {
+    const nodes = f.metrics.domNodes ? `, median ${f.metrics.domNodes.median} DOM nodes` : '';
+    const bytes = f.metrics.transferBytes ? `, median ${(f.metrics.transferBytes.median / 1024).toFixed(0)} KB` : '';
+    console.log(`  ${f.id}  ${String(f.pages.length).padStart(3)} page${f.pages.length === 1 ? ' ' : 's'}  ${f.label}${nodes}${bytes}`);
+    for (const o of f.outliers.slice(0, 3)) console.log(`      outlier: ${o.url} ${o.metric} ${o.value} (${o.ratio}× the family median)`);
+  }
+  if (report.families.length > 12) console.log(`  …and ${report.families.length - 12} more`);
+}
+
+/**
+ * Group a stored result's pages into families. Works on any result, older
+ * ones included (they lack page structure, so grouping uses fewer features).
+ */
+async function cmdFamilies(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('families requires a result JSON file');
+    return 1;
+  }
+  const result = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  const report = buildFamilies(result.scenarios, result.sampling?.listed !== undefined ? { listed: result.sampling.listed } : {});
+  if (!report) {
+    console.error('Fewer than two measured pages have page structure, so there is nothing to group.');
+    return 1;
+  }
+  if (has(args, 'write')) {
+    result.families = report;
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+    await writeFile(resolve(file).replace(/\.json$/, '') + '.html', toHtml(result));
+    await writeFile(resolve(file).replace(/\.json$/, '') + '.csv', toCsv(result));
+  }
+  if (has(args, 'json')) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printFamilies(report);
+    for (const l of report.limitations) console.log(`\n${l}`);
+    if (has(args, 'write')) console.log(`\nWrote families into ${file} and regenerated its HTML and CSV.`);
+  }
+  return 0;
 }
 
 interface LighthouseArgs {
@@ -1732,6 +1804,7 @@ async function main(): Promise<number> {
       case 'baseline': return await cmdBaseline(args);
       case 'compare': return await cmdCompare(args);
       case 'report': return await cmdReport(args);
+      case 'families': return await cmdFamilies(args);
       case 'profile': return await cmdProfile(args);
       case 'triage': return await cmdTriage(args);
       case 'matrix': return await cmdMatrix(args);

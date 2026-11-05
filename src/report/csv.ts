@@ -13,6 +13,8 @@ const COLUMNS = [
   'energy_scope', 'energy_type', 'energy_adapter', 'energy_samples',
   'firefox_version', 'playwright_version', 'co2js_version',
   'os', 'architecture', 'headed', 'cache_mode', 'on_battery', 'low_power_mode', 'valid',
+  // Appended, so existing column positions are unchanged.
+  'family_id', 'page_fingerprint', 'url_pattern', 'sample_reason',
 ] as const;
 
 /** RFC4180-style escaping. */
@@ -71,10 +73,22 @@ export function toCsv(result: BenchmarkResult): string {
       on_battery: env.onBattery,
       low_power_mode: env.lowPowerMode,
       valid: s.valid,
+      family_id: s.url ? result.families?.pageFamily[s.url] : undefined,
+      page_fingerprint: s.url ? result.families?.pageFingerprint[s.url] : undefined,
+      url_pattern: s.url ? result.families?.pagePattern[s.url] : undefined,
+      sample_reason: sampleReason(s, result),
     };
     lines.push(COLUMNS.map((c) => cell(row[c])).join(','));
   }
   return lines.join('\n') + '\n';
+}
+
+/** Why a crawl picked this page. Keyed by the URL queued, which is the step's name. */
+function sampleReason(s: StepResult, result: BenchmarkResult): string | undefined {
+  const reasons = result.sampling?.reasons;
+  if (!reasons) return undefined;
+  const queued = s.step.replace(/^run:\d+:/, '');
+  return reasons[queued] ?? (s.url ? reasons[s.url] : undefined);
 }
 
 function round(v: number | undefined, digits = 3): number | undefined {

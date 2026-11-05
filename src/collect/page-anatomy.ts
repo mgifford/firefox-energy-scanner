@@ -44,6 +44,46 @@ export interface PageAnatomy {
   animatedElements: number;
   /** LCP element, the one element-level signal Firefox exposes. */
   lcpElement?: { selector: string; renderTimeMs: number; sizePx: number };
+  /** What the page is built from, for grouping pages into families. */
+  structure?: PageStructure;
+}
+
+/**
+ * A recognisable building block, and how it was recognised. Methods, most
+ * trustworthy first: an explicit annotation the site put there, a framework
+ * boundary, a Drupal class convention, a landmark, then a class-name guess.
+ */
+export interface ComponentSignature {
+  signature: string;
+  method: 'annotation' | 'framework' | 'drupal' | 'landmark' | 'class-heuristic';
+  /** How many times it appears on the page. */
+  count: number;
+  /** Elements inside all its occurrences, the occurrence included. */
+  nodes: number;
+}
+
+/**
+ * The page's structure as a fingerprint: landmarks, components, framework
+ * roots and Drupal hints. Read from the DOM after the measured window, so it
+ * adds nothing to the energy figure. It says what a page is made of, not what
+ * any part of it costs.
+ */
+export interface PageStructure {
+  /** ARIA landmark roles in document order (header outside sectioning content is banner, and so on). */
+  landmarks: string[];
+  /** Largest first, by elements; at most 40. */
+  components: ComponentSignature[];
+  /** Framework roots found: react, next, vue, angular, svelte, web-components, drupal. */
+  frameworks: string[];
+  drupal?: {
+    /** page-node-type-*, or the path-* class, with numbers replaced by :id. */
+    pageTemplate?: string;
+    /** Body classes that name templates or routes, numbers replaced by :id. */
+    bodyClasses: string[];
+    theme?: string;
+    /** Libraries from drupalSettings, when Drupal sends them uncompressed. */
+    libraries?: string[];
+  };
 }
 
 /** Read structural metrics after the page has settled. */
@@ -154,6 +194,133 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
 
       const webfonts = (document as unknown as { fonts?: { size?: number } }).fonts?.size ?? 0;
 
+      // --- Structure: what the page is built from --------------------------
+      const LANDMARK_ROLES = ['banner', 'navigation', 'main', 'complementary', 'contentinfo', 'search', 'form', 'region'];
+      const named = (el: Element) => !!(el.getAttribute('aria-label') || el.getAttribute('aria-labelledby'));
+      const landmarkOf = (el: Element): string | undefined => {
+        const role = el.getAttribute('role');
+        if (role && LANDMARK_ROLES.includes(role)) return role;
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'main') return 'main';
+        if (tag === 'nav') return 'navigation';
+        if (tag === 'aside') return 'complementary';
+        if (tag === 'search') return 'search';
+        // header and footer are landmarks only outside sectioning content.
+        if (tag === 'header' || tag === 'footer') {
+          if (el.parentElement?.closest('article, aside, main, nav, section')) return undefined;
+          return tag === 'header' ? 'banner' : 'contentinfo';
+        }
+        if ((tag === 'form' || tag === 'section') && named(el)) return tag === 'form' ? 'form' : 'region';
+        return undefined;
+      };
+
+      // Class names too generic to identify a component.
+      const GENERIC = new Set([
+        'container', 'container-fluid', 'wrapper', 'inner', 'outer', 'row', 'col', 'column', 'columns',
+        'clearfix', 'content', 'contents', 'grid', 'flex', 'layout', 'section', 'main', 'page', 'site',
+        'block', 'field', 'item', 'items', 'list', 'link', 'links', 'hidden', 'visually-hidden', 'sr-only',
+        'active', 'open', 'show', 'collapse', 'collapsed', 'text', 'title', 'body', 'region', 'view',
+        'node', 'paragraph', 'contextual-region', 'clearfix', 'd-flex', 'd-none', 'd-block',
+      ]);
+      const isUtility = (t: string) =>
+        GENERIC.has(t) || /^(js|is|has|u|util|l|t|text|bg|m[trblxy]?|p[trblxy]?|w|h|d|col|row|gap|order|flex|grid|align|justify|float|fs|fw|lh|ws)-/.test(t) ||
+        /\d/.test(t) || t.length < 3 || /__|--/.test(t) || /^(path|page|node|layout)-/.test(t);
+      const idDigits = (s: string) => s.replace(/\d+/g, ':id');
+
+      const sigs = new Map<string, { signature: string; method: string; count: number; nodes: number }>();
+      const add = (signature: string, method: string, el: Element) => {
+        const entry = sigs.get(signature) ?? { signature, method, count: 0, nodes: 0 };
+        entry.count++;
+        entry.nodes += el.getElementsByTagName('*').length + 1;
+        sigs.set(signature, entry);
+      };
+      const landmarks: string[] = [];
+      const frameworks = new Set<string>();
+      for (const el of Array.from(all)) {
+        // The root and body carry page-level classes (route, template), recorded below.
+        if (el === document.documentElement || el === document.body) continue;
+        const lm = landmarkOf(el);
+        if (lm) {
+          if (landmarks.length < 30) landmarks.push(lm);
+          add(`landmark:${lm}`, 'landmark', el);
+        }
+        const tag = el.tagName.toLowerCase();
+        const explicit = el.getAttribute('data-component-id') ?? el.getAttribute('data-component');
+        if (explicit) {
+          add(`component:${idDigits(explicit.slice(0, 60))}`, 'annotation', el);
+          continue;
+        }
+        if (tag.includes('-')) {
+          frameworks.add('web-components');
+          add(`element:${tag}`, 'framework', el);
+          continue;
+        }
+        if (el.id === '__next') { frameworks.add('next'); add('framework:next-root', 'framework', el); continue; }
+        if (el.hasAttribute('data-reactroot')) { frameworks.add('react'); add('framework:react-root', 'framework', el); continue; }
+        if (el.hasAttribute('ng-version')) { frameworks.add('angular'); add('framework:angular-root', 'framework', el); continue; }
+        if (el.hasAttribute('data-v-app') || el.hasAttribute('data-server-rendered')) { frameworks.add('vue'); add('framework:vue-root', 'framework', el); continue; }
+        const classes = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(Boolean) : [];
+        if (classes.some((c) => c.startsWith('svelte-'))) frameworks.add('svelte');
+        // Drupal class conventions name the template or plugin that rendered the markup.
+        const has = (c: string) => classes.includes(c);
+        const pick = (re: RegExp) => classes.map((c) => re.exec(c)?.[1]).find(Boolean);
+        const node = pick(/^node--type-(.+)$/);
+        if (node) { add(`drupal-node:${node}${pick(/^node--view-mode-(.+)$/) ? ':' + pick(/^node--view-mode-(.+)$/) : ''}`, 'drupal', el); continue; }
+        const paragraph = pick(/^paragraph--type--(.+)$/);
+        if (paragraph) { add(`drupal-paragraph:${paragraph}`, 'drupal', el); continue; }
+        const view = pick(/^view-id-(.+)$/);
+        if (view && has('view')) { add(`drupal-view:${view}`, 'drupal', el); continue; }
+        const block = has('block') ? classes.find((c) => c.startsWith('block-') && c !== 'block-content') : undefined;
+        if (block) { add(`drupal-block:${idDigits(block.slice(6))}`, 'drupal', el); continue; }
+        const region = pick(/^region-(.+)$/) ?? pick(/^region--(.+)$/);
+        if (region && has('region')) { add(`drupal-region:${region}`, 'drupal', el); continue; }
+        // Fallback: a block-level class on an element with real content.
+        if (el.getElementsByTagName('*').length >= 10) {
+          const token = classes.find((c) => /^[a-z][a-z0-9-]*$/.test(c) && !isUtility(c));
+          if (token) add(`class:${token}`, 'class-heuristic', el);
+        }
+      }
+
+      // Drupal: body classes and drupalSettings name the route, template and libraries.
+      let drupal: PageStructure['drupal'];
+      const settingsEl = document.querySelector('script[data-drupal-selector="drupal-settings-json"]');
+      const bodyClasses = Array.from(document.body?.classList ?? []);
+      if (settingsEl || document.querySelector('[data-drupal-selector], [data-drupal-link-system-path]') || bodyClasses.some((c) => c.startsWith('path-'))) {
+        frameworks.add('drupal');
+        const routeClasses = bodyClasses
+          .filter((c) => /^(path-|page-node-type-|page-|node--type-|layout-|user-logged-in)/.test(c))
+          .map(idDigits)
+          .filter((c, i, list) => list.indexOf(c) === i)
+          .slice(0, 12);
+        let theme: string | undefined;
+        let libraries: string[] | undefined;
+        try {
+          const settings = JSON.parse(settingsEl?.textContent ?? 'null') as { ajaxPageState?: { theme?: string; libraries?: string } } | null;
+          theme = settings?.ajaxPageState?.theme;
+          const libs = settings?.ajaxPageState?.libraries;
+          // Drupal 10.1+ compresses this list; only a plain list is readable here.
+          if (typeof libs === 'string' && libs.includes('/')) libraries = libs.split(',').slice(0, 80);
+        } catch {
+          /* not JSON */
+        }
+        drupal = {
+          ...(routeClasses.find((c) => c.startsWith('page-node-type-')) ?? routeClasses.find((c) => c.startsWith('path-'))
+            ? { pageTemplate: routeClasses.find((c) => c.startsWith('page-node-type-')) ?? routeClasses.find((c) => c.startsWith('path-')) }
+            : {}),
+          bodyClasses: routeClasses,
+          ...(theme ? { theme } : {}),
+          ...(libraries ? { libraries } : {}),
+        };
+      }
+      const structure: PageStructure = {
+        landmarks,
+        components: [...sigs.values()]
+          .sort((a, b) => b.nodes - a.nodes || (a.signature < b.signature ? -1 : 1))
+          .slice(0, 40) as ComponentSignature[],
+        frameworks: [...frameworks].sort(),
+        ...(drupal ? { drupal } : {}),
+      };
+
       return {
         domNodes,
         domDepth,
@@ -171,6 +338,7 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
         iframes: document.querySelectorAll('iframe').length,
         webfonts,
         animatedElements,
+        structure,
       } as PageAnatomy;
     });
   } catch {

@@ -98,6 +98,39 @@ export interface LighthouseIndexSummary {
   error?: string;
 }
 
+export interface IndexFamilies {
+  method: string;
+  pagesGrouped: number;
+  families: {
+    id: string;
+    label: string;
+    pages: number;
+    representative: string;
+    medianDomNodes?: number;
+    medianTransferBytes?: number;
+    medianRequests?: number;
+    outliers: number;
+  }[];
+}
+
+/** A family report cut down for the index, which every visitor to the site downloads. */
+export function indexFamilies(report: import('../analysis/families.js').FamilyReport): IndexFamilies {
+  return {
+    method: report.method,
+    pagesGrouped: report.pagesGrouped,
+    families: report.families.slice(0, 20).map((f) => ({
+      id: f.id,
+      label: f.label,
+      pages: f.pages.length,
+      representative: f.representative,
+      ...(f.metrics.domNodes ? { medianDomNodes: f.metrics.domNodes.median } : {}),
+      ...(f.metrics.transferBytes ? { medianTransferBytes: f.metrics.transferBytes.median } : {}),
+      ...(f.metrics.requests ? { medianRequests: f.metrics.requests.median } : {}),
+      outliers: f.outliers.length,
+    })),
+  };
+}
+
 export interface IndexEntry {
   id: string;
   file: string;
@@ -125,8 +158,10 @@ export interface IndexEntry {
    */
   gridIntensity?: GridIntensity;
   scenarios: IndexScenario[];
-  /** Crawls: how the pages were chosen. */
-  sampling?: import('../core/types.js').CrawlSampling;
+  /** Crawls: how the pages were chosen. Per-page reasons stay in the result file. */
+  sampling?: Omit<import('../core/types.js').CrawlSampling, 'reasons'>;
+  /** Page families, summarised: medians of measured pages only. Full detail stays in the result file. */
+  families?: IndexFamilies;
   /** webNRG lab figures for a few of the scan's pages, as recorded. */
   webnrg?: import('../webnrg/run.js').WebnrgSummary;
   /** Run-level Lighthouse context; per-URL results sit on each scenario. */
@@ -314,9 +349,15 @@ export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry 
     scenarios,
     ...(result.lighthouse ? { lighthouse: lighthouseEntry(result.lighthouse, scenarios) } : {}),
     ...(result.webnrg ? { webnrg: result.webnrg } : {}),
-    ...(result.sampling ? { sampling: result.sampling } : {}),
+    ...(result.sampling ? { sampling: withoutReasons(result.sampling) } : {}),
+    ...(result.families ? { families: indexFamilies(result.families) } : {}),
     warnings: result.warnings,
   };
+}
+
+function withoutReasons(s: import('../core/types.js').CrawlSampling): Omit<import('../core/types.js').CrawlSampling, 'reasons'> {
+  const { reasons: _reasons, ...rest } = s;
+  return rest;
 }
 
 function toLighthouseIndex(r: LighthouseUrlResult): LighthouseIndexSummary {

@@ -7,6 +7,7 @@ import { readableFailure } from '../core/failures.js';
 import { lighthouseSection } from './lighthouse-html.js';
 import { cruxSection } from './crux-html.js';
 import { webnrgSection } from './webnrg-html.js';
+import { familiesSection } from './families-html.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -93,7 +94,7 @@ export function toHtml(result: BenchmarkResult): string {
   table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
   caption { text-align: left; font-weight: 600; padding-bottom: .5rem; }
   th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: right; }
-  th[scope="row"], td:first-child, th:first-child { text-align: left; }
+  th[scope="row"], td:first-child, th:first-child, td.text { text-align: left; }
   thead th { background: color-mix(in srgb, var(--fg) 8%, transparent); }
   .note { color: var(--muted); font-size: .92rem; }
   .warning { background: var(--warnbg); border-left: 4px solid var(--warn); padding: .75rem 1rem; margin: 1rem 0; }
@@ -102,6 +103,12 @@ export function toHtml(result: BenchmarkResult): string {
   dl.meta dt { color: var(--muted); }
   .scroll { overflow-x: auto; }
   code { font-size: .9em; }
+  table.families th[scope="row"], table.families td.text { overflow-wrap: anywhere; min-width: 9rem; }
+  details summary, details li, details p { overflow-wrap: anywhere; }
+  details { border: 1px solid var(--line); padding: .5rem .75rem; margin: .5rem 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  @media (forced-colors: active) { details, .boundary, .warning { border-color: CanvasText; } }
 </style>
 </head>
 <body>
@@ -210,6 +217,8 @@ ${
 </section>`
     : ''
 }
+
+${familiesSection(result.families, result.sampling)}
 
 <section aria-labelledby="compare-h">
   <h2 id="compare-h">Modelled CO2e versus observed energy</h2>

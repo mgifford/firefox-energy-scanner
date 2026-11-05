@@ -72,6 +72,13 @@ contestable, and the report prints the assumption next to the number for that re
 The boundary is the client. A patch that speeds up PHP or database work may move TTFB
 without measurably changing browser energy. That is correct behaviour, not a null tool.
 
+### Page families are groupings, not measurements
+
+A page family groups the measured pages that are built alike. It carries no energy
+figure, its medians cover only the pages measured in it, and nothing is extrapolated to
+pages that were not. Pages built alike can still cost differently. See
+[page-families.md](page-families.md).
+
 ### No causal explanation
 
 The tool tells you *that* energy changed, not *why*. Use `web-energy profile` for a

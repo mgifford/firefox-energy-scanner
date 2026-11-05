@@ -1,10 +1,10 @@
 import type { Config } from '../core/config.js';
-import type { CrawlSampling, StepResult, EnergyResult } from '../core/types.js';
+import type { CrawlSampling, SampleReason, StepResult, EnergyResult } from '../core/types.js';
 import { BrowserSession, waitForStablePage, readTimings } from './session.js';
 import { normalizeUrl, matchesRules, pageKey, siteOf, sortUrls } from './urls.js';
 import { StepRunner, buildStepResults, greenHostingFor, type StepRecord } from '../core/runner.js';
 import { deriveBaseline, type Baseline } from '../core/baseline.js';
-import { parseRobotsSitemaps, sampleFromSitemaps, type Getter } from './sitemap.js';
+import { parseRobotsSitemaps, sampleFromSitemaps, type Getter, type SiteSample } from './sitemap.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 
 export interface CrawlOptions {
@@ -55,8 +55,10 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
   let closed = false;
   let energyAvailable = false;
   const steps: StepResult[] = [];
-  let sampledFrom: { source: string; listed: number } | undefined;
+  let sampledFrom: SiteSample | undefined;
   let requestedPages = 0;
+  let extraKeys = new Set<string>();
+  const keyOpts = { queryStrategy: config.crawl.query_strategy };
 
   try {
     if (config.auth?.type === 'drupal') {
@@ -79,7 +81,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
 
     // robots.txt names the sitemaps as well as the rules, so a sample reads it
     // even when the rules are not applied.
-    const sampleFromSitemap = config.crawl.strategy === 'sitemap';
+    const sampleFromSitemap = config.crawl.strategy === 'sitemap' || config.crawl.strategy === 'adaptive';
     let robotsSitemaps: string[] = [];
     if (config.crawl.respect_robots || sampleFromSitemap) {
       const robots = await fetchRobots(session, startUrl);
@@ -89,7 +91,6 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
 
     // Choose the pages before the idle baseline, so no sitemap fetch falls
     // inside an energy window.
-    const keyOpts = { queryStrategy: config.crawl.query_strategy };
     let queue: QueueItem[] = [{ url: normalizeUrl(startUrl, keyOpts), depth: 0 }];
     if (sampleFromSitemap) {
       options.onProgress?.('Reading the sitemap');
@@ -100,11 +101,12 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
         siteOf,
         pageKey: (u) => pageKey(u, keyOpts),
         select: (locs, sites) => selectCrawlLinks(locs, startUrl, sites, config.crawl, robotsDisallow),
+        strategy: config.crawl.strategy === 'adaptive' ? 'adaptive' : 'random',
       });
       if (sample) {
         // Sampled pages are measured as listed; no links are followed.
         queue = sample.urls.map((u) => ({ url: normalizeUrl(u, keyOpts), depth: config.crawl.max_depth }));
-        sampledFrom = { source: sample.source, listed: sample.listed };
+        sampledFrom = sample;
       } else {
         warnings.push('No usable sitemap was found, so pages were chosen by following links from the start page.');
       }
@@ -119,7 +121,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
       .filter((u, i, all) => all.findIndex((x) => pageKey(x, keyOpts) === pageKey(u, keyOpts)) === i)
       .filter((u) => pageKey(u, keyOpts) !== pageKey(queue[0]!.url, keyOpts));
     if (extras.length) {
-      const extraKeys = new Set(extras.map((u) => pageKey(u, keyOpts)));
+      extraKeys = new Set(extras.map((u) => pageKey(u, keyOpts)));
       const depth = sampledFrom ? config.crawl.max_depth : 1;
       queue = [
         queue[0]!,
@@ -213,11 +215,88 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     firefoxVersion,
     discovered: sortUrls(discovered),
     energyAvailable,
-    sampling: {
-      ...(sampledFrom ? { method: 'sitemap' as const, ...sampledFrom } : { method: 'links' as const }),
-      picked: discovered.length,
-      ...(requestedPages ? { requested: requestedPages } : {}),
-    },
+    sampling: describeSample({
+      sample: sampledFrom,
+      adaptive: config.crawl.strategy === 'adaptive',
+      measured: discovered,
+      startKey: pageKey(normalizeUrl(startUrl, keyOpts), keyOpts),
+      extraKeys,
+      requested: requestedPages,
+      keyOf: (u) => pageKey(u, keyOpts),
+    }),
+  };
+}
+
+/** Strata kept in a result: every one a page came from, and the largest of the rest. */
+const MAX_STRATA_RECORDED = 40;
+
+/**
+ * How the measured pages were chosen: the method, why each page is there, the
+ * strata of an adaptive sample, and what the sample cannot stand for. Pure, so
+ * it is tested directly.
+ */
+export function describeSample(o: {
+  sample: SiteSample | undefined;
+  adaptive: boolean;
+  /** Pages measured, in the order they were. */
+  measured: string[];
+  startKey: string;
+  extraKeys: Set<string>;
+  requested: number;
+  keyOf: (url: string) => string;
+}): CrawlSampling {
+  const { sample } = o;
+  const why = new Map<string, SampleReason>();
+  for (const [u, r] of Object.entries(sample?.reasons ?? {})) why.set(o.keyOf(u), r);
+  const reasons: Record<string, SampleReason> = {};
+  // The start page is always measured first.
+  o.measured.forEach((u, i) => {
+    const k = o.keyOf(u);
+    reasons[u] = i === 0 ? 'start' : o.extraKeys.has(k) ? 'requested' : (why.get(k) ?? 'linked');
+  });
+
+  const limitations: string[] = [];
+  if (!sample) {
+    limitations.push('Pages were found by following links from the start page, so they lean towards pages near it.');
+  } else {
+    if (sample.sitemapsListed !== undefined && sample.sitemapsRead !== undefined && sample.sitemapsRead < sample.sitemapsListed) {
+      limitations.push(
+        `The sitemap index names ${sample.sitemapsListed} sitemaps and ${sample.sitemapsRead} were read, ` +
+          'so pages listed only in the others could not be picked.',
+      );
+    }
+    if (sample.capped) limitations.push('A sitemap was very long, so only its first 50,000 entries were read.');
+    if (o.adaptive) {
+      limitations.push(
+        'Sections come from URL paths. Pages in one section can still be built differently; the page families say how the measured pages actually group.',
+      );
+    } else {
+      limitations.push(
+        'The sample is random, so a small group of pages built differently from the rest can be missing from it. --adaptive spreads the sample across URL sections.',
+      );
+    }
+  }
+
+  // Strata as measured, not as planned: a page limit or a failed load changes them.
+  let strata: CrawlSampling['strata'];
+  let strataTotal: number | undefined;
+  if (sample?.strata) {
+    strataTotal = sample.strata.length;
+    const measured = new Set(o.measured.map(o.keyOf));
+    const all = sample.strata.map(({ pages, ...s }) => ({ ...s, picked: pages.filter((u) => measured.has(o.keyOf(u))).length }));
+    const used = all.filter((s) => s.picked > 0).length;
+    strata = all.filter((s, i) => s.picked > 0 || i < Math.max(0, MAX_STRATA_RECORDED - used));
+  }
+
+  return {
+    method: sample ? (o.adaptive ? 'adaptive' : 'sitemap') : 'links',
+    ...(sample ? { source: sample.source, listed: sample.listed } : {}),
+    picked: o.measured.length,
+    ...(o.requested ? { requested: o.requested } : {}),
+    reasons,
+    ...(strata ? { strata, strataTotal } : {}),
+    ...(sample?.sitemapsListed !== undefined ? { sitemapsListed: sample.sitemapsListed, sitemapsRead: sample.sitemapsRead } : {}),
+    limitations,
   };
 }
 
