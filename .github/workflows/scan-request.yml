@@ -722,18 +722,39 @@ jobs:
                 (fam.families.length > 8 ? `\n\n…and ${fam.families.length - 8} more in the full results.` : '') +
                 '\n\n_Medians of the pages measured in each family; not extrapolated to pages that were not._\n'
               : '';
-            // Components worth a look: structure and Lighthouse (Chromium)
-            // evidence, folded away so the comment stays short. Never energy.
+            // Investigate first: the queue's first items, in its stated order
+            // (a sort, not a score). Page text is escaped: no links, markup or
+            // pings. Falls back to the components list for older entries.
+            const mdSafe = (t) => String(t).replace(/[\\[\]()<>*_`|#!]/g, '\\$&').replace(/@/g, '@\u200b');
+            const queue = entry && entry.investigation;
             const comps = entry && entry.components;
-            const componentsBlock = comps && comps.top && comps.top.length
-              ? '\n<details><summary><strong>Components worth a look</strong> (' + comps.top.length + ')</summary>\n\n' +
-                comps.top.slice(0, 6).map((c) =>
-                  `- ${code(c.signature)} (${c.confidence} confidence)` +
-                  // Signals can quote the page (animation names, hosts): no links, markup or pings.
-                  (c.signals.length ? '\n' + c.signals.map((s) => `  - ${s.replace(/[\\[\]()<>*_`|#!]/g, '\\$&').replace(/@/g, '@\u200b')}`).join('\n') : ''),
+            const componentsBlock = queue && queue.top && queue.top.length
+              ? '\n### Investigate first\n\n' +
+                queue.top.slice(0, 5).map((i) =>
+                  `${i.rank}. ${code(i.title.length > 70 ? '…' + i.title.slice(-69) : i.title)} — ${i.kind}, on ${i.pages} of ${i.of} pages` +
+                  (i.remedy ? `. **${mdSafe(i.remedy)}**` : '') +
+                  (i.because.length ? '\n' + i.because.slice(0, 2).map((b) => `   - ${mdSafe(b)}`).join('\n') : ''),
                 ).join('\n') +
-                '\n\n_Recognised from the markup; Lighthouse findings come from Chromium. None of this is a component’s energy: ' +
-                'that needs a measured comparison with and without the change._\n\n</details>\n'
+                '\n\n_Ordered by evidence, then reach, then whether a remedy applies, then workload: a sort, not a score. ' +
+                'Lighthouse findings come from Chromium. Nothing here is an energy figure; each remedy names the measured ' +
+                'comparison that would show its effect. The full queue, page maps and remedies are in the HTML report._\n'
+              : comps && comps.top && comps.top.length
+                ? '\n<details><summary><strong>Components worth a look</strong> (' + comps.top.length + ')</summary>\n\n' +
+                  comps.top.slice(0, 6).map((c) =>
+                    `- ${code(c.signature)} (${c.confidence} confidence)` +
+                    (c.signals.length ? '\n' + c.signals.map((x) => `  - ${mdSafe(x)}`).join('\n') : ''),
+                  ).join('\n') +
+                  '\n\n_Recognised from the markup; Lighthouse findings come from Chromium. None of this is a component’s energy._\n\n</details>\n'
+                : '';
+            // Since the previous scan of this site, when there was one.
+            const hist = entry && entry.history;
+            const kbOf = (b) => Math.round(b / 1024) + ' KB';
+            const historyBlock = hist
+              ? `\n**Since the last scan** (${String(hist.previousTimestamp).slice(0, 10)}): ${hist.pagesInBoth} pages in both` +
+                (hist.medianTransferBytes ? `, median transfer ${kbOf(hist.medianTransferBytes[0])} → ${kbOf(hist.medianTransferBytes[1])}` : '') +
+                (hist.medianDomNodes ? `, median elements ${hist.medianDomNodes[0]} → ${hist.medianDomNodes[1]}` : '') +
+                (hist.componentsAppeared || hist.componentsGone ? `, ${hist.componentsAppeared} components new and ${hist.componentsGone} gone` : '') +
+                `. ${mdSafe(hist.energy)} Single visits, so indicative.\n`
               : '';
             // Notes can quote the issue body; break @mentions so they ping nobody.
             const parserNotes = (process.env.PARSER_NOTES || '').trim().replace(/@/g, '@\u200b');
@@ -836,7 +857,7 @@ jobs:
             // Conditionals yield null when omitted; '' entries are deliberate
             // blank lines. filter(Boolean) dropped both, which collapsed every
             // paragraph break in the comment.
-            ].filter((line) => line !== null).join('\n') + familiesBlock + componentsBlock + findingsBlock + lighthouseBlock + webnrgBlock + footprintBlock +
+            ].filter((line) => line !== null).join('\n') + historyBlock + familiesBlock + componentsBlock + findingsBlock + lighthouseBlock + webnrgBlock + footprintBlock +
               '\n\n---\n_Scan complete, so this issue is now closed. **Reopen it to run the ' +
               'scan again** — edit the request body first if you want different settings._';
 

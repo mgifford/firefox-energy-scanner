@@ -302,6 +302,12 @@ Lighthouse findings that fall inside each one, matched by DOM node path. It is e
 for where to look, never a component's energy. See
 [docs/component-inventory.md](docs/component-inventory.md).
 
+The HTML report opens with **Investigate first**: a queue in a stated order (evidence,
+reach, remedy, workload; a sort, not a score), each item with where it is on the page, a
+remedy, its rationale and the measured comparison that would check it, plus page maps
+drawn from recorded positions. **Since the last scan** compares the scan with the previous
+scan of the same site. See [docs/investigation-report.md](docs/investigation-report.md).
+
 ### compare
 
 Runs are **interleaved** (`A B B A …`) from a stored seed, so drift in thermal state,
@@ -350,6 +356,7 @@ canvas charts) are generated alongside.
 - [docs/webnrg.md](docs/webnrg.md) — optional webNRG lab figures from Green Coding's cluster
 - [docs/page-families.md](docs/page-families.md) — grouping a crawl's pages by how they are built, and adaptive sampling
 - [docs/component-inventory.md](docs/component-inventory.md) — recurring components and the Lighthouse evidence tied to them
+- [docs/investigation-report.md](docs/investigation-report.md) — the investigation queue, remedies, page maps and history
 
 ## Licence
 

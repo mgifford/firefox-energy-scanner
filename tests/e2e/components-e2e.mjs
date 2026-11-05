@@ -127,6 +127,22 @@ try {
   check(!!carousel?.evidence?.some((e) => e.matchedBy === 'node-path' && ['non-composited-animations', 'unsized-images'].includes(e.audit)),
     'a Lighthouse element finding from Chrome landed on the carousel recorded in Firefox, by node path');
   check(!(carousel?.evidence ?? []).some((e) => /joule|mwh/i.test(JSON.stringify(e))), 'no evidence carries an energy unit');
+
+  // The investigation queue: the carousel has a structural fact (an endless
+  // animation) and a Lighthouse finding, so it comes first.
+  const first = result?.investigation?.items?.[0];
+  annotate('notice', `queue: ${JSON.stringify(result?.investigation?.items?.map((i) => [i.rank, i.title, i.evidence]))}`);
+  check(first?.title === 'component:demo:carousel' && first?.evidence === 'structure-and-lighthouse', `the carousel leads the investigation queue (${first?.title}, ${first?.evidence})`);
+  check(!!first?.remediation?.some((r) => r.id === 'stop-endless-animation'), 'its remedy is to stop the endless animation');
+  check(files.some((f) => f.endsWith('.queue.csv')), 'a queue CSV was written');
+  const html = json ? readFileSync(join(out, json.replace(/\.json$/, '.html')), 'utf8') : '';
+  check(/<figure class="page-map"[\s\S]*<svg aria-hidden="true"/.test(html), 'the HTML report has a page map, with a text equivalent');
+
+  // A second scan into the same folder compares with the first.
+  const again = await exec('node', ['dist/cli/index.js', 'crawl', `${SITE}/`, '--sample', '--max-pages', '3', '--headless', '--no-energy', '--out', out]);
+  const second = readdirSync(out).filter((f) => f.endsWith('.json')).sort().pop();
+  const history = second && second !== json ? JSON.parse(readFileSync(join(out, second), 'utf8')).history : undefined;
+  check(again.status === 0 && history?.previous?.file === json && history?.pagesInBoth === 3, `the second scan compared itself with the first (${JSON.stringify(history?.previous)}, ${history?.pagesInBoth} pages in both)`);
 } finally {
   server.close();
 }

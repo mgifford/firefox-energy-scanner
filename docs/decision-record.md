@@ -624,3 +624,31 @@ Chrome lands on the component recorded in Firefox.
 **Signals, not a score.** Records carry plain statements ("1 animation that never
 stops") and an identification confidence. There is no combined score to rank by;
 prioritisation, and how it is explained, comes with the investigation report (PR 3).
+
+## TDR-016: The investigation queue is a stated sort order, not a score
+
+**Decision:** The report opens with a queue of what to investigate. It is ordered by four
+keys applied one after another: evidence, reach, whether a remedy applies, workload. Each
+key is shown in its own column, and nothing is summed, weighted or converted.
+
+**Why not a score.** Any weighting of elements against milliseconds against kilobytes
+would be an unexplained exchange rate between quantities with different boundaries. It
+would also invite reading the result as energy. A lexicographic order can be checked by
+eye and redone in the CSV.
+
+**Why evidence first.** A structural fact confirmed by a Lighthouse finding inside the
+same component is the strongest lead the tool has without a measured comparison. Reach
+comes next because a fix to a shared component applies everywhere it appears.
+
+**Remedies carry their own test.** Each remedy names the comparison that would show its
+effect (`compare`, interleaved, 10 or more runs per side, on a machine that measures
+energy). Until that runs, a remedy is a lead.
+
+**Maps, not screenshots.** Page maps are SVG wireframes drawn from recorded positions,
+decorative and paired with a text list. Screenshots would add weight to every scan in the
+repository and could capture private content on authenticated pages. The positions and
+selectors are enough to find each element.
+
+**History is indicative.** Re-scans of the same site are compared page by page, because
+the seeded sample usually gives the same pages. Energy is compared only when both scans
+resolved it on the same operating system.

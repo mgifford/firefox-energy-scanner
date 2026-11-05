@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { firefox } from 'playwright';
 import {
   defaultConfig,
@@ -37,6 +37,9 @@ import { toHtml } from '../report/html.js';
 import { buildFamilies, type FamilyReport } from '../analysis/families.js';
 import { buildInventory, type ComponentInventory } from '../analysis/components.js';
 import { componentsCsv } from '../report/components-csv.js';
+import { queueCsv } from '../report/queue-csv.js';
+import { buildInvestigation } from '../analysis/investigation.js';
+import { compareWithPrevious, findPrevious } from '../analysis/history.js';
 import { summarize, compare, interleavedOrder, median, resolution } from '../core/stats.js';
 import { joulesToMilliwattHours } from '../core/baseline.js';
 import {
@@ -88,6 +91,7 @@ Usage:
   web-energy report <result.json>
   web-energy families <result.json>    [--json] [--write]
   web-energy components <result.json>  [--json] [--write]
+  web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
   web-energy profile --journey <file> [--step <name>]
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
@@ -117,6 +121,8 @@ Options:
                          sections: one page from each common section, about a
                          fifth from rare ones, the rest in proportion to size.
                          Also seeded, so a re-scan gets the same pages.
+  --no-history           Do not compare with the previous scan of the same site
+                         in the output directory.
   --also <url>           Crawl: also measure this page of the same site, right
                          after the start page (repeatable).
   --authenticated        Use Drupal auth from environment variables
@@ -509,6 +515,7 @@ async function writeOutputs(result: BenchmarkResult, config: Config): Promise<st
   if (config.output.json) await writeFile(`${base}.json`, JSON.stringify(result, null, 2));
   if (config.output.csv) await writeFile(`${base}.csv`, toCsv(result));
   if (config.output.csv && result.components) await writeFile(`${base}.components.csv`, componentsCsv(result));
+  if (config.output.csv && result.investigation) await writeFile(`${base}.queue.csv`, queueCsv(result));
   if (config.output.html) await writeFile(`${base}.html`, toHtml(result));
   return base;
 }
@@ -628,6 +635,8 @@ async function cmdMeasure(args: Args): Promise<number> {
   await attachCrux(result, crux);
   await attachWebnrg(args, result, urls, 'measure');
   attachInventory(result);
+  attachInvestigation(result);
+  if (!has(args, 'no-history')) await attachHistory(result, resolve(config.output.directory));
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
@@ -733,13 +742,16 @@ async function cmdCrawl(args: Args): Promise<number> {
   await attachCrux(result, crux);
   await attachWebnrg(args, result, [start], 'crawl');
   attachInventory(result);
+  attachInvestigation(result);
+  if (!has(args, 'no-history')) await attachHistory(result, resolve(config.output.directory));
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.crux) printCrux(result.crux);
   if (result.webnrg) printWebnrg(result.webnrg);
   if (result.families) printFamilies(result.families);
-  if (result.components) printComponents(result.components);
+  if (result.investigation) printInvestigation(result);
+  else if (result.components) printComponents(result.components);
   console.log(`\n${describeSampling(outcome.sampling)}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
   return 0;
@@ -800,6 +812,79 @@ function printComponents(inv: ComponentInventory): void {
     console.log(`  ${c.id}  ${c.signature}  [${c.confidence}]`);
     for (const s of c.signals.slice(0, 4)) console.log(`      ${s}`);
   }
+}
+
+function attachInvestigation(result: BenchmarkResult): void {
+  const queue = buildInvestigation(result);
+  if (queue) result.investigation = queue;
+}
+
+/** Changes since the previous scan of the same site in the output directory. */
+async function attachHistory(result: BenchmarkResult, dir: string): Promise<void> {
+  const previous = await findPrevious(dir, result);
+  if (previous) result.history = compareWithPrevious(result, previous.result, previous.file);
+}
+
+function printInvestigation(result: BenchmarkResult): void {
+  const q = result.investigation;
+  if (!q?.items.length) return;
+  console.log('\nInvestigate first (a sort order, not a score; nothing here is an energy figure):');
+  for (const i of q.items.slice(0, 8)) {
+    console.log(`  ${String(i.rank).padStart(2)}. ${i.title.slice(0, 70)}  [${i.evidence}, ${i.reach.pages} of ${i.reach.of} pages]`);
+    console.log(`      ${i.because.slice(0, 2).join('; ')}`);
+    if (i.remediation[0]) console.log(`      -> ${i.remediation[0].title}`);
+  }
+  if (result.history) {
+    const h = result.history;
+    const t = h.medians.transferBytes;
+    console.log(
+      `\nSince the last scan (${h.previous.timestamp.slice(0, 10)}): ${h.pagesInBoth} pages in both` +
+        (t ? `, median transfer ${Math.round(t[0] / 1024)} -> ${Math.round(t[1] / 1024)} KB` : '') +
+        `. ${h.energy.note}`,
+    );
+  }
+}
+
+/** Families, inventory, queue and history for a stored result. */
+async function cmdInvestigate(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('investigate requires a result JSON file');
+    return 1;
+  }
+  const result = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  if (!result.families) {
+    const families = buildFamilies(result.scenarios, result.sampling?.listed !== undefined ? { listed: result.sampling.listed } : {});
+    if (families) result.families = families;
+  }
+  attachInventory(result);
+  attachInvestigation(result);
+  const previousFile = one(args, 'previous');
+  if (previousFile) {
+    const previous = JSON.parse(await readFile(resolve(previousFile), 'utf8')) as BenchmarkResult;
+    result.history = compareWithPrevious(result, previous, previousFile.split('/').pop() ?? previousFile);
+  } else {
+    await attachHistory(result, dirname(resolve(file)));
+  }
+  if (!result.investigation) {
+    console.error('Nothing to queue: no component carries a structural fact or Lighthouse finding, and no page stands out from its family.');
+    return 1;
+  }
+  if (has(args, 'write')) {
+    const stem = resolve(file).replace(/\.json$/, '');
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+    await writeFile(`${stem}.html`, toHtml(result));
+    await writeFile(`${stem}.csv`, toCsv(result));
+    if (result.components) await writeFile(`${stem}.components.csv`, componentsCsv(result));
+    await writeFile(`${stem}.queue.csv`, queueCsv(result));
+  }
+  if (has(args, 'json')) {
+    console.log(JSON.stringify({ investigation: result.investigation, history: result.history }, null, 2));
+  } else {
+    printInvestigation(result);
+    if (has(args, 'write')) console.log(`\nWrote the queue into ${file} and regenerated its HTML and CSV files.`);
+  }
+  return 0;
 }
 
 /** Build the component inventory of a stored result. */
@@ -1885,6 +1970,7 @@ async function main(): Promise<number> {
       case 'report': return await cmdReport(args);
       case 'families': return await cmdFamilies(args);
       case 'components': return await cmdComponents(args);
+      case 'investigate': return await cmdInvestigate(args);
       case 'profile': return await cmdProfile(args);
       case 'triage': return await cmdTriage(args);
       case 'matrix': return await cmdMatrix(args);

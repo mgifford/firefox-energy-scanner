@@ -376,6 +376,7 @@
       wrap.appendChild(section);
     });
 
+    if (entry.investigation && entry.investigation.top && entry.investigation.top.length) wrap.appendChild(investigationNode(entry));
     if (entry.lighthouse) wrap.appendChild(lighthouseSitewideNode(entry));
     if (entry.webnrg && entry.webnrg.pages && entry.webnrg.pages.length) wrap.appendChild(webnrgNode(entry.webnrg));
 
@@ -590,6 +591,53 @@
    * webNRG lab figures: Firefox on Green Coding's dedicated machine. Its own
    * table and boundary note, never extra columns on ours.
    */
+  /**
+   * Investigate first: the queue's first items in its stated order, which is
+   * a sort, not a score. Page text is set as text, never as markup.
+   */
+  function investigationNode(entry) {
+    const q = entry.investigation;
+    const section = make('div', 'scenario-detail');
+    const label = make('p', 'scenario-detail-label');
+    text(label, 'Investigate first');
+    section.appendChild(label);
+    const note = make('p', 'muted lh-note');
+    text(note, 'Ordered by evidence, then reach, then whether a remedy applies, then workload: a sort, not a score. ' +
+      'Lighthouse findings come from Chromium. Nothing here is an energy figure.');
+    section.appendChild(note);
+    const ol = make('ol');
+    q.top.slice(0, 5).forEach(function (i) {
+      const li = make('li');
+      li.setAttribute('value', String(i.rank));
+      const what = make('code');
+      text(what, i.title.length > 60 ? '…' + i.title.slice(-58) : i.title);
+      li.appendChild(what);
+      li.appendChild(document.createTextNode(' — ' + i.kind + ', on ' + i.pages + ' of ' + i.of + ' pages' + (i.remedy ? '. ' + i.remedy + '.' : '.')));
+      if (i.because && i.because.length) {
+        const ul = make('ul');
+        i.because.slice(0, 2).forEach(function (b) {
+          const item = make('li');
+          text(item, b);
+          ul.appendChild(item);
+        });
+        li.appendChild(ul);
+      }
+      ol.appendChild(li);
+    });
+    section.appendChild(ol);
+    const h = entry.history;
+    if (h) {
+      const p = make('p', 'muted');
+      const kb = function (b) { return Math.round(b / 1024) + ' KB'; };
+      text(p, 'Since the last scan (' + String(h.previousTimestamp).slice(0, 10) + '): ' + h.pagesInBoth + ' pages in both' +
+        (h.medianTransferBytes ? ', median transfer ' + kb(h.medianTransferBytes[0]) + ' → ' + kb(h.medianTransferBytes[1]) : '') +
+        (h.medianDomNodes ? ', median elements ' + h.medianDomNodes[0] + ' → ' + h.medianDomNodes[1] : '') +
+        '. ' + h.energy + ' Single visits, so indicative.');
+      section.appendChild(p);
+    }
+    return section;
+  }
+
   function webnrgNode(w) {
     const section = make('div', 'scenario-detail');
     const label = make('p', 'scenario-detail-label');
