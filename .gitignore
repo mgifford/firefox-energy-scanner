@@ -17,3 +17,4 @@ profiles/
 # Built by the Pages deploy (and by each scan for its comment). Not tracked:
 # concurrent scans each rewrote it and conflicted on push.
 /site/results/index.json
+.mcp-output/

@@ -624,3 +624,64 @@ Chrome lands on the component recorded in Firefox.
 **Signals, not a score.** Records carry plain statements ("1 animation that never
 stops") and an identification confidence. There is no combined score to rank by;
 prioritisation, and how it is explained, comes with the investigation report (PR 3).
+
+## TDR-016: The investigation queue is a stated sort order, not a score
+
+**Decision:** The report opens with a queue of what to investigate. It is ordered by four
+keys applied one after another: evidence, reach, whether a remedy applies, workload. Each
+key is shown in its own column, and nothing is summed, weighted or converted.
+
+**Why not a score.** Any weighting of elements against milliseconds against kilobytes
+would be an unexplained exchange rate between quantities with different boundaries. It
+would also invite reading the result as energy. A lexicographic order can be checked by
+eye and redone in the CSV.
+
+**Why evidence first.** A structural fact confirmed by a Lighthouse finding inside the
+same component is the strongest lead the tool has without a measured comparison. Reach
+comes next because a fix to a shared component applies everywhere it appears.
+
+**Remedies carry their own test.** Each remedy names the comparison that would show its
+effect (`compare`, interleaved, 10 or more runs per side, on a machine that measures
+energy). Until that runs, a remedy is a lead.
+
+**Maps, not screenshots.** Page maps are SVG wireframes drawn from recorded positions,
+decorative and paired with a text list. Screenshots would add weight to every scan in the
+repository and could capture private content on authenticated pages. The positions and
+selectors are enough to find each element.
+
+**History is indicative.** Re-scans of the same site are compared page by page, because
+the seeded sample usually gives the same pages. Energy is compared only when both scans
+resolved it on the same operating system.
+
+## TDR-017: A component's energy is only a measured difference between two scenarios
+
+**Decision:** `web-energy experiment` measures the page as served against the page with
+one change made in the browser: animations paused, reduced motion, lazy images, no
+autoplay, requests refused, or an element hidden. The runs are interleaved and seeded,
+through the same runner as `compare`. A difference is reported only when the change
+demonstrably applied.
+
+**Why this and nothing else.** Every other figure the tool has for a component is
+structure or Chromium lab evidence. The one honest energy statement about a component is
+"with this change, this page and workload used this much less, more than either side's
+spread". Anything else needs a conversion factor this project does not believe in.
+
+**Fair by construction.** Both sides go through identical interception, the baseline
+with an identity change, so the interception is never what is measured. The variant is
+installed in the journey's `setup()`, which now runs once per session, before the idle
+baseline and outside every measured window. It was documented but had never been called,
+so journeys that logged in during setup had been running unauthenticated.
+
+**Applied, then working, then measured.** A probe after each run shows whether the change
+took effect (paused animations, hidden elements, refused requests). Semantic checks and
+the accessibility structure are compared on both sides. A stand-in that breaks the page
+or removes structure is flagged, not credited.
+
+**Readings, not significance.** A difference is read as lower or higher only when both
+sides resolve against their own spread and the medians differ by more than the larger
+IQR. Under 10 runs per side it is marked indicative. No significance test is introduced;
+the existing resolution rule is reused.
+
+**MCP authors, it does not measure.** Playwright MCP helps write journeys with semantic
+locators. Journeys are then checked by `journey-check` and run without a model, because a
+model in the loop would make runs unrepeatable and add its own work to the measurement.

@@ -9,6 +9,8 @@ import { cruxSection } from './crux-html.js';
 import { webnrgSection } from './webnrg-html.js';
 import { familiesSection } from './families-html.js';
 import { componentsSection } from './components-html.js';
+import { investigationSection, historySection } from './investigation-html.js';
+import { experimentSection } from './experiment-html.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -95,7 +97,7 @@ export function toHtml(result: BenchmarkResult): string {
   table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
   caption { text-align: left; font-weight: 600; padding-bottom: .5rem; }
   th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: right; }
-  th[scope="row"], td:first-child, th:first-child, td.text { text-align: left; }
+  th[scope="row"], td:first-child, th:first-child, td.text, th.text { text-align: left; }
   thead th { background: color-mix(in srgb, var(--fg) 8%, transparent); }
   .note { color: var(--muted); font-size: .92rem; }
   .warning { background: var(--warnbg); border-left: 4px solid var(--warn); padding: .75rem 1rem; margin: 1rem 0; }
@@ -106,6 +108,22 @@ export function toHtml(result: BenchmarkResult): string {
   code { font-size: .9em; }
   table.families th[scope="row"], table.families td.text { overflow-wrap: anywhere; min-width: 9rem; }
   details summary, details li, details p { overflow-wrap: anywhere; }
+  .remedy { border-left: 3px solid var(--accent); padding: .1rem .75rem; margin: .75rem 0; }
+  .maps { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; }
+  .page-map { margin: 0; max-width: 100%; }
+  .page-map svg { display: block; max-width: 100%; height: auto; }
+  .page-map .page { fill: none; stroke: var(--line); }
+  .page-map .fold { stroke: var(--muted); stroke-dasharray: 4 3; }
+  .page-map .item rect { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 2; }
+  .page-map .item .tag { fill: var(--accent); stroke: none; }
+  .page-map text { fill: var(--bg); font: 600 10px system-ui, sans-serif; }
+  .map-list { font-size: .92rem; }
+  @media (forced-colors: active) {
+    .page-map .page, .page-map .item rect { stroke: CanvasText; fill: none; }
+    .page-map .item .tag { fill: CanvasText; }
+    .page-map text { fill: Canvas; }
+    .page-map .fold { stroke: GrayText; }
+  }
   details { border: 1px solid var(--line); padding: .5rem .75rem; margin: .5rem 0; }
   summary { cursor: pointer; font-weight: 600; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -218,6 +236,12 @@ ${
 </section>`
     : ''
 }
+
+${experimentSection(result.experiment)}
+
+${investigationSection(result)}
+
+${historySection(result.history)}
 
 ${familiesSection(result.families, result.sampling)}
 

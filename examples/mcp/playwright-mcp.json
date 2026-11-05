@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--browser=firefox",
+        "--isolated",
+        "--caps=testing",
+        "--codegen=typescript",
+        "--output-dir=.mcp-output"
+      ]
+    }
+  }
+}
