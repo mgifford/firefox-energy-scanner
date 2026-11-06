@@ -172,7 +172,8 @@ You do not need this before a scan: `measure`, `crawl`, `journey`, `compare`,
 `experiment` and `matrix` begin with one line on what this machine can measure, for
 example `Energy: Apple M1 Mac. Firefox measures the energy of its own processes here,
 with no setup.` A Linux PC that still needs `kernel.perf_event_paranoid=0` is told before
-the scan, not after it.
+the scan, not after it. An option the CLI does not recognise, such as a misspelling, is
+reported with the option it is closest to; it is not silently ignored.
 
 `doctor` verifies Node, Playwright and Firefox, then runs Firefox for a few seconds
 with the power profiler on and says plainly whether **this machine can measure

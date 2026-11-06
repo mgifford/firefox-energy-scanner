@@ -70,7 +70,7 @@ import { traceChromium, type TraceRecord } from '../trace/run.js';
 import { pickTraceUrls } from '../trace/select.js';
 import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
 import { webnrgMarkdown } from '../webnrg/markdown.js';
-import { has, one, parseArgs, type Args } from './args.js';
+import { has, one, parseArgs, unknownFlagWarnings, type Args } from './args.js';
 import {
   cruxApiKey,
   cruxTarget,
@@ -109,7 +109,7 @@ Usage:
   web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
                          [--journey <file>] [--idle <ms>] [--dry-run] [--save-spec <file.yaml>]
   web-energy journey-check <file...>
-  web-energy profile --journey <file> [--step <name>]
+  web-energy profile --journey <file>
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
   web-energy diagnose <url> [--runs <n>]
@@ -2349,6 +2349,7 @@ async function main(): Promise<number> {
     console.log(USAGE);
     return command ? 0 : 1;
   }
+  for (const w of unknownFlagWarnings(args)) console.error(`warning: ${w}`);
 
   try {
     switch (command) {
