@@ -201,6 +201,10 @@ export interface EnvironmentInfo {
   cpuCount: number;
   totalMemoryBytes: number;
   machineModel?: string;
+  /** The CPU's name as the OS reports it, such as "Apple M2 Pro". */
+  cpuModel?: string;
+  /** Node ran under Rosetta 2 on an Apple Silicon Mac (Firefox may still be native). */
+  rosetta?: boolean;
   firefoxVersion?: string;
   playwrightVersion?: string;
   co2jsVersion?: string;

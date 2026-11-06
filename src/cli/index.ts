@@ -63,6 +63,7 @@ import { SCHEMA_VERSION, type BenchmarkResult, type CrawlSampling, type StepResu
 import { co2jsVersion } from '../core/co2.js';
 import { describeCapabilities } from '../core/capability.js';
 import { collectHostFacts, judgeEnergy, type EnergyProbe, type FirefoxProbe } from '../energy/probe.js';
+import { detectMachine, energyPreflight, machineName } from '../energy/machine.js';
 import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run.js';
 import { pickLighthouseUrls } from '../lighthouse/select.js';
 import { traceChromium, type TraceRecord } from '../trace/run.js';
@@ -403,6 +404,15 @@ async function cmdDoctor(args: Args): Promise<number> {
   const major = Number.parseInt(process.versions.node.split('.')[0]!, 10);
   major >= 20 ? ok(`Node.js ${process.versions.node}`) : fail(`Node.js ${process.versions.node} (need >= 20)`);
   ok(`Platform ${process.platform}/${process.arch}`);
+  const machine = await detectMachine();
+  ok(`Machine: ${machineName(machine)}`);
+  if (machine.rosetta) {
+    const intelFirefox = machine.firefoxArchs && !machine.firefoxArchs.includes('arm64');
+    warn(
+      `Node is the Intel build, running under Rosetta${machine.firefoxArchs ? `; Firefox is built for ${machine.firefoxArchs.join(' and ')}` : ''}. ` +
+        (intelFirefox ? 'Install the Apple Silicon (arm64) build of Node, then run `npm ci` and `npx playwright install firefox` again.' : 'The Apple Silicon build of Node is faster.'),
+    );
+  }
   ok(`Playwright ${playwrightVersion()}`);
   ok(`CO2.js ${co2jsVersion()}`);
 
@@ -495,6 +505,28 @@ async function cmdDoctor(args: Args): Promise<number> {
   console.log(lines.join('\n'));
   console.log(failures === 0 ? '\nDoctor: no blocking problems found.' : `\nDoctor: ${failures} blocking problem(s).`);
   return failures === 0 ? 0 : 1;
+}
+
+/**
+ * Before a scan, say in a sentence what this machine can measure, so a
+ * Linux PC that needs one setting, or a Mac running Node under Rosetta, finds
+ * out before a long crawl rather than after it. A prediction: the run's own
+ * profile decides what the results report.
+ */
+async function announceEnergy(config: Config): Promise<void> {
+  const adapter = config.energy.adapter;
+  if (adapter === 'macos-powermetrics') return;
+  try {
+    const [machine, facts, power] = await Promise.all([detectMachine(), collectHostFacts(), readPowerState()]);
+    const p = energyPreflight(machine, facts, {
+      enabled: adapter !== 'noop',
+      ...(power.onBattery !== undefined ? { onBattery: power.onBattery } : {}),
+      ...(power.lowPowerMode !== undefined ? { lowPowerMode: power.lowPowerMode } : {}),
+    });
+    process.stderr.write(`${p.lines.map((l, i) => (i === 0 ? l : `  ${l}`)).join('\n')}\n`);
+  } catch {
+    /* never block a scan on the forecast */
+  }
 }
 
 /**
@@ -649,6 +681,7 @@ async function cmdMeasure(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  await announceEnergy(config);
   // Fail on a bad grid declaration before spending a session measuring.
   const grid = gridFromConfig(config);
   const crux = cruxFromArgs(args, urls[0]!);
@@ -707,6 +740,7 @@ async function cmdJourney(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  await announceEnergy(config);
   const grid = gridFromConfig(config);
   const journey = await loadJourney(resolve(file));
   const baseUrl = one(args, 'url') ?? config.target?.url ?? process.env.DRUPAL_BASE_URL;
@@ -757,6 +791,7 @@ async function cmdCrawl(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  await announceEnergy(config);
   const grid = gridFromConfig(config);
   const crux = cruxFromArgs(args, start);
   const outcome = await crawl({
@@ -1045,6 +1080,7 @@ async function cmdExperiment(args: Args): Promise<number> {
   }
 
   const config = await buildConfig(args);
+  await announceEnergy(config);
   if (spec.runs !== undefined) config.benchmark.runs = spec.runs;
   if (spec.warmups !== undefined) config.benchmark.warmups = spec.warmups;
   const inner = spec.journey ? await loadJourney(resolve(spec.journey)) : undefined;
@@ -1691,6 +1727,7 @@ async function cmdCompare(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  await announceEnergy(config);
   const grid = gridFromConfig(config);
   const journey = await loadJourney(resolve(journeyFile));
   const seed = one(args, 'seed') ?? newSessionId();
@@ -1918,6 +1955,7 @@ async function cmdMatrix(args: Args): Promise<number> {
   }
   const journey = await loadJourney(resolve(journeyFile));
   const config = await buildConfig(args);
+  await announceEnergy(config);
   const grid = gridFromConfig(config);
   const seed = one(args, 'seed') ?? newSessionId();
   const labels = measurable.map((r) => r.target.label);

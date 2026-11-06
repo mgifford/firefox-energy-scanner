@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import type { EnvironmentInfo } from '../core/types.js';
 import { co2jsVersion } from '../core/co2.js';
+import { detectMachine } from '../energy/machine.js';
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -81,6 +82,7 @@ export interface EnvOptions {
 export async function collectEnvironment(options: EnvOptions): Promise<EnvironmentInfo> {
   const power = await readPowerState();
   const model = await machineModel();
+  const machine = await detectMachine();
 
   return {
     timestamp: new Date().toISOString(),
@@ -90,6 +92,8 @@ export async function collectEnvironment(options: EnvOptions): Promise<Environme
     cpuCount: os.cpus().length,
     totalMemoryBytes: os.totalmem(),
     ...(model ? { machineModel: model } : {}),
+    ...(machine.cpu ? { cpuModel: machine.cpu } : {}),
+    ...(machine.rosetta ? { rosetta: true } : {}),
     ...(options.firefoxVersion ? { firefoxVersion: options.firefoxVersion } : {}),
     playwrightVersion: playwrightVersion(),
     co2jsVersion: co2jsVersion(),

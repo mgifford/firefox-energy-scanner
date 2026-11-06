@@ -6,6 +6,27 @@ power samples ([hosted-scanning.md](hosted-scanning.md#github-hosted-runners-can
 To measure energy, run the scanner on a physical machine — your own computer, or one
 you register for this repository. That is the primary path for energy work.
 
+**On an Apple Silicon Mac (M1 or later), there is nothing to set up.** Scans measure
+Firefox's energy by default, and every scan begins with a line saying what this machine
+can measure:
+
+```
+Energy: Apple M1 Mac. Firefox measures the energy of its own processes here, with no setup.
+```
+
+The same line names an Intel Mac or a Linux PC and what it measures. It warns before the
+scan when something is in the way: a Linux setting, an Intel build of Firefox on an
+Apple Silicon Mac, Low Power Mode, running on battery, or a virtual machine. The line is a forecast; the run's
+own profile decides what the results report.
+
+**Node under Rosetta.** On an Apple Silicon Mac, Node can be the Intel build, running
+translated under Rosetta. What matters for energy is the Firefox it launches, so the
+scan checks that binary (`lipo -archs`). If Firefox is the Apple Silicon build, Firefox's
+measurement is unaffected, and the scan only notes that native Node is faster. If Firefox
+is the Intel build, energy has not been verified that way, and the scan warns. To fix
+it, install the Apple Silicon (arm64) build of Node (`node -p process.arch` prints
+`arm64`), then run `npm ci` and `npx playwright install firefox` again.
+
 ## 1. Ask the machine
 
 From a checkout of this repository:
@@ -48,7 +69,7 @@ matters more than which platform is "better".
 | **Apple Silicon Mac** (M1 or later), physical | none | **Firefox's own processes** | A/B comparisons; the most precise option |
 | **Linux, bare metal, Intel or AMD CPU** | `sudo sysctl kernel.perf_event_paranoid=0` | the whole CPU package (+ DRAM, or the whole platform where the CPU reports it) | good results on a quiet machine |
 | **Windows 11**, supported Intel, AMD or ARM CPU | none | the whole CPU package | as Linux |
-| **Intel Mac** | none | the whole CPU package | supported by Firefox; not yet verified with this tool |
+| **Intel Mac** | none | the whole CPU package | supported by Firefox; not yet verified with this tool (results from one are welcome) |
 | Any **virtual machine** | — | nothing | not possible: GitHub-hosted runners, cloud VMs, Docker Desktop, WSL2, Parallels, UTM |
 
 **Per-process versus whole package.** On Apple Silicon, Firefox reports the energy of

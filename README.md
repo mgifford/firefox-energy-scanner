@@ -109,8 +109,11 @@ Virtual machines do not pass power-measurement hardware through, so cloud scans 
 each page once and report page weight, modelled CO2e, timing, page structure and
 Lighthouse. Their energy column reads **not measured**, which is an absence, not a zero.
 
-**Energy needs a physical machine**: an Apple Silicon Mac, a bare-metal Linux PC with an
-Intel or AMD CPU, or Windows 11. Check yours with one command:
+**Energy needs a physical machine.** On an Apple Silicon Mac (M1 or later) there is
+nothing to set up: scans measure Firefox's own energy by default. Intel Macs, bare-metal
+Linux PCs with an Intel or AMD CPU (after one `sysctl`), and Windows 11 work too. Every
+scan says at the start what this machine can measure, and how to fix it if a setting is
+in the way. For a fuller check:
 
 ```bash
 npm ci && npm run energy-check
@@ -164,6 +167,12 @@ to skip it if you only need the Firefox measurements.
 npm run energy-check        # installs Firefox, builds, then runs doctor
 node dist/cli/index.js doctor --json   # the same verdict as data
 ```
+
+You do not need this before a scan: `measure`, `crawl`, `journey`, `compare`,
+`experiment` and `matrix` begin with one line on what this machine can measure, for
+example `Energy: Apple M1 Mac. Firefox measures the energy of its own processes here,
+with no setup.` A Linux PC that still needs `kernel.perf_event_paranoid=0` is told before
+the scan, not after it.
 
 `doctor` verifies Node, Playwright and Firefox, then runs Firefox for a few seconds
 with the power profiler on and says plainly whether **this machine can measure
