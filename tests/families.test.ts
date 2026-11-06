@@ -118,6 +118,17 @@ describe('buildFamilies', () => {
     expect(r.pagesGrouped).toBe(9);
   });
 
+  it('names a template spread across URL sections by the template, not one section', () => {
+    // As on CMS.gov: one template behind pages in many sections, none of them most of the family.
+    const sections = ['regulations/transmittals', 'research/reports', 'medicare/alerts', 'data/tables', 'files/costs'];
+    const spread = sections.map((sec, i) =>
+      step(`https://site.org/${sec}/item-${i}`, { components: [comp('drupal-node:dynamic-list-item:full', 400)], template: 'page-node-type-dynamic-list-item' }),
+    );
+    const f = buildFamilies([...spread, step('https://site.org/regulations/transmittals/item-9', { components: [comp('drupal-node:dynamic-list-item:full', 400)], template: 'page-node-type-dynamic-list-item' })])!.families[0]!;
+    expect(f.pages).toHaveLength(6);
+    expect(f.label).toBe('page-node-type-dynamic-list-item pages, across 5 URL patterns (most often /regulations/transmittals/:id)');
+  });
+
   it('gives the same families and ids whatever order the pages arrive in', () => {
     const a = buildFamilies(steps)!;
     const b = buildFamilies([...steps].reverse())!;

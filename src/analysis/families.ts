@@ -296,9 +296,19 @@ export function buildFamilies(
 
     const template = signals.find((f) => f.startsWith('t:'))?.slice(2);
     const top = urlPatterns[0]!.pattern;
+    // A template shared across many URL sections is named by the template: its
+    // commonest URL pattern would suggest the family is one section.
+    const spread = urlPatterns.length > 1 && urlPatterns[0]!.pages * 2 < pages.length;
+    const others = `${urlPatterns.length - 1} other URL pattern${urlPatterns.length > 2 ? 's' : ''}`;
     return {
       id: `pf-${stableHash(signals.join('\n'))}`,
-      label: template ? `${top} (${template})` : urlPatterns.length > 1 ? `${top} and ${urlPatterns.length - 1} other URL pattern${urlPatterns.length > 2 ? 's' : ''}` : top,
+      label: template
+        ? spread
+          ? `${template} pages, across ${urlPatterns.length} URL patterns (most often ${top})`
+          : `${top} (${template})`
+        : urlPatterns.length > 1
+          ? `${top} and ${others}`
+          : top,
       pages: pages.map((p) => p.url),
       representative: features[representative]!.url,
       urlPatterns,
