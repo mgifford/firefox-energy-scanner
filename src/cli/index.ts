@@ -202,6 +202,22 @@ webNRG lab check (optional; Green Coding's Green Metrics Tool cluster):
 `;
 
 
+/**
+ * One progress line, rewritten in place. Cut to the terminal's width, keeping
+ * the start (the counter) and the end of a long URL: a line that wraps cannot
+ * be cleared with a carriage return, and successive lines run together.
+ */
+function progress(m: string): void {
+  if (!process.stderr.isTTY) {
+    process.stderr.write(`\r${m}`);
+    return;
+  }
+  const cols = Math.max(20, (process.stderr.columns || 80) - 1);
+  const head = Math.ceil(cols * 0.45);
+  const line = m.length <= cols ? m : `${m.slice(0, head)}…${m.slice(m.length - (cols - head - 1))}`;
+  process.stderr.write(`\r\x1b[2K${line}`);
+}
+
 /** `--viewport 1280x800`. Rejects anything else rather than guessing. */
 function parseViewportFlag(raw: string): { width: number; height: number } {
   const m = /^(\d{2,5})x(\d{2,5})$/i.exec(raw.trim());
@@ -641,7 +657,7 @@ async function cmdMeasure(args: Args): Promise<number> {
     baseUrl: urls[0]!,
     urls,
     scenarioName: 'measure',
-    onProgress: (m) => process.stderr.write(`\r${m.padEnd(40)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
 
@@ -704,7 +720,7 @@ async function cmdJourney(args: Args): Promise<number> {
     baseUrl,
     journey,
     scenarioName: journey.name,
-    onProgress: (m) => process.stderr.write(`\r${m.padEnd(40)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
 
@@ -747,7 +763,7 @@ async function cmdCrawl(args: Args): Promise<number> {
     config,
     startUrl: start,
     extraPages: args.flags.get('also') ?? [],
-    onProgress: (m) => process.stderr.write(`\r${m.padEnd(70)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
 
@@ -1044,7 +1060,7 @@ async function cmdExperiment(args: Args): Promise<number> {
   const warnings: string[] = [];
   console.log(`Experiment ${spec.name}: ${spec.url}\nInterleaved order (seed ${seed}): ${order.join(' ')}`);
   for (const [i, side] of order.entries()) {
-    process.stderr.write(`\rRun ${i + 1}/${order.length} -> ${side === 'a' ? 'baseline' : 'variant'}`.padEnd(50));
+    progress(`Run ${i + 1}/${order.length} -> ${side === 'a' ? 'baseline' : 'variant'}`);
     // Each side's first run carries the warm-ups, so neither side starts cold.
     const warmups = seen[side] ? 0 : config.benchmark.warmups;
     seen[side] = true;
@@ -1247,7 +1263,7 @@ async function attachLighthouse(
       formFactor: opts.formFactor,
       ...(opts.reportsDir ? { reportsDir: opts.reportsDir } : {}),
       publicOnly: config.network.public_only,
-      onProgress: (m) => process.stderr.write(`\r${m.padEnd(60)}`),
+      onProgress: progress,
     });
     process.stderr.write('\n');
   } catch (err) {
@@ -1331,7 +1347,7 @@ async function attachWebnrg(
     result.webnrg = await runWebnrg(urls, {
       submit: !lookupOnly,
       waitMinutes: intFlag(args, 'webnrg-wait', 0, 0, 120),
-      onProgress: (m) => process.stderr.write(`\r${m.slice(0, 90).padEnd(90)}`),
+      onProgress: progress,
     });
     process.stderr.write('\n');
   } catch (err) {
@@ -1383,7 +1399,7 @@ async function cmdWebnrg(args: Args): Promise<number> {
   const summary = await runWebnrg(urls, {
     submit: !lookupOnly,
     waitMinutes: intFlag(args, 'wait', 30, 0, 120),
-    onProgress: (m) => process.stderr.write(`\r${m.slice(0, 90).padEnd(90)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
   const dir = resolve(config.output.directory);
@@ -1414,7 +1430,7 @@ async function cmdWebnrgCollect(args: Args): Promise<number> {
   }
   await collectWebnrg(summary, {
     waitMinutes: intFlag(args, 'wait', 30, 0, 120),
-    onProgress: (m) => process.stderr.write(`\r${m.slice(0, 90).padEnd(90)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
   await writeFile(file, JSON.stringify(doc, null, 2));
@@ -1440,7 +1456,7 @@ async function cmdLighthouse(args: Args): Promise<number> {
     formFactor: opts.formFactor,
     ...(opts.reportsDir ? { reportsDir: opts.reportsDir } : {}),
     publicOnly: config.network.public_only,
-    onProgress: (m) => process.stderr.write(`\r${m.padEnd(60)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
   const dir = resolve(config.output.directory);
@@ -1491,7 +1507,7 @@ async function attachTraces(
     maxBytes: opts.maxBytes,
     publicOnly: config.network.public_only,
     ...(opts.keepDir ? { keepDir: opts.keepDir } : {}),
-    onProgress: (m) => process.stderr.write(`\r${m.slice(0, 100).padEnd(100)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
   if (out.error) result.warnings.push(`Tracing did not run: ${out.error}`);
@@ -1541,7 +1557,7 @@ async function cmdTrace(args: Args): Promise<number> {
     maxBytes: opts.maxBytes,
     publicOnly: config.network.public_only,
     ...(opts.keepDir ? { keepDir: opts.keepDir } : {}),
-    onProgress: (m) => process.stderr.write(`\r${m.slice(0, 100).padEnd(100)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
   if (out.error) {
@@ -1651,7 +1667,7 @@ async function cmdBaseline(args: Args): Promise<number> {
     baseUrl: 'about:blank',
     urls: ['about:blank'],
     scenarioName: 'baseline',
-    onProgress: (m) => process.stderr.write(`\r${m.padEnd(40)}`),
+    onProgress: progress,
   });
   process.stderr.write('\n');
 
@@ -1692,7 +1708,7 @@ async function cmdCompare(args: Args): Promise<number> {
 
   for (const [i, which] of order.entries()) {
     const url = which === 'a' ? a : b;
-    process.stderr.write(`\rRun ${i + 1}/${order.length} -> ${which === 'a' ? labelA : labelB}`.padEnd(50));
+    progress(`Run ${i + 1}/${order.length} -> ${which === 'a' ? labelA : labelB}`);
     const outcome = await runBenchmark({
       config: { ...config, benchmark: { ...config.benchmark, runs: 1, warmups: i === 0 ? config.benchmark.warmups : 0 } },
       baseUrl: url,
@@ -1915,7 +1931,7 @@ async function cmdMatrix(args: Args): Promise<number> {
 
   for (const [i, label] of order.entries()) {
     const target = measurable.find((r) => r.target.label === label)!.target;
-    process.stderr.write(`\rRun ${i + 1}/${order.length} -> ${label}`.padEnd(50));
+    progress(`Run ${i + 1}/${order.length} -> ${label}`);
     const outcome = await runBenchmark({
       config: {
         ...config,
