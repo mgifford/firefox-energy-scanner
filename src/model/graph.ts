@@ -576,7 +576,7 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
             { value: Math.round((t.count / Math.max(0.1, secs)) * 10) / 10, unit: 'per-second', source: 'chromium-trace', scope: 'page' });
         }
         for (const r of idle.requests.slice(0, 10)) {
-          tf('idle-request', 'A request made while idle', scriptTarget(r.url, 'The request was not among the resources Firefox recorded during the load.'), `${r.resourceType ?? 'request'} ${r.url}`);
+          tf('idle-request', 'Requested after load, while the page sat idle', scriptTarget(r.url, 'The request was not among the resources Firefox recorded during the load.'), `${r.resourceType ?? 'request'} ${r.url}`);
         }
         for (const an of idle.animations) {
           const m = an.path ? nodeMatch(cands, an.path) : undefined;

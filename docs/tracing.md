@@ -68,8 +68,11 @@ For each window, on the page's renderer main thread:
 - **animations** still running, and the element that runs them;
 - requests made, except the favicon, which the browser fetches itself.
 
-A cross-site iframe runs in its own renderer process. It is summarised on its own, under
-its document URL, so a third-party widget's timers are not mistaken for the page's.
+The page's renderer is the process its main frame committed in, as the browser records
+it. It is not simply the busiest renderer, because a busy third-party iframe can outdo
+the page. A cross-site iframe runs in its own renderer process. It is summarised on its
+own, under its document URL, so a third-party widget's timers are not mistaken for the
+page's.
 
 The categories are the `devtools.timeline` set: enough for the above, without compositor
 internals. Response bodies are never recorded. Element positions in the trace are

@@ -38,8 +38,11 @@ finding that landed on it directly.
 The order is a **sort on four keys, one after another**. No keys are added, weighted or
 merged, and each one has its own column:
 
-1. **evidence**: a structural fact and a Lighthouse finding, then a Lighthouse finding
-   alone, then a structural fact alone;
+1. **evidence**: a structural fact with a Lighthouse finding or a Chromium trace
+   observation, then either of those alone, then a structural fact alone. Lighthouse
+   and trace evidence share a level, but each is named by its source
+   (`structure-and-lighthouse`, `structure-and-trace`), and one is never reported as
+   the other;
 2. **reach**: the pages it is on;
 3. **opportunity**: whether a known remedy applies;
 4. **workload**: elements, or Chromium main-thread time for a script.

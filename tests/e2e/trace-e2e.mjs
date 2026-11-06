@@ -71,6 +71,8 @@ try {
   const frame = (at('/embed')?.analysis?.frames ?? []).find((f) => f.url.includes('thirdparty.test'));
   check(!!frame && (frame.idle?.timers.fired ?? 0) >= 2 && frame.idle.timers.sources[0]?.url.endsWith('/widget.js'), `the third-party iframe's timer is named, in its own process (${JSON.stringify(frame?.idle?.timers)})`);
   check(!(at('/embed')?.analysis?.load.requests ?? []).some((q) => q.url.includes('thirdparty.test/widget.js')), "the iframe's requests are not counted as the page's");
+  // The page is its own renderer, even when the iframe's is busier.
+  check((at('/embed')?.analysis?.load.requests ?? []).some((q) => q.url === `${site.url}/embed`), "the page's analysis is of the page's own renderer (its document is among its requests)");
 
   const tiny = at('/tiny-work')?.analysis?.idle;
   check(!!tiny && tiny.timers.fired <= 2 && tiny.mainThread.busyMs < 50, `the tiny timer does negligible work (${tiny?.timers.fired} callbacks, ${tiny?.mainThread.busyMs} ms busy)`);

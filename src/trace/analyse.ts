@@ -95,9 +95,20 @@ const STYLE = new Set(['UpdateLayoutTree', 'RecalculateStyles']);
 const LAYOUT = new Set(['Layout']);
 const PAINT = new Set(['Paint', 'PrePaint', 'Layerize', 'PaintImage', 'Commit', 'Decode Image', 'ImageDecodeTask']);
 
-/** The renderer main thread of the page: the CrRendererMain with the most work. */
+/**
+ * The renderer main thread of the page. The browser records which process the
+ * page's outermost frame committed in; the last such commit is the page. Only
+ * without that record is it the CrRendererMain with the most work, which a
+ * busy cross-site iframe can outdo.
+ */
 export function mainThreadOf(events: TraceEvent[]): { pid: number; tid: number } | undefined {
   const mains = events.filter((e) => e.ph === 'M' && e.name === 'thread_name' && (e.args?.['name'] as string) === 'CrRendererMain');
+  const commits = events
+    .filter((e) => e.name === 'FrameCommittedInBrowser' && data(e)['isOutermostMainFrame'] === true && !(str(data(e)['url']) ?? 'about:').startsWith('about:'))
+    .sort((a, b) => a.ts - b.ts);
+  const pagePid = commits.length ? num(data(commits.at(-1)!)['processId']) : undefined;
+  const page = pagePid !== undefined ? mains.find((m) => m.pid === pagePid) : undefined;
+  if (page) return { pid: page.pid, tid: page.tid };
   let best: { pid: number; tid: number; busy: number } | undefined;
   for (const m of mains) {
     const busy = events.filter((e) => e.pid === m.pid && e.tid === m.tid && e.ph === 'X' && e.name === 'RunTask').reduce((t, e) => t + (e.dur ?? 0), 0);

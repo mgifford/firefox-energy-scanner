@@ -5,8 +5,8 @@
  * that no component loads. They are put in order by four keys, one after the
  * other, each shown in its own column:
  *
- * 1. evidence: a structural fact and a Lighthouse finding inside it, then a
- *    Lighthouse finding alone, then a structural fact alone;
+ * 1. evidence: a structural fact with a Lighthouse finding or a Chromium trace
+ *    observation, then either of those alone, then a structural fact alone;
  * 2. reach: how many measured pages it is on;
  * 3. opportunity: whether a known remedy applies;
  * 4. workload: elements, or Chromium main-thread time for scripts.
@@ -24,8 +24,12 @@ import type { ComponentGraph, GraphResource } from '../model/graph.js';
 
 export const QUEUE_METHOD = 'queue-v1';
 
-export type EvidenceTier = 'structure-and-lighthouse' | 'lighthouse' | 'structure';
-const TIER_ORDER: Record<EvidenceTier, number> = { 'structure-and-lighthouse': 0, lighthouse: 1, structure: 2 };
+/**
+ * Lighthouse and a Chromium trace are both browser evidence of work, so they
+ * share a level; each keeps its own name, so neither is credited to the other.
+ */
+export type EvidenceTier = 'structure-and-lighthouse' | 'structure-and-trace' | 'lighthouse' | 'trace' | 'structure';
+const TIER_ORDER: Record<EvidenceTier, number> = { 'structure-and-lighthouse': 0, 'structure-and-trace': 0, lighthouse: 1, trace: 1, structure: 2 };
 
 export interface InvestigationItem {
   rank: number;
@@ -173,11 +177,15 @@ function resourceRemedy(kind: string, key: string): Remediation[] {
  * the five files of an icon library are one dependency, not five problems.
  */
 function resourceItems(graph: ComponentGraph, of: number): Omit<InvestigationItem, 'rank'>[] {
-  const findingsOn = new Map<string, { titles: Set<string>; ms: number; audits: Set<string> }>();
+  // Each finding keeps its source: a trace observation is never labelled Lighthouse.
+  const findingsOn = new Map<string, { lighthouse: Set<string>; trace: Map<string, number | undefined>; ms: number; audits: Set<string> }>();
   for (const f of graph.findings) {
     if (f.target.type !== 'resource' || !f.target.id || f.role !== 'finding') continue;
-    const x = findingsOn.get(f.target.id) ?? { titles: new Set<string>(), ms: 0, audits: new Set<string>() };
-    x.titles.add(f.title);
+    const x = findingsOn.get(f.target.id) ?? { lighthouse: new Set<string>(), trace: new Map<string, number | undefined>(), ms: 0, audits: new Set<string>() };
+    if (f.evidence.some((e) => e.source === 'chromium-trace')) {
+      const rate = f.metric?.unit === 'per-second' ? f.metric.value : undefined;
+      x.trace.set(f.title, Math.max(rate ?? 0, x.trace.get(f.title) ?? 0) || undefined);
+    } else x.lighthouse.add(f.title);
     if (f.metric?.unit === 'ms') x.ms = Math.max(x.ms, f.metric.value);
     x.audits.add(f.kind.replace(/^lighthouse:/, ''));
     findingsOn.set(f.target.id, x);
@@ -206,19 +214,25 @@ function resourceItems(graph: ComponentGraph, of: number): Omit<InvestigationIte
     const pages = onPages.length;
     const counts = members.map((m) => m.pages);
     const range = Math.min(...counts) === Math.max(...counts) ? `${counts[0]}` : `${Math.min(...counts)}–${Math.max(...counts)}`;
+    const sizes = members.map((m) => Math.round(m.transferBytes.median / KB));
+    const sizeText = Math.min(...sizes) === Math.max(...sizes) ? `${sizes[0]} KB each` : `${Math.min(...sizes)}–${Math.max(...sizes)} KB`;
+    const lhTitles = [...new Set(lh.flatMap((x) => [...x.lighthouse]))];
+    const traceTitles = new Map<string, number | undefined>();
+    for (const x of lh) for (const [t, rate] of x.trace) traceTitles.set(t, Math.max(rate ?? 0, traceTitles.get(t) ?? 0) || undefined);
     return {
       kind: 'resource' as const,
       id: `res-${stableHash(members.map((m) => m.id).join(','))}`,
       title: members.length > 1 ? `${members.length} ${first.kind}s in ${first.host}${dir(first.key).slice(first.host.length)}` : first.key,
-      evidence: lh.length ? ('structure-and-lighthouse' as const) : ('structure' as const),
+      evidence: lhTitles.length ? ('structure-and-lighthouse' as const) : traceTitles.size ? ('structure-and-trace' as const) : ('structure' as const),
       because: [
         first.scope === 'page-unique'
           ? `${Math.round(bytes / KB).toLocaleString('en')} KB of ${first.kind}${members.length > 1 ? 's' : ''} that no other measured page loads.`
           : members.length > 1 && range.includes('–')
-            ? `${members.length} files of ${Math.round(Math.min(...members.map((m) => m.transferBytes.median)) / KB)}–${Math.round(Math.max(...members.map((m) => m.transferBytes.median)) / KB)} KB, each on ${range} of ${of} pages (${pages} in all), ${where}.`
+            ? `${members.length} files of ${sizeText}, each on ${range} of ${of} pages (${pages} in all), ${where}.`
             : `${Math.round(bytes / KB).toLocaleString('en')} KB per page (median) on ${pages} of ${of} pages, ${where}.`,
-        ...(members.length > 1 ? [`Files: ${members.slice(0, 6).map((m) => m.key.split('/').pop()).join(', ')}${members.length > 6 ? ', …' : ''}.`] : []),
-        ...[...new Set(lh.flatMap((x) => [...x.titles]))].slice(0, 3).map((t) => `Lighthouse (Chromium): ${t}`),
+        ...(members.length > 1 ? [`Files: ${members.slice(0, 6).map((m) => (m.key.split('/').pop() ?? '').replace(/[?#].*$/, '')).join(', ')}${members.length > 6 ? ', …' : ''}.`] : []),
+        ...lhTitles.slice(0, 3).map((t) => `Lighthouse (Chromium): ${t}`),
+        ...[...traceTitles].slice(0, 3).map(([t, rate]) => `Chromium trace: ${t}${rate ? ` (${rate} a second)` : ''}`),
       ],
       reach: { pages, of, families: first.families.length },
       workload: { transferBytes: bytes, ...(ms ? { chromiumMainThreadMs: ms } : {}) },

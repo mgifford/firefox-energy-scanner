@@ -924,7 +924,7 @@ function printInvestigation(result: BenchmarkResult): void {
   console.log('\nInvestigate first (a sort order, not a score; nothing here is an energy figure):');
   for (const i of q.items.slice(0, 8)) {
     console.log(`  ${String(i.rank).padStart(2)}. ${i.title.slice(0, 70)}  [${i.evidence}, ${i.reach.pages} of ${i.reach.of} pages]`);
-    console.log(`      ${i.because.slice(0, 2).join('; ')}`);
+    console.log(`      ${i.because.slice(0, 3).map((b) => (/[.!?)]$/.test(b) ? b : `${b}.`)).join(' ')}`);
     if (i.remediation[0]) console.log(`      -> ${i.remediation[0].title}`);
   }
   if (result.history) {
@@ -1562,10 +1562,22 @@ function printTraces(records: TraceRecord[]): void {
     console.log(`    load: ${busy(a.load)}; ${a.load.longTasks.length} long task${a.load.longTasks.length === 1 ? '' : 's'}`);
     if (a.idle) {
       const i = a.idle;
+      // Where most of it came from: host and file name, without the query.
+      const from = (x?: { url: string; line?: number; timeoutMs?: number }) => {
+        if (!x || x.url === '(unknown)') return '';
+        let name = x.url;
+        try {
+          const u = new URL(x.url);
+          name = `${u.host}/${u.pathname.split('/').filter(Boolean).pop() ?? ''}`;
+        } catch {
+          /* keep the raw text */
+        }
+        return ` (mostly ${name}${x.line !== undefined ? `:${x.line}` : ''}${x.timeoutMs !== undefined ? `, every ${x.timeoutMs} ms` : ''})`;
+      };
       const parts = [
         busy(i),
-        i.animationFrames.fired ? `${i.animationFrames.perSecond}/s animation frames` : '',
-        i.timers.fired ? `${i.timers.fired} timer callback${i.timers.fired === 1 ? '' : 's'}` : '',
+        i.animationFrames.fired ? `${i.animationFrames.perSecond}/s animation frames${from(i.animationFrames.sources[0])}` : '',
+        i.timers.fired ? `${i.timers.fired} timer callback${i.timers.fired === 1 ? '' : 's'}${from(i.timers.sources[0])}` : '',
         i.animations.length ? `${i.animations.length} running animation${i.animations.length === 1 ? '' : 's'}` : '',
         i.requests.length ? `${i.requests.length} request${i.requests.length === 1 ? '' : 's'}` : '',
       ].filter(Boolean);
