@@ -60,6 +60,30 @@ export interface ComponentSignature {
   count: number;
   /** Elements inside all its occurrences, the occurrence included. */
   nodes: number;
+  /**
+   * Elements it owns: those whose nearest component is one of its
+   * occurrences, so nested components' elements are not counted twice. 0 for
+   * a landmark that is the role of another component's element. Absent in
+   * results made before it was recorded.
+   */
+  ownNodes?: number;
+}
+
+/**
+ * What a component, or the page outside every component, owns: the elements,
+ * media and animations whose nearest component it is. Owned counts never
+ * overlap, so they can be added up; inclusive ones cannot.
+ */
+export interface OwnCounts {
+  nodes: number;
+  images: number;
+  eagerOffscreenImages: number;
+  videos: number;
+  autoplayVideos: number;
+  iframes: number;
+  canvases: number;
+  animations: number;
+  infiniteAnimations: number;
 }
 
 /**
@@ -108,6 +132,15 @@ export interface ComponentInstance {
   animations?: { running: number; infinite: number; names: string[] };
   /** An ARIA live region, or one inside it. */
   liveRegion?: boolean;
+  /** The element's tag name, lower case. */
+  tag?: string;
+  /**
+   * What it owns, excluding everything inside nested components (recorded
+   * or not). Absent in results made before it was recorded.
+   */
+  own?: OwnCounts;
+  /** Images, video, iframes and external scripts it owns directly: at most 6. */
+  ownResources?: { url: string; kind: 'image' | 'video' | 'iframe' | 'script' }[];
 }
 
 /**
@@ -129,6 +162,8 @@ export interface PageStructure {
    * in results made before it existed.
    */
   instances?: ComponentInstance[];
+  /** What belongs to no component: page-level markup and media in <body>. */
+  unowned?: OwnCounts;
   drupal?: {
     /** page-node-type-*, or the path-* class, with numbers replaced by :id. */
     pageTemplate?: string;
@@ -493,6 +528,63 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
           perSignature.set(entry[1].signature, (perSignature.get(entry[1].signature) ?? 0) + 1);
         }
       }
+      // --- Own accounting: each element belongs to its nearest component,
+      // itself included. Document order visits parents first, so one pass.
+      const ownerOf = new Map<Element, Element | null>();
+      for (const el of Array.from(all)) {
+        const parent = el.parentElement;
+        ownerOf.set(el, elSig.has(el) ? el : parent ? (ownerOf.get(parent) ?? null) : null);
+      }
+      const zero = (): OwnCounts => ({ nodes: 0, images: 0, eagerOffscreenImages: 0, videos: 0, autoplayVideos: 0, iframes: 0, canvases: 0, animations: 0, infiniteAnimations: 0 });
+      const own = new Map<Element | null, OwnCounts>();
+      const ownUrls = new Map<Element, { url: string; kind: 'image' | 'video' | 'iframe' | 'script' }[]>();
+      const bucket = (el: Element) => {
+        const owner = ownerOf.get(el) ?? null;
+        let o = own.get(owner);
+        if (!o) own.set(owner, (o = zero()));
+        return { owner, o };
+      };
+      const addUrl = (owner: Element | null, url: string | null | undefined, kind: 'image' | 'video' | 'iframe' | 'script') => {
+        if (!owner || !url || !/^https?:/i.test(url)) return;
+        const list = ownUrls.get(owner) ?? [];
+        if (list.length < 6 && !list.some((u) => u.url === url)) list.push({ url, kind });
+        ownUrls.set(owner, list);
+      };
+      const inBody = (el: Element) => !!document.body && document.body !== el && document.body.contains(el);
+      for (const el of Array.from(all)) {
+        if (!inBody(el)) continue;
+        const { owner, o } = bucket(el);
+        o.nodes++;
+        const tag = el.tagName;
+        if (tag === 'IMG') {
+          const img = el as HTMLImageElement;
+          o.images++;
+          if (img.loading !== 'lazy' && img.getBoundingClientRect().top + window.scrollY >= viewportHeight) o.eagerOffscreenImages++;
+          addUrl(owner, img.currentSrc || img.src, 'image');
+        } else if (tag === 'VIDEO') {
+          const v = el as HTMLVideoElement;
+          o.videos++;
+          if (v.autoplay || (!v.paused && !v.ended)) o.autoplayVideos++;
+          addUrl(owner, v.currentSrc || v.src || v.poster, 'video');
+        } else if (tag === 'IFRAME') {
+          o.iframes++;
+          addUrl(owner, (el as HTMLIFrameElement).src, 'iframe');
+        } else if (tag === 'CANVAS') {
+          o.canvases++;
+        } else if (tag === 'SCRIPT' && (el as HTMLScriptElement).src) {
+          addUrl(owner, (el as HTMLScriptElement).src, 'script');
+        }
+      }
+      for (const { a, target } of animated) {
+        if (!target) continue;
+        const { o } = bucket(target);
+        o.animations++;
+        if (a.effect?.getTiming().iterations === Infinity) o.infiniteAnimations++;
+      }
+      // Each signature's owned elements, over all its occurrences.
+      const ownBySignature = new Map<string, number>();
+      for (const [el, info] of elSig) ownBySignature.set(info.signature, (ownBySignature.get(info.signature) ?? 0) + (own.get(el)?.nodes ?? 0));
+
       const instances: ComponentInstance[] = chosen.map(([el, info]) => {
         const r = el.getBoundingClientRect();
         const top = r.top + window.scrollY;
@@ -560,6 +652,9 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
               }
             : {}),
           ...(live ? { liveRegion: true } : {}),
+          tag: el.tagName.toLowerCase(),
+          own: own.get(el) ?? zero(),
+          ...(ownUrls.get(el)?.length ? { ownResources: ownUrls.get(el) } : {}),
         };
       });
 
@@ -567,9 +662,11 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
         landmarks,
         components: [...sigs.values()]
           .sort((a, b) => b.nodes - a.nodes || (a.signature < b.signature ? -1 : 1))
-          .slice(0, 40) as ComponentSignature[],
+          .slice(0, 40)
+          .map((c) => ({ ...c, ownNodes: ownBySignature.get(c.signature) ?? 0 })) as ComponentSignature[],
         frameworks: [...frameworks].sort(),
         instances,
+        unowned: own.get(null) ?? zero(),
         ...(drupal ? { drupal } : {}),
       };
 

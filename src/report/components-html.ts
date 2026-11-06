@@ -72,11 +72,11 @@ export function componentsSection(inv: ComponentInventory | undefined): string {
   const table = rows.length
     ? `<div class="scroll"><table class="families">
     <caption>Components that recur or carry a signal, recurring first</caption>
-    <thead><tr><th scope="col">Component</th><th scope="col">Pages</th><th scope="col">Elements, median</th>
+    <thead><tr><th scope="col">Component</th><th scope="col">Pages</th><th scope="col">${inv.components[0]?.counted === 'inclusive' ? 'Elements inside, median' : 'Elements owned, median'}</th>
       <th scope="col">Confidence</th><th scope="col">Signals</th><th scope="col">Lighthouse findings</th></tr></thead>
     <tbody>${rows
       .map(
-        (c) => `<tr><th scope="row"><a href="#${esc(c.id)}">${esc(c.signature)}</a>${c.kind === 'region' ? ' <span class="note">(page region)</span>' : ''}</th>
+        (c) => `<tr><th scope="row"><a href="#${esc(c.id)}">${esc(c.signature)}</a>${c.kind === 'region' ? ' <span class="note">(page region)</span>' : ''}${c.container ? ` <span class="note">(container: owns ${c.nodes.median} of ${c.inclusiveNodes.median} elements inside it)</span>` : ''}</th>
       <td>${c.pages}</td><td>${c.nodes.median}</td><td class="text">${esc(c.confidence)}</td>
       <td class="text">${c.signals.length ? `<ul>${c.signals.slice(0, 3).map((s) => `<li>${esc(s)}</li>`).join('')}</ul>` : '—'}</td>
       <td>${c.evidence.length}</td></tr>`,

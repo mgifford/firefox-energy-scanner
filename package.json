@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run",
-    "energy-check": "npx playwright install firefox && npm run build && node dist/cli/index.js doctor"
+    "energy-check": "npx playwright install firefox && npm run build && node dist/cli/index.js doctor",
+    "schema": "npm run build --silent && node scripts/write-schema.mjs"
   },
   "dependencies": {
     "@tgwf/co2": "^0.19.0",

@@ -23,6 +23,7 @@ import { median } from '../core/stats.js';
 import { pageKey } from '../collect/urls.js';
 import { pagesOf } from './families.js';
 import { stableHash } from './signature.js';
+import type { ComponentGraph } from '../model/graph.js';
 
 export const INVENTORY_METHOD = 'inventory-v1';
 
@@ -81,10 +82,20 @@ export interface ComponentRecord {
   families: string[];
   /** Occurrences across all pages. */
   occurrences: number;
-  /** Elements inside it on a page (all occurrences), across pages. */
+  /**
+   * Elements on a page (all occurrences), across pages: owned (each element
+   * counted once, in its nearest component) when the graph gives them,
+   * otherwise inclusive. See `counted`.
+   */
   nodes: { median: number; max: number };
-  /** Median share of the page's elements inside it. */
+  /** Whether `nodes` and `shareOfPage` are owned or inclusive counts. */
+  counted: 'own' | 'inclusive';
+  /** Elements inside it, nested components included: never add these up. */
+  inclusiveNodes: { median: number; max: number };
+  /** Median share of the page's elements, counted as `counted` says. */
   shareOfPage?: number;
+  /** Mostly a wrapper around other components: it owns little of what it contains. */
+  container: boolean;
   roles: string[];
   names: string[];
   /** The most found on any one page, over its recorded occurrences. */
@@ -200,7 +211,7 @@ function evidenceByPage(lighthouse: LighthouseSummary | undefined): Map<string, 
  */
 export function buildInventory(
   steps: StepResult[],
-  options: { families?: FamilyReport; lighthouse?: LighthouseSummary } = {},
+  options: { families?: FamilyReport; lighthouse?: LighthouseSummary; graph?: ComponentGraph } = {},
 ): ComponentInventory | undefined {
   const pages = pagesOf(steps).filter((s) => s.anatomy?.structure);
   const withInstances = pages.filter((s) => s.anatomy!.structure!.instances?.length);
@@ -216,6 +227,7 @@ export function buildInventory(
     families: Set<string>;
     occurrences: number;
     nodesPerPage: number[];
+    inclusivePerPage: number[];
     sharePerPage: number[];
     countPerPage: number[];
     instances: { page: string; i: ComponentInstance }[];
@@ -225,7 +237,7 @@ export function buildInventory(
   const get = (signature: string, method: ComponentSignature['method']) => {
     let a = acc.get(signature);
     if (!a) {
-      a = { signature, method, pages: new Set(), families: new Set(), occurrences: 0, nodesPerPage: [], sharePerPage: [], countPerPage: [], instances: [], evidence: [] };
+      a = { signature, method, pages: new Set(), families: new Set(), occurrences: 0, nodesPerPage: [], inclusivePerPage: [], sharePerPage: [], countPerPage: [], instances: [], evidence: [] };
       acc.set(signature, a);
     }
     return a;
@@ -234,20 +246,58 @@ export function buildInventory(
   const unattributed: UnattributedEvidence[] = [];
   let lighthousePages = 0;
 
+  // Owned counts from the graph: an element counted once, in its nearest
+  // component, so a wrapper is not credited with its descendants' media.
+  const graph = options.graph;
+  const graphInstance = new Map((graph?.instances ?? []).map((g) => [`${g.ref.scenario}:${g.ref.instance}`, g]));
+  const counted: 'own' | 'inclusive' = graph ? 'own' : 'inclusive';
+  const ownView = (scenario: number, idx: number, i: ComponentInstance): ComponentInstance => {
+    const g = graphInstance.get(`${scenario}:${idx}`);
+    if (!g) return i;
+    const o = g.own;
+    const media = {
+      images: o.images ?? 0, eagerOffscreenImages: o.eagerOffscreenImages ?? 0, videos: o.videos ?? 0,
+      autoplayVideos: o.autoplayVideos ?? 0, iframes: o.iframes ?? 0, canvases: o.canvases ?? 0,
+    };
+    const { media: _m, animations: _a, ...rest } = i;
+    return {
+      ...rest,
+      ...(Object.values(media).some((v) => v > 0) ? { media } : {}),
+      ...(o.animations || o.infiniteAnimations
+        ? { animations: { running: o.animations ?? 0, infinite: o.infiniteAnimations ?? 0, names: i.animations?.names ?? [] } }
+        : {}),
+      ...(i.ownResources ? { resources: i.ownResources } : {}),
+    };
+  };
+  const containerSignatures = new Set(
+    [...new Set((graph?.types ?? []).map((t) => t.signature))].filter((sig) => (graph?.types ?? []).filter((t) => t.signature === sig).every((t) => t.container)),
+  );
+
   for (const step of pages) {
     const url = step.url!;
     const structure = step.anatomy!.structure!;
     const family = options.families?.pageFamily[url];
+    const scenario = steps.indexOf(step);
+    const instances = (structure.instances ?? []).map((i, idx) => ownView(scenario, idx, i));
+    // Owned elements per signature on this page: recorded when available,
+    // else the sum over its recorded occurrences in the graph (older results).
+    const ownOnPage = new Map<string, number>();
+    for (const g of graph?.instances ?? []) {
+      if (g.ref.scenario !== scenario) continue;
+      const sig = structure.instances?.[g.ref.instance]?.signature;
+      if (sig) ownOnPage.set(sig, (ownOnPage.get(sig) ?? 0) + g.own.nodes);
+    }
     for (const c of structure.components) {
       const a = get(c.signature, c.method);
       a.pages.add(url);
       if (family) a.families.add(family);
       a.occurrences += c.count;
-      a.nodesPerPage.push(c.nodes);
+      const nodes = graph ? (c.ownNodes ?? ownOnPage.get(c.signature) ?? 0) : c.nodes;
+      a.nodesPerPage.push(nodes);
+      a.inclusivePerPage.push(c.nodes);
       a.countPerPage.push(c.count);
-      if (step.anatomy!.domNodes > 0) a.sharePerPage.push(c.nodes / step.anatomy!.domNodes);
+      if (step.anatomy!.domNodes > 0) a.sharePerPage.push(nodes / step.anatomy!.domNodes);
     }
-    const instances = structure.instances ?? [];
     for (const i of instances) get(i.signature, i.method).instances.push({ page: url, i });
 
     const ev = lhByPage.get(keyOf(url)) ?? lhByPage.get(keyOf(step.step));
@@ -341,6 +391,8 @@ export function buildInventory(
     const thirdPartyHosts = [...new Set(resourceList.filter((r) => r.thirdParty).map((r) => hostOf(r.url)).filter(Boolean))].sort();
 
     const nodes = { median: Math.round(median(a.nodesPerPage)), max: Math.max(...a.nodesPerPage) };
+    const inclusiveNodes = { median: Math.round(median(a.inclusivePerPage)), max: Math.max(...a.inclusivePerPage) };
+    const container = containerSignatures.has(a.signature);
     const shareOfPage = a.sharePerPage.length ? Math.round(median(a.sharePerPage) * 1000) / 1000 : undefined;
 
     const examples: ComponentRecord['examples'] = [];
@@ -398,6 +450,9 @@ export function buildInventory(
       families: [...a.families].sort(),
       occurrences: a.occurrences,
       nodes,
+      counted,
+      inclusiveNodes,
+      container,
       ...(shareOfPage !== undefined ? { shareOfPage } : {}),
       roles,
       names,

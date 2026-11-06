@@ -39,7 +39,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
       'A running animation keeps the refresh driver and compositor producing frames for as long as the page is open, even when nobody is looking at it.',
     verify: `Measure an idle window with the animation running and with it stopped. ${COMPARE}`,
     experiment: 'animation',
-    references: ['docs/what-costs-energy.md#where-to-look-first-in-order', 'WCAG 2.2.2 Pause, Stop, Hide', 'WCAG 2.3.3 Animation from Interactions'],
+    references: ['docs/what-costs-energy.md#where-to-look-first-in-order', 'WSG 2.10 ensure-animation-is-proportionate-and-easy-to-control', 'WCAG 2.2.2 Pause, Stop, Hide', 'WCAG 2.3.3 Animation from Interactions'],
   },
   'composite-animation': {
     id: 'composite-animation',
@@ -48,7 +48,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     rationale: 'Animating layout properties forces style, layout and paint on every frame on the main thread; transform and opacity can run on the compositor.',
     verify: `Measure the animated state before and after. ${COMPARE}`,
     experiment: 'animation',
-    references: ['Lighthouse non-composited-animations'],
+    references: ['Lighthouse non-composited-animations', 'WSG 2.10 ensure-animation-is-proportionate-and-easy-to-control'],
   },
   'respect-reduced-motion': {
     id: 'respect-reduced-motion',
@@ -57,7 +57,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     rationale: 'People who ask for less motion should get it, and a page with motion off does less rendering work.',
     verify: 'Run `web-energy experiment <url> --kind reduced-motion`: it also shows whether the page responds to the preference.',
     experiment: 'reduced-motion',
-    references: ['WCAG 2.3.3 Animation from Interactions'],
+    references: ['WSG 3.9 use-media-queries-that-support-sustainability-goals', 'WCAG 2.3.3 Animation from Interactions'],
   },
   'lazy-load-images': {
     id: 'lazy-load-images',
@@ -66,7 +66,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     rationale: 'Images nobody scrolls to are still downloaded and decoded at load: transfer, decode and memory for nothing.',
     verify: `Compare the page load with and without loading="lazy". ${COMPARE}`,
     experiment: 'lazy-loading',
-    references: ['Lighthouse image-delivery-insight'],
+    references: ['Lighthouse image-delivery-insight', 'WSG 2.9 optimize-media-to-reduce-resource-use', 'WSG 3.7 defer-the-loading-of-non-critical-resources'],
   },
   'no-autoplay': {
     id: 'no-autoplay',
@@ -75,7 +75,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     rationale: 'Video decode runs for as long as it plays, and its transfer is usually the largest on the page.',
     verify: `Compare the page with autoplay on and off over the same idle window. ${COMPARE}`,
     experiment: 'autoplay',
-    references: ['WCAG 2.2.2 Pause, Stop, Hide', 'WCAG 1.4.2 Audio Control'],
+    references: ['WSG 2.9 optimize-media-to-reduce-resource-use', 'WCAG 2.2.2 Pause, Stop, Hide', 'WCAG 1.4.2 Audio Control'],
   },
   'facade-iframe': {
     id: 'facade-iframe',
@@ -84,7 +84,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     rationale: 'Each iframe is another document with its own scripts, style and layout; third-party embeds often load far more than they show.',
     verify: `Compare the page with the facade and with the live embed. ${COMPARE}`,
     experiment: 'facade',
-    references: ['Lighthouse third-parties-insight'],
+    references: ['Lighthouse third-parties-insight', 'WSG 3.5 treat-third-parties-the-same-as-first-parties', 'WSG 3.7 defer-the-loading-of-non-critical-resources'],
   },
   'reduce-dom': {
     id: 'reduce-dom',
@@ -111,7 +111,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     rationale: 'Images are decoded at natural size whatever CSS does, so an oversized image costs CPU and memory as well as bytes.',
     verify: 'Compare transfer and decode before and after; measure with compare for energy.',
     experiment: 'lazy-loading',
-    references: ['Lighthouse image-delivery-insight'],
+    references: ['Lighthouse image-delivery-insight', 'WSG 2.9 optimize-media-to-reduce-resource-use'],
   },
   'defer-script': {
     id: 'defer-script',
@@ -120,7 +120,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     rationale: 'Script evaluation was the largest main-thread cost Lighthouse found for it; work done at load for a component nobody uses is waste.',
     verify: `Compare the page with the script deferred. ${COMPARE}`,
     experiment: 'script',
-    references: ['Lighthouse bootup-time', 'Lighthouse long-tasks'],
+    references: ['Lighthouse bootup-time', 'Lighthouse long-tasks', 'WSG 3.3 modularize-bandwidth-heavy-components', 'WSG 3.7 defer-the-loading-of-non-critical-resources'],
   },
   'audit-global-script': {
     id: 'audit-global-script',
@@ -130,7 +130,7 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     rationale: 'A script loaded on every page costs its parse and evaluation on every visit, used or not.',
     verify: `Compare a page with the script removed or deferred. ${COMPARE}`,
     experiment: 'script',
-    references: ['Lighthouse bootup-time', 'Lighthouse long-tasks', 'Lighthouse third-parties-insight'],
+    references: ['Lighthouse bootup-time', 'Lighthouse long-tasks', 'Lighthouse third-parties-insight', 'WSG 3.2 minify-and-remove-unused-code', 'WSG 3.12 use-dependencies-sparingly-and-maintain-them'],
   },
   'batch-layout-reads': {
     id: 'batch-layout-reads',
@@ -140,6 +140,31 @@ export const REMEDIATIONS: Record<string, Remediation> = {
     verify: 'Check the forced-reflow finding disappears; measure with compare if the code runs often.',
     experiment: 'script',
     references: ['Lighthouse forced-reflow-insight'],
+  },
+  'subset-fonts': {
+    id: 'subset-fonts',
+    title: 'Load fewer font files, and only the glyphs used',
+    action: 'Subset fonts to the characters the site uses, serve WOFF2, drop weights and styles no page uses, and use font-display: swap.',
+    rationale: 'Every font file is downloaded and parsed before text in it can render, on every page that loads it.',
+    verify: 'Compare transfer and render timing before and after; measure with compare for energy.',
+    references: ['Lighthouse font-display-insight', 'WSG 2.11 use-optimized-web-typography'],
+  },
+  'trim-shared-css': {
+    id: 'trim-shared-css',
+    title: 'Split the stylesheet every page loads',
+    action: 'Move rules only some templates need into per-template stylesheets, and remove rules no page uses.',
+    rationale: 'The style system matches every selector a page loads against its elements; rules for other templates are work for nothing.',
+    verify: `Compare a page with the trimmed stylesheet. ${COMPARE}`,
+    references: ['Lighthouse unused-css-rules', 'WSG 3.2 minify-and-remove-unused-code'],
+  },
+  'icon-library': {
+    id: 'icon-library',
+    title: 'Replace the icon library with the icons used',
+    action: 'Ship the few icons the site shows as inline SVG or a small sprite, instead of whole icon-font or icon-script libraries on every page.',
+    rationale: 'Icon libraries loaded by script parse and evaluate thousands of icon definitions on every page to draw a handful.',
+    verify: `Compare a page with the library refused (an upper bound) and then with the replacement. ${COMPARE}`,
+    experiment: 'script',
+    references: ['Lighthouse unused-javascript', 'WSG 3.2 minify-and-remove-unused-code', 'WSG 3.12 use-dependencies-sparingly-and-maintain-them'],
   },
   'compare-with-family': {
     id: 'compare-with-family',

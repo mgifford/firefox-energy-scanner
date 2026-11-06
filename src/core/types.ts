@@ -17,7 +17,11 @@ import type { GridIntensity } from './carbon.js';
  * docs/methodology.md.
  */
 
-export const SCHEMA_VERSION = 1;
+/**
+ * 2: adds the component graph (`graph`). Version 1 results are read through
+ * migrateResult (src/model/migrate.ts), which derives it from stored data.
+ */
+export const SCHEMA_VERSION = 2;
 
 /** What the energy number physically covers. */
 export type MeasurementScope =
@@ -273,6 +277,8 @@ export type { PageFamily, FamilyReport } from '../analysis/families.js';
 
 export interface BenchmarkResult {
   schemaVersion: number;
+  /** Set when an older result was migrated: the version it was written with. */
+  migratedFrom?: number;
   session: SessionInfo;
   environment: EnvironmentInfo;
   /**
@@ -338,6 +344,12 @@ export interface BenchmarkResult {
    * evidence tied to them. Structure and Chromium lab evidence, never energy.
    */
   components?: import('../analysis/components.js').ComponentInventory;
+  /**
+   * The component graph: pages, component types and instances, resources and
+   * findings by stable id. The canonical model; the sections above and below
+   * are views of the same data, kept for older readers.
+   */
+  graph?: import('../model/graph.js').ComponentGraph;
   /** What to look at first, in a stated order; never a score or an energy figure. */
   investigation?: import('../analysis/investigation.js').InvestigationQueue;
   /** Changes since the previous scan of the same site, when one was found. Indicative. */

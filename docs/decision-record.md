@@ -685,3 +685,34 @@ the existing resolution rule is reused.
 **MCP authors, it does not measure.** Playwright MCP helps write journeys with semantic
 locators. Journeys are then checked by `journey-check` and run without a model, because a
 model in the loop would make runs unrepeatable and add its own work to the measurement.
+
+## TDR-018: One component graph, with owned counts and page-level resources
+
+**Decision:** Each scan derives a component graph (`result.graph`, schema
+`component-graph/1`). It holds pages, component types and instances, resources and
+findings, by stable id and reference, and is validated against a published JSON Schema
+before it is written. Every element is owned by its nearest component; resources are
+placed by reach, and tied to the instances whose elements load them.
+
+**Why.** The Energy.gov scan (issue #37) led its queue with a page wrapper, credited
+with "1 iframe, 7 eager images" that belong to its descendants, and counted one mega menu
+four times through its nested containers. Meanwhile 3.5 MB of FontAwesome scripts on all
+47 pages went unmentioned, because they belong to no element. Inclusive counts and an
+element-only view caused both.
+
+**Owned, not apportioned.** Owned counts are a partition of the DOM, measured in the
+page, not an estimate of cost. They make nested components addable and stop wrappers
+inheriting findings. Nothing is apportioned to components by size.
+
+**Types are not class names.** A type is a signature together with its element and role.
+Two different elements with one class name stay apart, and every type records how its
+instances were matched, at what level of the identification hierarchy, and with what
+confidence. Kinds inferred from names are labelled as inferred.
+
+**Migration, not breakage.** Schema version 2 adds the graph. Version 1 results are
+migrated on read: families are added if missing and the graph is derived, with owned
+counts estimated and marked as such. Measurements are copied unchanged. The older
+`families`, `components` and `investigation` fields remain, as views.
+
+**Energy is null until measured.** A finding's energy is `not-measured` with a null
+delta. The schema refuses a zero, so an absent measurement cannot look like no effect.

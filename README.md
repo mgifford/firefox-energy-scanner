@@ -311,6 +311,12 @@ Lighthouse findings that fall inside each one, matched by DOM node path. It is e
 for where to look, never a component's energy. See
 [docs/component-inventory.md](docs/component-inventory.md).
 
+Every scan also writes a **component graph**: pages, component types and instances,
+resources and findings, by stable id, validated against a published JSON Schema. Every
+element is owned by its nearest component, so wrappers are not credited with their
+contents. Resources are placed by reach, so a script every page loads from `<head>`
+shows up even though no element owns it. See [docs/component-graph.md](docs/component-graph.md).
+
 The HTML report opens with **Investigate first**: a queue in a stated order (evidence,
 reach, remedy, workload; a sort, not a score), each item with where it is on the page, a
 remedy, its rationale and the measured comparison that would check it, plus page maps
@@ -375,6 +381,8 @@ canvas charts) are generated alongside.
 - [docs/crux.md](docs/crux.md) — optional CrUX field data from real Chrome users
 - [docs/webnrg.md](docs/webnrg.md) — optional webNRG lab figures from Green Coding's cluster
 - [docs/page-families.md](docs/page-families.md) — grouping a crawl's pages by how they are built, and adaptive sampling
+- [docs/component-graph.md](docs/component-graph.md) — the canonical model: types, instances, resources, findings, schema
+- [docs/component-attribution-plan.md](docs/component-attribution-plan.md) — the review and plan for component-level attribution
 - [docs/component-inventory.md](docs/component-inventory.md) — recurring components and the Lighthouse evidence tied to them
 - [docs/investigation-report.md](docs/investigation-report.md) — the investigation queue, remedies, page maps and history
 - [docs/experiments.md](docs/experiments.md) — measuring whether a change reduces client energy
