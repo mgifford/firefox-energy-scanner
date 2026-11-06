@@ -13,6 +13,7 @@ import type { BenchmarkResult } from '../src/core/types.js';
 import type { TraceRecord } from '../src/trace/run.js';
 import type { LighthouseSummary } from '../src/lighthouse/summary.js';
 import { tracesSection } from '../src/report/traces-html.js';
+import { focusableScrollRegions } from '../src/report/scroll-regions.js';
 
 /**
  * A synthetic trace, in microseconds: page renderer pid 1, a cross-site iframe
@@ -270,3 +271,10 @@ describe('the trace report section', () => {
   });
 });
 
+describe('scrolling table regions', () => {
+  it('makes each one a named region that takes keyboard focus', () => {
+    const out = focusableScrollRegions('<div class="scroll"><table class="x">\n<caption>Pages <span class="note">(3)</span> & "more"</caption></table></div><div class="scroll"><p>no table</p></div>');
+    expect(out).toContain('<div class="scroll" role="region" tabindex="0" aria-label="Pages (3) & &quot;more&quot;"><table class="x">\n<caption>');
+    expect(out).toContain('<div class="scroll" role="region" tabindex="0" aria-label="Table"><p>no table</p>');
+  });
+});

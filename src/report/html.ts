@@ -11,6 +11,7 @@ import { familiesSection } from './families-html.js';
 import { componentsSection } from './components-html.js';
 import { resourcesSection } from './resources-html.js';
 import { tracesSection } from './traces-html.js';
+import { focusableScrollRegions } from './scroll-regions.js';
 import { investigationSection, historySection } from './investigation-html.js';
 import { experimentSection } from './experiment-html.js';
 
@@ -82,7 +83,7 @@ export function toHtml(result: BenchmarkResult): string {
 
   const hasEnergy = stepRows.some((r) => r.energy.count > 0);
 
-  return `<!doctype html>
+  return focusableScrollRegions(`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -136,6 +137,7 @@ export function toHtml(result: BenchmarkResult): string {
 </style>
 </head>
 <body>
+<main>
 <h1>Web energy benchmark</h1>
 <p class="note">
   Session <code>${esc(result.session.id)}</code>, mode <code>${esc(result.session.mode)}</code>,
@@ -434,7 +436,8 @@ ${webnrgSection(result.webnrg)}
     summed or averaged with anything. See <code>docs/methodology.md</code>.
   </p>
 </section>
+</main>
 </body>
 </html>
-`;
+`);
 }
