@@ -1,0 +1,853 @@
+{
+  "$id": "https://github.com/mgifford/firefox-energy-scanner/schema/component-graph.schema.json",
+  "title": "Firefox Energy Scanner component graph",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "component-graph/1"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "firefox-dom",
+              "firefox-network",
+              "firefox-energy",
+              "lighthouse",
+              "chromium-trace",
+              "co2js",
+              "webnrg"
+            ]
+          },
+          "browser": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "boundary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "boundary"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^pg-[0-9a-f]{8}$"
+          },
+          "url": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "pattern": "^pf-[0-9a-f]{8}$"
+          },
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^fp-[0-9a-f]{8}$"
+          },
+          "sampleReason": {
+            "type": "string"
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "domNodes": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "count",
+                      "bytes",
+                      "ms",
+                      "score",
+                      "ratio",
+                      "mWh"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "firefox-dom",
+                      "firefox-network",
+                      "firefox-energy",
+                      "lighthouse",
+                      "chromium-trace",
+                      "co2js",
+                      "webnrg"
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "instance-own",
+                      "instance-inclusive",
+                      "page",
+                      "resource-per-page",
+                      "median-over-pages",
+                      "max-over-pages"
+                    ]
+                  }
+                },
+                "required": [
+                  "value",
+                  "unit",
+                  "source",
+                  "scope"
+                ],
+                "additionalProperties": false
+              },
+              "transferBytes": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "count",
+                      "bytes",
+                      "ms",
+                      "score",
+                      "ratio",
+                      "mWh"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "firefox-dom",
+                      "firefox-network",
+                      "firefox-energy",
+                      "lighthouse",
+                      "chromium-trace",
+                      "co2js",
+                      "webnrg"
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "instance-own",
+                      "instance-inclusive",
+                      "page",
+                      "resource-per-page",
+                      "median-over-pages",
+                      "max-over-pages"
+                    ]
+                  }
+                },
+                "required": [
+                  "value",
+                  "unit",
+                  "source",
+                  "scope"
+                ],
+                "additionalProperties": false
+              },
+              "requests": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "count",
+                      "bytes",
+                      "ms",
+                      "score",
+                      "ratio",
+                      "mWh"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "firefox-dom",
+                      "firefox-network",
+                      "firefox-energy",
+                      "lighthouse",
+                      "chromium-trace",
+                      "co2js",
+                      "webnrg"
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "instance-own",
+                      "instance-inclusive",
+                      "page",
+                      "resource-per-page",
+                      "median-over-pages",
+                      "max-over-pages"
+                    ]
+                  }
+                },
+                "required": [
+                  "value",
+                  "unit",
+                  "source",
+                  "scope"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "unownedNodes": {
+            "description": "Elements in <body> that belong to no component (firefox-dom).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "instances": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^ci-[0-9a-f]{8}$"
+            }
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^rs-[0-9a-f]{8}$"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "metrics",
+          "instances",
+          "resources"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ct-[0-9a-f]{8}$"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "annotation",
+              "framework",
+              "drupal",
+              "landmark",
+              "class-heuristic"
+            ]
+          },
+          "identification": {
+            "type": "string",
+            "enum": [
+              "explicit",
+              "semantic",
+              "structural",
+              "inferred"
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "matchedBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tag": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "inferredKind": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "from": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "from"
+            ],
+            "additionalProperties": false
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "families": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^pf-[0-9a-f]{8}$"
+            }
+          },
+          "instances": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "ownNodes": {
+            "type": "object",
+            "properties": {
+              "median": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "estimated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "median",
+              "max",
+              "estimated"
+            ],
+            "additionalProperties": false
+          },
+          "inclusiveNodes": {
+            "type": "object",
+            "properties": {
+              "median": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "median",
+              "max"
+            ],
+            "additionalProperties": false
+          },
+          "container": {
+            "type": "boolean"
+          },
+          "variants": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "signature",
+          "method",
+          "identification",
+          "confidence",
+          "matchedBy",
+          "pages",
+          "families",
+          "instances",
+          "inclusiveNodes",
+          "container",
+          "variants",
+          "notes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "instances": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ci-[0-9a-f]{8}$"
+          },
+          "type": {
+            "type": "string",
+            "pattern": "^ct-[0-9a-f]{8}$"
+          },
+          "page": {
+            "type": "string",
+            "pattern": "^pg-[0-9a-f]{8}$"
+          },
+          "occurrence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "parent": {
+            "type": "string",
+            "pattern": "^ci-[0-9a-f]{8}$"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^ci-[0-9a-f]{8}$"
+            }
+          },
+          "selector": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "inclusiveNodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "own": {
+            "type": "object",
+            "properties": {
+              "nodes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Elements owned: those whose nearest component is this one."
+              },
+              "images": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "eagerOffscreenImages": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "videos": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "autoplayVideos": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "iframes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "canvases": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "animations": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "infiniteAnimations": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "nodes"
+            ],
+            "additionalProperties": false,
+            "description": "Owned counts (firefox-dom); zero counts are left out. They never overlap between components."
+          },
+          "ownEstimated": {
+            "type": "boolean"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^rs-[0-9a-f]{8}$"
+            }
+          },
+          "ref": {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "instance": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "scenario",
+              "instance"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "page",
+          "occurrence",
+          "children",
+          "selector",
+          "inclusiveNodes",
+          "own",
+          "ownEstimated",
+          "resources",
+          "ref"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^rs-[0-9a-f]{8}$"
+          },
+          "key": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "thirdParty": {
+            "type": "boolean"
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "families": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^pf-[0-9a-f]{8}$"
+            }
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "site-wide",
+              "family-wide",
+              "shared",
+              "page-unique"
+            ]
+          },
+          "transferBytes": {
+            "type": "object",
+            "properties": {
+              "median": {
+                "type": "number",
+                "minimum": 0
+              },
+              "max": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "median",
+              "max"
+            ],
+            "additionalProperties": false,
+            "description": "Bytes transferred per page that loaded it (firefox-network)."
+          },
+          "loadedBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^ci-[0-9a-f]{8}$"
+            }
+          },
+          "referencedWithoutTransfer": {
+            "description": "Pages whose components reference it without transferring it during the measured load (lazy, hidden or cached).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "host",
+          "kind",
+          "thirdParty",
+          "pages",
+          "families",
+          "scope",
+          "transferBytes",
+          "loadedBy"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^fd-[0-9a-f]{8}$"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "page": {
+            "type": "string",
+            "pattern": "^pg-[0-9a-f]{8}$"
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "instance",
+                  "resource",
+                  "page",
+                  "unattributed"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          "evidenceClass": {
+            "type": "string",
+            "enum": [
+              "direct-observation",
+              "direct-node",
+              "resource-association",
+              "trace-supported",
+              "cross-page-correlation",
+              "structural-heuristic"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "finding",
+              "context"
+            ]
+          },
+          "evidence": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "firefox-dom",
+                    "firefox-network",
+                    "firefox-energy",
+                    "lighthouse",
+                    "chromium-trace",
+                    "co2js",
+                    "webnrg"
+                  ]
+                },
+                "ref": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "ref"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "metric": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "count",
+                  "bytes",
+                  "ms",
+                  "score",
+                  "ratio",
+                  "mWh"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "firefox-dom",
+                  "firefox-network",
+                  "firefox-energy",
+                  "lighthouse",
+                  "chromium-trace",
+                  "co2js",
+                  "webnrg"
+                ]
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "instance-own",
+                  "instance-inclusive",
+                  "page",
+                  "resource-per-page",
+                  "median-over-pages",
+                  "max-over-pages"
+                ]
+              }
+            },
+            "required": [
+              "value",
+              "unit",
+              "source",
+              "scope"
+            ],
+            "additionalProperties": false
+          },
+          "energy": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "not-measured",
+                  "measured-difference"
+                ]
+              },
+              "measuredWorkloadDeltaMwh": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "measuredWorkloadDeltaMwh"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "page",
+          "target",
+          "evidenceClass",
+          "role",
+          "evidence",
+          "energy"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "sources",
+    "pages",
+    "types",
+    "instances",
+    "resources",
+    "findings",
+    "limitations"
+  ],
+  "additionalProperties": false
+}

@@ -20,7 +20,18 @@ The items are of four kinds:
 - **scripts** that no component loads, summed across pages, such as a bundle or a third
   party that takes main-thread time everywhere;
 - **pages** at least twice their [family's](page-families.md) median elements, transfer
-  or requests: something extra is on them.
+  or requests: something extra is on them;
+- **resources** from the [component graph](component-graph.md):
+  - shared ones of 100 KB or more, or with a Lighthouse finding;
+  - files of 1 MB or more that only one page loads.
+
+  Files from one directory, of one kind and scope, are one item, so the files of one icon
+  library are one dependency. Remedies include replacing an icon library with the icons
+  used, checking whether every page needs a script, subsetting fonts, splitting a shared
+  stylesheet, and serving images at the size shown.
+
+Components are judged on what they **own**. A container is queued only for a Lighthouse
+finding that landed on it directly.
 
 ### The order, stated
 

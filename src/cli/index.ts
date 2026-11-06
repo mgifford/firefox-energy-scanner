@@ -36,6 +36,10 @@ import { friendlyError } from './errors.js';
 import { toHtml } from '../report/html.js';
 import { buildFamilies, type FamilyReport } from '../analysis/families.js';
 import { buildInventory, type ComponentInventory } from '../analysis/components.js';
+import { buildGraph, type ComponentGraph } from '../model/graph.js';
+import { validateGraph } from '../model/schema.js';
+import { migrateResult } from '../model/migrate.js';
+import { resourcesCsv } from '../report/resources-csv.js';
 import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
@@ -98,6 +102,7 @@ Usage:
   web-energy families <result.json>    [--json] [--write]
   web-energy components <result.json>  [--json] [--write]
   web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
+  web-energy graph <result.json>       [--json] [--write]
   web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
                          [--journey <file>] [--idle <ms>] [--dry-run] [--save-spec <file.yaml>]
   web-energy journey-check <file...>
@@ -521,10 +526,17 @@ async function writeOutputs(result: BenchmarkResult, config: Config): Promise<st
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const base = join(dir, `${result.session.mode}-${stamp}`);
 
+  // The graph is checked against its schema before it is written. A problem
+  // is a warning in the result, not a failed scan: the measurements stand.
+  if (result.graph) {
+    const problems = validateGraph(result.graph);
+    if (problems.length) result.warnings.push(`The component graph did not validate: ${problems.slice(0, 3).join('; ')}`);
+  }
   if (config.output.json) await writeFile(`${base}.json`, JSON.stringify(result, null, 2));
   if (config.output.csv) await writeFile(`${base}.csv`, toCsv(result));
   if (config.output.csv && result.components) await writeFile(`${base}.components.csv`, componentsCsv(result));
   if (config.output.csv && result.investigation) await writeFile(`${base}.queue.csv`, queueCsv(result));
+  if (config.output.csv && result.graph) await writeFile(`${base}.resources.csv`, resourcesCsv(result.graph));
   if (config.output.html) await writeFile(`${base}.html`, toHtml(result));
   return base;
 }
@@ -806,9 +818,12 @@ function printFamilies(report: FamilyReport): void {
 
 /** The component inventory, once families and Lighthouse are in the result. */
 function attachInventory(result: BenchmarkResult): void {
+  const graph = buildGraph(result);
+  if (graph) result.graph = graph;
   const inventory = buildInventory(result.scenarios, {
     ...(result.families ? { families: result.families } : {}),
     ...(result.lighthouse ? { lighthouse: result.lighthouse } : {}),
+    ...(graph ? { graph } : {}),
   });
   if (inventory) result.components = inventory;
 }
@@ -852,6 +867,55 @@ function printInvestigation(result: BenchmarkResult): void {
         `. ${h.energy.note}`,
     );
   }
+}
+
+function printGraph(g: ComponentGraph): void {
+  const scope = (s: string) => g.resources.filter((r) => r.scope === s).length;
+  console.log(
+    `Component graph: ${g.pages.length} pages, ${g.types.length} component types (${g.types.filter((t) => t.container).length} containers), ` +
+      `${g.instances.length} instances, ${g.resources.length} resources ` +
+      `(${scope('site-wide')} site-wide, ${scope('family-wide')} family-wide, ${scope('shared')} shared, ${scope('page-unique')} page-unique), ${g.findings.length} findings.`,
+  );
+  const heavy = g.resources.filter((r) => r.scope === 'site-wide').sort((a, b) => b.transferBytes.median - a.transferBytes.median).slice(0, 5);
+  if (heavy.length) {
+    console.log('\nHeaviest site-wide resources (per page, median):');
+    for (const r of heavy) console.log(`  ${String(Math.round(r.transferBytes.median / 1024)).padStart(6)} KB  ${r.kind.padEnd(10)} ${r.loadedBy.length ? '' : '(page-level) '}${r.key.slice(0, 90)}`);
+  }
+}
+
+/** Build, migrate and validate the component graph of a stored result. */
+async function cmdGraph(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('graph requires a result JSON file');
+    return 1;
+  }
+  const raw = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  // Rebuild from stored data, so a graph made by an older version is replaced.
+  const { graph: _old, ...rest } = raw;
+  const { result, from, added } = migrateResult(rest as BenchmarkResult);
+  if (!result.graph) {
+    console.error('No page in this result recorded page structure, so there is no graph to build.');
+    return 1;
+  }
+  const problems = validateGraph(result.graph);
+  if (has(args, 'json')) {
+    console.log(JSON.stringify(result.graph, null, 2));
+  } else {
+    if (from < 2) console.log(`Migrated from schema version ${from}: added ${added.join(', ') || 'nothing'}; owned counts are estimated.`);
+    printGraph(result.graph);
+    console.log(problems.length ? `\nSchema: ${problems.length} problem(s):\n  ${problems.join('\n  ')}` : '\nSchema: valid.');
+  }
+  if (has(args, 'write') && !problems.length) {
+    attachInventory(result);
+    attachInvestigation(result);
+    const stem = resolve(file).replace(/\.json$/, '');
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+    await writeFile(`${stem}.html`, toHtml(result));
+    await writeFile(`${stem}.resources.csv`, resourcesCsv(result.graph));
+    if (!has(args, 'json')) console.log(`\nWrote the graph into ${file} and regenerated its HTML.`);
+  }
+  return problems.length ? 1 : 0;
 }
 
 /** Families, inventory, queue and history for a stored result. */
@@ -2051,7 +2115,8 @@ async function cmdReport(args: Args): Promise<number> {
     return 1;
   }
   const { readFile } = await import('node:fs/promises');
-  const result = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  // Older results are read through migration, so the report shows what they support.
+  const { result } = migrateResult(JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult);
   const outPath = resolve(file).replace(/\.json$/, '') + '.html';
   await writeFile(outPath, toHtml(result));
   await writeFile(resolve(file).replace(/\.json$/, '') + '.csv', toCsv(result));
@@ -2119,6 +2184,7 @@ async function main(): Promise<number> {
       case 'families': return await cmdFamilies(args);
       case 'components': return await cmdComponents(args);
       case 'investigate': return await cmdInvestigate(args);
+      case 'graph': return await cmdGraph(args);
       case 'experiment': return await cmdExperiment(args);
       case 'journey-check': return await cmdJourneyCheck(args);
       case 'profile': return await cmdProfile(args);

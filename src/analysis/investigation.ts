@@ -20,6 +20,7 @@ import type { BenchmarkResult } from '../core/types.js';
 import type { ComponentRecord, UnattributedEvidence } from './components.js';
 import { REMEDIATIONS, remediationsFor, type Remediation } from './remediation.js';
 import { stableHash } from './signature.js';
+import type { ComponentGraph, GraphResource } from '../model/graph.js';
 
 export const QUEUE_METHOD = 'queue-v1';
 
@@ -28,7 +29,7 @@ const TIER_ORDER: Record<EvidenceTier, number> = { 'structure-and-lighthouse': 0
 
 export interface InvestigationItem {
   rank: number;
-  kind: 'component' | 'region' | 'page' | 'script';
+  kind: 'component' | 'region' | 'page' | 'script' | 'resource';
   /** cmp-… for components, the page fingerprint for pages, script-… for scripts. */
   id: string;
   title: string;
@@ -53,6 +54,8 @@ export interface InvestigationItem {
   audits: string[];
   /** Scripts: the full script URL (the title may be shortened). */
   url?: string;
+  /** Resources: the URLs of the resources the item groups. */
+  urls?: string[];
 }
 
 export interface InvestigationQueue {
@@ -87,6 +90,9 @@ function componentItem(r: ComponentRecord, of: number): Omit<InvestigationItem, 
   // A region (<main>, the banner) repeats the facts of the components inside
   // it; it is queued only for a Lighthouse finding that landed on it directly.
   if (r.kind === 'region' && !lighthouse.length) return undefined;
+  // A wrapper owns little of what it holds: it is queued only for a
+  // Lighthouse finding that landed on it directly, never for its contents.
+  if (r.container && !lighthouse.length) return undefined;
   const scriptMs = findings.filter((e) => e.unit === 'ms').reduce((m, e) => Math.max(m, e.value ?? 0), 0);
   return {
     kind: r.kind,
@@ -144,6 +150,88 @@ function scriptItems(unattributed: UnattributedEvidence[], of: number): Omit<Inv
   }));
 }
 
+const KB = 1024;
+/** Thresholds for queuing a resource: big enough on reach, or big on one page. */
+const SHARED_BYTES = 100 * KB;
+const UNIQUE_BYTES = 1024 * KB;
+
+const ICON_LIBRARY = /fontawesome|font-awesome|icomoon|material-?icons|bootstrap-icons|ionicons|feather-icons/i;
+
+function resourceRemedy(kind: string, key: string): Remediation[] {
+  if (kind === 'script') return [REMEDIATIONS[ICON_LIBRARY.test(key) ? 'icon-library' : 'audit-global-script']!];
+  if (kind === 'image') return [REMEDIATIONS['resize-images']!];
+  if (kind === 'font') return [REMEDIATIONS['subset-fonts']!];
+  if (kind === 'stylesheet') return [REMEDIATIONS['trim-shared-css']!];
+  if (kind === 'media') return [REMEDIATIONS['no-autoplay']!];
+  return [];
+}
+
+/**
+ * Resources worth a look, from the graph: shared ones that are heavy, or
+ * carry a Lighthouse finding, and page-unique ones that are very heavy.
+ * Files from one directory, of one kind, on the same pages are one item:
+ * the five files of an icon library are one dependency, not five problems.
+ */
+function resourceItems(graph: ComponentGraph, of: number): Omit<InvestigationItem, 'rank'>[] {
+  const findingsOn = new Map<string, { titles: Set<string>; ms: number; audits: Set<string> }>();
+  for (const f of graph.findings) {
+    if (f.target.type !== 'resource' || !f.target.id || f.role !== 'finding') continue;
+    const x = findingsOn.get(f.target.id) ?? { titles: new Set<string>(), ms: 0, audits: new Set<string>() };
+    x.titles.add(f.title);
+    if (f.metric?.unit === 'ms') x.ms = Math.max(x.ms, f.metric.value);
+    x.audits.add(f.kind.replace(/^lighthouse:/, ''));
+    findingsOn.set(f.target.id, x);
+  }
+  const worth = (r: GraphResource) =>
+    (r.scope !== 'page-unique' && (r.transferBytes.median >= SHARED_BYTES || findingsOn.has(r.id))) ||
+    (r.scope === 'page-unique' && r.transferBytes.max >= UNIQUE_BYTES);
+  const dir = (key: string) => key.replace(/[?#].*$/, '').replace(/\/[^/]*$/, '/');
+  const groups = new Map<string, GraphResource[]>();
+  for (const r of graph.resources.filter(worth)) {
+    // Page-unique resources group per page: one page's images are one item.
+    const pagesKey = r.scope === 'page-unique' ? (graph.pages.find((p) => p.resources.includes(r.id))?.id ?? '') : '';
+    const k = `${dir(r.key)}|${r.kind}|${r.scope}|${pagesKey}`;
+    groups.set(k, [...(groups.get(k) ?? []), r]);
+  }
+  return [...groups.values()].map((members) => {
+    members.sort((a, b) => b.transferBytes.median - a.transferBytes.median || (a.key < b.key ? -1 : 1));
+    const first = members[0]!;
+    // Bytes on a page that loads the group: the files' sum when they load together.
+    const bytes = members.reduce((t, r) => t + (first.scope === 'page-unique' ? r.transferBytes.max : r.transferBytes.median), 0);
+    const lh = members.map((r) => findingsOn.get(r.id)).filter((x): x is NonNullable<typeof x> => !!x);
+    const ms = Math.max(0, ...lh.map((x) => x.ms));
+    const where = first.loadedBy.length ? 'loaded by a component' : 'loaded from the document head or by script: no component loads it';
+    // Reach: the pages that load any of the group's files.
+    const onPages = graph.pages.filter((p) => members.some((m) => p.resources.includes(m.id))).map((p) => p.url);
+    const pages = onPages.length;
+    const counts = members.map((m) => m.pages);
+    const range = Math.min(...counts) === Math.max(...counts) ? `${counts[0]}` : `${Math.min(...counts)}–${Math.max(...counts)}`;
+    return {
+      kind: 'resource' as const,
+      id: `res-${stableHash(members.map((m) => m.id).join(','))}`,
+      title: members.length > 1 ? `${members.length} ${first.kind}s in ${first.host}${dir(first.key).slice(first.host.length)}` : first.key,
+      evidence: lh.length ? ('structure-and-lighthouse' as const) : ('structure' as const),
+      because: [
+        first.scope === 'page-unique'
+          ? `${Math.round(bytes / KB).toLocaleString('en')} KB of ${first.kind}${members.length > 1 ? 's' : ''} that no other measured page loads.`
+          : members.length > 1 && range.includes('–')
+            ? `${members.length} files of ${Math.round(Math.min(...members.map((m) => m.transferBytes.median)) / KB)}–${Math.round(Math.max(...members.map((m) => m.transferBytes.median)) / KB)} KB, each on ${range} of ${of} pages (${pages} in all), ${where}.`
+            : `${Math.round(bytes / KB).toLocaleString('en')} KB per page (median) on ${pages} of ${of} pages, ${where}.`,
+        ...(members.length > 1 ? [`Files: ${members.slice(0, 6).map((m) => m.key.split('/').pop()).join(', ')}${members.length > 6 ? ', …' : ''}.`] : []),
+        ...[...new Set(lh.flatMap((x) => [...x.titles]))].slice(0, 3).map((t) => `Lighthouse (Chromium): ${t}`),
+      ],
+      reach: { pages, of, families: first.families.length },
+      workload: { transferBytes: bytes, ...(ms ? { chromiumMainThreadMs: ms } : {}) },
+      remediation: resourceRemedy(first.kind, first.key),
+      confidence: 'high' as const,
+      where: onPages.slice(0, 3).map((page) => ({ page })),
+      audits: [...new Set(lh.flatMap((x) => [...x.audits]))],
+      // The resources' URLs, for an experiment that refuses them; the page's scheme is used.
+      urls: members.map((m) => `${new URL(onPages[0] ?? 'https://x/').protocol}//${m.key.replace(/[?#].*$/, '')}`),
+    };
+  });
+}
+
 /** Pages far from their family's median: something extra on them. */
 function pageItems(result: BenchmarkResult, of: number): Omit<InvestigationItem, 'rank'>[] {
   const out: Omit<InvestigationItem, 'rank'>[] = [];
@@ -179,12 +267,14 @@ export function buildInvestigation(result: BenchmarkResult): InvestigationQueue 
   const of = inv?.pages ?? result.families?.pagesGrouped ?? 0;
   const candidates = [
     ...(inv?.components ?? []).map((r) => componentItem(r, of)).filter((x): x is NonNullable<typeof x> => !!x),
-    ...scriptItems(inv?.unattributed ?? [], of),
+    // With the graph, scripts are resources, tied to pages and the components that load them.
+    ...(result.graph ? resourceItems(result.graph, of) : scriptItems(inv?.unattributed ?? [], of)),
     ...pageItems(result, of),
   ];
   if (!candidates.length) return undefined;
 
-  const work = (i: Omit<InvestigationItem, 'rank'>) => (i.kind === 'script' ? (i.workload.chromiumMainThreadMs ?? 0) : (i.workload.elements ?? 0));
+  const work = (i: Omit<InvestigationItem, 'rank'>) =>
+    i.kind === 'script' ? (i.workload.chromiumMainThreadMs ?? 0) : i.kind === 'resource' ? Math.round((i.workload.transferBytes ?? 0) / 1024) : (i.workload.elements ?? 0);
   candidates.sort(
     (a, b) =>
       TIER_ORDER[a.evidence] - TIER_ORDER[b.evidence] ||

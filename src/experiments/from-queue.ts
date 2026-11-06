@@ -59,7 +59,9 @@ export function specFromQueue(result: BenchmarkResult, rank: number): { spec: Ex
       const urls =
         item.kind === 'script'
           ? [item.url ?? item.title].filter((u) => /^https?:\/\//.test(u))
-          : (record?.resources.filter((r) => r.kind === 'script').map((r) => r.url) ?? []);
+          : item.kind === 'resource'
+            ? (item.urls ?? [])
+            : (record?.resources.filter((r) => r.kind === 'script').map((r) => r.url) ?? []);
       if (!urls.length) throw new Error(`Item ${rank} has no script URL to refuse.`);
       spec = { ...base, kind: 'block', urls };
       note = `Refuse ${urls.length === 1 ? urls[0] : `${urls.length} scripts`}: what the script costs, as an upper bound for deferring it. Check the page still works.`;

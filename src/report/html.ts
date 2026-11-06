@@ -9,6 +9,7 @@ import { cruxSection } from './crux-html.js';
 import { webnrgSection } from './webnrg-html.js';
 import { familiesSection } from './families-html.js';
 import { componentsSection } from './components-html.js';
+import { resourcesSection } from './resources-html.js';
 import { investigationSection, historySection } from './investigation-html.js';
 import { experimentSection } from './experiment-html.js';
 
@@ -102,7 +103,9 @@ export function toHtml(result: BenchmarkResult): string {
   .note { color: var(--muted); font-size: .92rem; }
   .warning { background: var(--warnbg); border-left: 4px solid var(--warn); padding: .75rem 1rem; margin: 1rem 0; }
   .boundary { border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 1rem; margin: 1.5rem 0; }
-  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; }
+  dl.meta { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: .25rem 1rem; }
+  dl.meta dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  li, p, dd { overflow-wrap: anywhere; }
   dl.meta dt { color: var(--muted); }
   .scroll { overflow-x: auto; }
   code { font-size: .9em; }
@@ -244,6 +247,8 @@ ${investigationSection(result)}
 ${historySection(result.history)}
 
 ${familiesSection(result.families, result.sampling)}
+
+${resourcesSection(result.graph)}
 
 ${componentsSection(result.components)}
 

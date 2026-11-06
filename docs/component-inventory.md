@@ -31,6 +31,15 @@ signature, plus smaller ones that hold media or animations. Each occurrence reco
 | `animations` | Web Animations API: animations running inside it, those that never stop, and their names. |
 | `liveRegion` | Whether it is, or holds, an ARIA live region. |
 
+## Owned counts
+
+When the scan has a [component graph](component-graph.md), which every scan made since
+schema version 2 does, the inventory counts what each component **owns**: its
+elements, media and animations, excluding nested components. A wrapper is marked as a
+container and keeps only what it owns itself, so a page wrapper no longer reports its
+descendants' iframe and images as its own. The table says which count it shows
+("Elements owned" or, for older results, "Elements inside").
+
 ## What the inventory adds
 
 `result.components` (method `inventory-v1`) groups occurrences by signature across pages.
