@@ -183,6 +183,7 @@ web-energy compare --a <url> --b <url> --journey <file>
 web-energy report results/<file>.json
 web-energy profile --journey <file>
 web-energy lighthouse <url...>
+web-energy trace <url...>
 web-energy crux <url>
 web-energy webnrg <url...>
 ```
@@ -199,6 +200,20 @@ indicator with its own boundary and is never combined with the Firefox results. 
 ```bash
 node dist/cli/index.js measure https://example.com/ --lighthouse
 node dist/cli/index.js lighthouse https://example.com/ --lighthouse-categories all
+```
+
+### Chromium tracing (optional)
+
+Add `--trace` to `measure` or `crawl` to trace a few pages in Chromium afterwards (3 by
+default, one per page family first), or run `trace <url...>` on its own. A trace says
+which script ran a long task, which file keeps requesting animation frames, which
+component's animation never stops, and which embedded widget keeps working while the
+page sits idle. It records main-thread time in one run, not energy. See
+[docs/tracing.md](docs/tracing.md).
+
+```bash
+node dist/cli/index.js crawl https://example.com/ --sample --trace
+node dist/cli/index.js trace https://example.com/ --trace-keep traces/
 ```
 
 ### Field data (CrUX, optional)
@@ -378,6 +393,7 @@ canvas charts) are generated alongside.
 - [docs/what-costs-energy.md](docs/what-costs-energy.md) — which parts of a page cost most
 - [docs/comparisons.md](docs/comparisons.md) — comparing patches without confounding
 - [docs/lighthouse.md](docs/lighthouse.md) — optional Lighthouse scores and recommendations
+- [docs/tracing.md](docs/tracing.md) — optional Chromium traces: which script, element or iframe does the work
 - [docs/crux.md](docs/crux.md) — optional CrUX field data from real Chrome users
 - [docs/webnrg.md](docs/webnrg.md) — optional webNRG lab figures from Green Coding's cluster
 - [docs/page-families.md](docs/page-families.md) — grouping a crawl's pages by how they are built, and adaptive sampling

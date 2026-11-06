@@ -65,6 +65,8 @@ import { describeCapabilities } from '../core/capability.js';
 import { collectHostFacts, judgeEnergy, type EnergyProbe, type FirefoxProbe } from '../energy/probe.js';
 import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run.js';
 import { pickLighthouseUrls } from '../lighthouse/select.js';
+import { traceChromium, type TraceRecord } from '../trace/run.js';
+import { pickTraceUrls } from '../trace/select.js';
 import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
 import { webnrgMarkdown } from '../webnrg/markdown.js';
 import { has, one, parseArgs, type Args } from './args.js';
@@ -111,6 +113,7 @@ Usage:
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
   web-energy diagnose <url> [--runs <n>]
   web-energy lighthouse <url...>       [--lighthouse-* options]
+  web-energy trace <url...>            [--trace-* options]
   web-energy crux <url>                [--crux-* options]
   web-energy webnrg <url...>           [--lookup-only] [--wait <minutes>]
   web-energy webnrg-collect <file.json> [--wait <minutes>] [--markdown <file>]
@@ -166,6 +169,17 @@ Lighthouse (optional; runs in Chromium after the Firefox session has closed):
   --lighthouse-top <n|all>      Audit only the n heaviest pages (crawl default 10;
                                 lists default all)
   --lighthouse-reports <dir>    Also write each URL's full HTML report here
+
+Chromium tracing (optional; a few pages, after the Firefox session has closed):
+  --trace                 Also trace a few measure/crawl pages in Chromium: which
+                          scripts ran, what was laid out and painted, and what
+                          kept running while the page sat idle. Not energy.
+  --trace-pages <n>       Pages to trace (default 3, at most 10). A crawl takes
+                          one page per family first, then the heaviest.
+  --trace-idle <ms>       Idle window after load (default 5000)
+  --trace-max-mb <n>      Do not analyse a trace larger than this (default 40)
+  --trace-keep <dir>      Also write each raw trace here, gzipped, for the
+                          Performance panel of Chrome DevTools
 
 Field data (CrUX; optional, read-only, needs a Chrome UX Report API key):
   --crux                        Query the Chrome UX Report and report real-user p75
@@ -653,6 +667,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   if (families) result.families = families;
 
   await attachLighthouse(args, config, result, urls, 'measure');
+  await attachTraces(args, config, result, urls, 'measure');
   await attachCrux(result, crux);
   await attachWebnrg(args, result, urls, 'measure');
   attachInventory(result);
@@ -661,6 +676,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
+  if (result.traces) printTraces(result.traces);
   if (result.crux) printCrux(result.crux);
   if (result.webnrg) printWebnrg(result.webnrg);
   for (const w of result.warnings) console.log(`\nwarning: ${w}`);
@@ -760,6 +776,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   };
 
   await attachLighthouse(args, config, result, [start], 'crawl');
+  await attachTraces(args, config, result, [start], 'crawl');
   await attachCrux(result, crux);
   await attachWebnrg(args, result, [start], 'crawl');
   attachInventory(result);
@@ -768,6 +785,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
+  if (result.traces) printTraces(result.traces);
   if (result.crux) printCrux(result.crux);
   if (result.webnrg) printWebnrg(result.webnrg);
   if (result.families) printFamilies(result.families);
@@ -1432,6 +1450,112 @@ async function cmdLighthouse(args: Args): Promise<number> {
   printLighthouse(summary);
   console.log(`\nWrote ${file}`);
   return summary.results.some((r) => r.runs > 0) ? 0 : 1;
+}
+
+interface TraceArgs {
+  pages: number;
+  idleMs: number;
+  maxBytes: number;
+  keepDir?: string;
+}
+
+function traceArgs(args: Args): TraceArgs {
+  const keep = one(args, 'trace-keep');
+  return {
+    pages: intFlag(args, 'trace-pages', 3, 1, 10),
+    idleMs: intFlag(args, 'trace-idle', 5000, 1000, 30000),
+    maxBytes: intFlag(args, 'trace-max-mb', 40, 1, 500) * 1e6,
+    ...(keep ? { keepDir: resolve(keep) } : {}),
+  };
+}
+
+/**
+ * Trace a few pages in Chromium after the Firefox session (and Lighthouse)
+ * have finished, and attach the records. Never fails the scan.
+ */
+async function attachTraces(
+  args: Args,
+  config: Config,
+  result: BenchmarkResult,
+  requested: string[],
+  mode: 'measure' | 'crawl',
+): Promise<void> {
+  if (!has(args, 'trace')) return;
+  const opts = traceArgs(args);
+  const urls = pickTraceUrls(result.scenarios, requested, mode, opts.pages, result.families);
+  if (!urls.length) return;
+  const out = await traceChromium({
+    urls,
+    idleMs: opts.idleMs,
+    viewport: config.browser.viewport,
+    maxBytes: opts.maxBytes,
+    publicOnly: config.network.public_only,
+    ...(opts.keepDir ? { keepDir: opts.keepDir } : {}),
+    onProgress: (m) => process.stderr.write(`\r${m.slice(0, 100).padEnd(100)}`),
+  });
+  process.stderr.write('\n');
+  if (out.error) result.warnings.push(`Tracing did not run: ${out.error}`);
+  if (out.records.length) result.traces = out.records;
+  for (const r of out.records) if (r.skipped) result.warnings.push(`No trace analysis for ${r.url}: ${r.skipped}`);
+}
+
+function printTraces(records: TraceRecord[]): void {
+  const done = records.filter((r) => r.analysis);
+  if (!done.length) return;
+  console.log(`\nChromium traces (${done[0]!.browser}; main-thread work, not energy):`);
+  for (const r of done) {
+    const a = r.analysis!;
+    const busy = (p: { mainThread: { busyMs: number }; durationMs: number }) => `${Math.round(p.mainThread.busyMs)} ms busy of ${Math.round(p.durationMs)} ms`;
+    console.log(`  ${r.url}`);
+    console.log(`    load: ${busy(a.load)}; ${a.load.longTasks.length} long task${a.load.longTasks.length === 1 ? '' : 's'}`);
+    if (a.idle) {
+      const i = a.idle;
+      const parts = [
+        busy(i),
+        i.animationFrames.fired ? `${i.animationFrames.perSecond}/s animation frames` : '',
+        i.timers.fired ? `${i.timers.fired} timer callback${i.timers.fired === 1 ? '' : 's'}` : '',
+        i.animations.length ? `${i.animations.length} running animation${i.animations.length === 1 ? '' : 's'}` : '',
+        i.requests.length ? `${i.requests.length} request${i.requests.length === 1 ? '' : 's'}` : '',
+      ].filter(Boolean);
+      console.log(`    idle: ${parts.join('; ')}`);
+    }
+    const top = [...a.load.scripts, ...(a.idle?.scripts ?? [])].sort((x, y) => y.ms - x.ms)[0];
+    if (top && top.ms >= 1) console.log(`    most script time: ${top.url} (${Math.round(top.ms)} ms)`);
+  }
+  console.log('\nTraces are one Chromium run per page: evidence of what ran, not a measurement of its energy.');
+}
+
+/** Chromium traces on their own, without a Firefox run. */
+async function cmdTrace(args: Args): Promise<number> {
+  const urls = args._.slice(1);
+  if (urls.length === 0) {
+    console.error('trace requires at least one URL');
+    return 1;
+  }
+  const config = await buildConfig(args);
+  const opts = traceArgs(args);
+  const out = await traceChromium({
+    urls: urls.slice(0, 10),
+    idleMs: opts.idleMs,
+    viewport: config.browser.viewport,
+    maxBytes: opts.maxBytes,
+    publicOnly: config.network.public_only,
+    ...(opts.keepDir ? { keepDir: opts.keepDir } : {}),
+    onProgress: (m) => process.stderr.write(`\r${m.slice(0, 100).padEnd(100)}`),
+  });
+  process.stderr.write('\n');
+  if (out.error) {
+    console.error(out.error);
+    return 1;
+  }
+  const dir = resolve(config.output.directory);
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, `trace-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  await writeFile(file, JSON.stringify({ tool: 'chromium-trace', browser: out.browser, records: out.records }, null, 2));
+  printTraces(out.records);
+  for (const r of out.records) if (r.skipped) console.log(`\nNo analysis for ${r.url}: ${r.skipped}`);
+  console.log(`\nWrote ${file}`);
+  return out.records.some((r) => r.analysis) ? 0 : 1;
 }
 
 /**
@@ -2194,6 +2318,7 @@ async function main(): Promise<number> {
       case 'parse-issue': return await cmdParseIssue(args);
       case 'build-index': return await cmdBuildIndex(args);
       case 'lighthouse': return await cmdLighthouse(args);
+      case 'trace': return await cmdTrace(args);
       case 'crux': return await cmdCrux(args);
       case 'webnrg': return await cmdWebnrg(args);
       case 'webnrg-collect': return await cmdWebnrgCollect(args);

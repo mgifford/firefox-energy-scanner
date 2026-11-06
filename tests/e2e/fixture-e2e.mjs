@@ -5,7 +5,9 @@
  * instance per page; a component unique to one page is found there; nested
  * components are linked and counted once; resources are placed by reach and
  * by the component that loads them; the graph validates; and with no energy
- * hardware, nothing claims a measured energy figure.
+ * hardware, nothing claims a measured energy figure. With --trace, three
+ * pages from different families are traced in Chromium and their findings
+ * join the graph, still without an energy figure.
  *
  * Usage: node tests/e2e/fixture-e2e.mjs   (after npm run build and
  * npx playwright install firefox). CI maps www.site.test and thirdparty.test to 127.0.0.1.
@@ -44,7 +46,8 @@ const exec = (args) =>
 const site = await startFixtureSite({ port: 8082 });
 try {
   const out = mkdtempSync(join(tmpdir(), 'fixture-'));
-  const r = await exec(['dist/cli/index.js', 'crawl', `${site.url}/`, '--sample', '--max-pages', '20', '--headless', '--no-energy', '--out', out]);
+  // --trace: three pages traced in Chromium after Firefox closes (needs a Chrome; GitHub's runners have one).
+  const r = await exec(['dist/cli/index.js', 'crawl', `${site.url}/`, '--sample', '--max-pages', '20', '--headless', '--no-energy', '--trace', '--trace-pages', '3', '--trace-idle', '2000', '--out', out]);
   if (r.status !== 0) console.log(r.out);
   const files = readdirSync(out);
   const json = files.find((f) => f.endsWith('.json'));
@@ -78,6 +81,18 @@ try {
   check(g.findings.some((f) => f.kind === 'endless-animation'), 'Firefox saw an endless animation');
   check(g.findings.every((f) => f.energy.status === 'not-measured' && f.energy.measuredWorkloadDeltaMwh === null), 'no finding claims a measured energy figure');
   check(files.some((f) => f.endsWith('.resources.csv')), 'a resources CSV was written');
+
+  // Tracing, through the crawl: one page per family first, attached to the result and the graph.
+  const traced = (result?.traces ?? []).filter((t) => t.analysis);
+  annotate('notice', `traces: ${(result?.traces ?? []).map((t) => `${t.url} ${t.analysis ? `${t.bytes} bytes` : t.skipped}`).join('; ')}`);
+  check(traced.length === 3, `three pages were traced in Chromium (${traced.length}; ${(result?.traces ?? []).map((t) => t.skipped).filter(Boolean).join('; ') || (result?.warnings ?? []).filter((w) => /trac/i.test(w)).join('; ')})`);
+  const fams = new Set(traced.map((t) => result.families?.pageFamily[t.url]));
+  check(fams.size === Math.min(3, result?.families?.families.length ?? 0), `the traced pages come from different families (${fams.size})`);
+  check(g?.sources.some((x) => x.id === 'chromium-trace'), 'the graph records Chromium tracing as a source');
+  check(g.findings.filter((f) => f.kind.startsWith('trace:')).every((f) => f.evidenceClass === 'trace-supported' && f.energy.status === 'not-measured'),
+    'trace findings are trace-supported and claim no energy');
+  const html = readFileSync(join(out, files.find((f) => f.endsWith('.html'))), 'utf8');
+  check(html.includes('id="traces-h"'), 'the report has a Chromium traces section');
 } finally {
   await site.close();
 }

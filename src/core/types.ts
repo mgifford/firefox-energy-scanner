@@ -354,6 +354,11 @@ export interface BenchmarkResult {
   investigation?: import('../analysis/investigation.js').InvestigationQueue;
   /** Changes since the previous scan of the same site, when one was found. Indicative. */
   history?: import('../analysis/history.js').HistoryReport;
+  /**
+   * Chromium performance traces of a few pages, when requested: diagnosis in
+   * another browser, never Firefox energy. The raw traces are not stored.
+   */
+  traces?: import('../trace/run.js').TraceRecord[];
   /** An energy experiment: baseline against one change, as a measured difference only. */
   experiment?: import('../experiments/experiment.js').ExperimentReport;
   warnings: string[];

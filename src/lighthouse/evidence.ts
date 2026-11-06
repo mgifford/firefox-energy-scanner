@@ -52,9 +52,33 @@ export interface LighthouseScriptEvidence {
   entity?: string;
 }
 
+/** A finding about one resource: unused code, render blocking, cache lifetime, font display. */
+export interface LighthouseResourceEvidence {
+  audit: string;
+  title: string;
+  kind: EvidenceKind;
+  url: string;
+  value: number;
+  unit: 'ms' | 'bytes';
+  detail: string;
+}
+
+/** The longest chain of requests that depend on one another, for the page. */
+export interface LighthouseChainEvidence {
+  audit: 'network-dependency-tree-insight';
+  title: string;
+  kind: EvidenceKind;
+  /** Milliseconds from navigation start to the chain's end. */
+  durationMs: number;
+  urls: string[];
+}
+
 export interface LighthouseEvidence {
   nodes: LighthouseNodeEvidence[];
   scripts: LighthouseScriptEvidence[];
+  /** Absent in results made before resource findings were kept. */
+  resources?: LighthouseResourceEvidence[];
+  chain?: LighthouseChainEvidence;
 }
 
 /** Audits whose items name elements. */
@@ -257,6 +281,107 @@ function scriptsIn(lhr: Lhr): LighthouseScriptEvidence[] {
   return out.sort((a, b) => b.value - a.value).slice(0, MAX_SCRIPTS);
 }
 
+const MAX_RESOURCES = 40;
+
+/** Per-resource audits, and how to read each row. */
+const RESOURCE_AUDITS: { id: string; read: (r: Obj) => { value: number; unit: 'ms' | 'bytes'; detail: string } | undefined }[] = [
+  {
+    id: 'unused-javascript',
+    read: (r) => {
+      const w = finite(r['wastedBytes']);
+      const t = finite(r['totalBytes']);
+      return w === undefined ? undefined : { value: Math.round(w), unit: 'bytes', detail: `${t ? `${Math.round((100 * w) / t)}% unused` : 'unused'} JavaScript (${Math.round(w / 1024)} KB${t ? ` of ${Math.round(t / 1024)} KB` : ''})` };
+    },
+  },
+  {
+    id: 'unused-css-rules',
+    read: (r) => {
+      const w = finite(r['wastedBytes']);
+      const t = finite(r['totalBytes']);
+      return w === undefined ? undefined : { value: Math.round(w), unit: 'bytes', detail: `${t ? `${Math.round((100 * w) / t)}% unused` : 'unused'} CSS (${Math.round(w / 1024)} KB${t ? ` of ${Math.round(t / 1024)} KB` : ''})` };
+    },
+  },
+  {
+    id: 'render-blocking-insight',
+    read: (r) => {
+      const ms = finite(r['wastedMs']);
+      return ms === undefined ? undefined : { value: Math.round(ms), unit: 'ms', detail: `blocks rendering (about ${Math.round(ms)} ms)` };
+    },
+  },
+  {
+    id: 'cache-insight',
+    read: (r) => {
+      const w = finite(r['wastedBytes']) ?? finite(r['totalBytes']);
+      const life = finite(r['cacheLifetimeMs']);
+      return w === undefined ? undefined : { value: Math.round(w), unit: 'bytes', detail: `short cache lifetime (${life === undefined ? 'unknown' : life === 0 ? 'none' : `${Math.round(life / 3_600_000)} h`})` };
+    },
+  },
+  {
+    id: 'font-display-insight',
+    read: (r) => {
+      const ms = finite(r['wastedMs']);
+      return ms === undefined ? undefined : { value: Math.round(ms), unit: 'ms', detail: 'text hidden while the font loads' };
+    },
+  },
+  {
+    id: 'legacy-javascript-insight',
+    read: (r) => {
+      const w = finite(r['wastedBytes']);
+      return w === undefined ? undefined : { value: Math.round(w), unit: 'bytes', detail: 'legacy JavaScript (polyfills or transforms modern browsers do not need)' };
+    },
+  },
+];
+
+function resourcesIn(lhr: Lhr): LighthouseResourceEvidence[] {
+  const out: LighthouseResourceEvidence[] = [];
+  for (const { id, read } of RESOURCE_AUDITS) {
+    const a = lhr.audits[id];
+    if (!a) continue;
+    for (const r of rowsOf(a)) {
+      const url = str(r['url']);
+      const v = read(r);
+      if (!url || !v) continue;
+      out.push({ audit: id, title: a.title, kind: failing(a) ? 'finding' : 'context', url, ...v });
+    }
+  }
+  // Duplicated modules: each copy's script is a resource with the finding.
+  const dup = lhr.audits['duplicated-javascript-insight'];
+  for (const r of rowsOf(dup)) {
+    const source = str(r['source']);
+    const sub = isObj(r['subItems']) && Array.isArray(r['subItems']['items']) ? (r['subItems']['items'] as unknown[]).filter(isObj) : [];
+    for (const s of sub) {
+      const url = str(s['url']);
+      const w = finite(s['sourceTransferBytes']) ?? finite(r['wastedBytes']);
+      if (url && w !== undefined) out.push({ audit: 'duplicated-javascript-insight', title: dup!.title, kind: failing(dup) ? 'finding' : 'context', url, value: Math.round(w), unit: 'bytes', detail: `duplicated module${source ? ` ${source}` : ''}` });
+    }
+  }
+  return out.sort((a, b) => (a.unit === b.unit ? b.value - a.value : a.unit === 'bytes' ? -1 : 1)).slice(0, MAX_RESOURCES);
+}
+
+/** The longest chain in the network dependency tree, root first. */
+function chainIn(lhr: Lhr): LighthouseChainEvidence | undefined {
+  const a = lhr.audits['network-dependency-tree-insight'];
+  const sections = Array.isArray(a?.details?.items) ? (a!.details!.items as unknown[]).filter(isObj) : [];
+  for (const s of sections) {
+    const v = isObj(s['value']) ? s['value'] : undefined;
+    if (!v || v['type'] !== 'network-tree' || !isObj(v['chains'])) continue;
+    const urls: string[] = [];
+    let level: Obj | undefined = v['chains'];
+    while (level) {
+      const next: Obj | undefined = Object.values(level).filter(isObj).find((n) => n['isLongest'] === true);
+      if (!next) break;
+      const u = str(next['url']);
+      if (u) urls.push(u);
+      level = isObj(next['children']) ? next['children'] : undefined;
+    }
+    const duration = isObj(v['longestChain']) ? finite(v['longestChain']['duration']) : undefined;
+    if (urls.length >= 2 && duration !== undefined) {
+      return { audit: 'network-dependency-tree-insight', title: a!.title, kind: failing(a) ? 'finding' : 'context', durationMs: Math.round(duration), urls };
+    }
+  }
+  return undefined;
+}
+
 /** The element and script findings of one Lighthouse report. */
 export function extractEvidence(lhr: Lhr): LighthouseEvidence {
   const nodes: LighthouseNodeEvidence[] = [];
@@ -272,5 +397,6 @@ export function extractEvidence(lhr: Lhr): LighthouseEvidence {
     seen.add(k);
     return true;
   });
-  return { nodes: unique.slice(0, MAX_NODES), scripts: scriptsIn(lhr) };
+  const chain = chainIn(lhr);
+  return { nodes: unique.slice(0, MAX_NODES), scripts: scriptsIn(lhr), resources: resourcesIn(lhr), ...(chain ? { chain } : {}) };
 }

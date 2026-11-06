@@ -17,6 +17,9 @@
  * 11. /tiny-work       a timer doing negligible work: removing it changes little
  * 12. /spinner         a CSS-only spinner: pausing it saves work without changing transfer
  *
+ * And /assets, for Lighthouse's resource findings: a render-blocking
+ * stylesheet whose rules are mostly unused, and a large, mostly unused script.
+ *
  * Synthetic content only. Usage:
  *   import { startFixtureSite } from './tests/fixtures/site/server.mjs';
  *   const site = await startFixtureSite({ port: 8082 });  // site.url, site.close()
@@ -65,6 +68,9 @@ const PAGES = {
   '/articles/c': article('c'),
   '/articles/d': article('d', `<figure data-component-id="live-chart"><canvas id="chart" width="600" height="200" aria-label="A chart redrawn every frame"></canvas><figcaption>Live chart</figcaption></figure><script src="/js/chart.js"></script>`),
   '/tiny-work': page('Tiny work', '<p id="clock">0</p>', { bodyEnd: '<script>let n=0;setInterval(()=>{n++;},2000);</script>' }),
+  '/assets': page('Assets', '<p class="used">Only one rule of the big stylesheet applies here.</p>', {
+    head: '<link rel="stylesheet" href="/css/big.css"><script src="/js/big.js"></script>',
+  }),
   '/spinner': page('Spinner', '<div class="spinner" role="status" aria-label="Loading" data-component-id="spinner"></div>', {
     head: '<style>.spinner{width:48px;height:48px;border:6px solid #ccc;border-top-color:#036;border-radius:50%;animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style>',
   }),
@@ -105,6 +111,10 @@ export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {})
     }
     if (path === '/css/site.css') return send(200, 'text/css', 'body{font-family:system-ui,sans-serif;margin:0 auto;max-width:60rem;padding:1rem}nav ul{display:flex;gap:1rem;list-style:none;padding:0}article[data-component-id=card]{display:inline-block;width:12rem;margin:.5rem;vertical-align:top}');
     if (SCRIPTS[path]) return send(200, 'text/javascript', SCRIPTS[path]);
+    if (path === '/css/big.css') return send(200, 'text/css', `.used{color:#036}\n${Array.from({ length: 4000 }, (_, i) => `.unused-${i} .deep .chain > li:not(.x){margin:${i % 7}px;padding:${i % 5}px}`).join('\n')}`);
+    if (path === '/js/big.js') {
+      return send(200, 'text/javascript', `${Array.from({ length: 3000 }, (_, i) => `function unused${i}(a){return a*${i}+Math.sqrt(a+${i});}`).join('\n')}\nwindow.bigReady = unused1(2);`);
+    }
     if (path === '/img/huge.svg') return send(200, 'image/svg+xml', svg(2400, 1600));
     if (path.startsWith('/img/')) return send(200, 'image/svg+xml', svg(120, 80));
     const html = PAGES[path];

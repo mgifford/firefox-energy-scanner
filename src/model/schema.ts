@@ -17,7 +17,7 @@ const sourceId = z.enum(['firefox-dom', 'firefox-network', 'firefox-energy', 'li
 export const metricSchema = z
   .object({
     value: z.number(),
-    unit: z.enum(['count', 'bytes', 'ms', 'score', 'ratio', 'mWh']),
+    unit: z.enum(['count', 'bytes', 'ms', 'score', 'ratio', 'mWh', 'per-second']),
     source: sourceId,
     scope: z.enum(['instance-own', 'instance-inclusive', 'page', 'resource-per-page', 'median-over-pages', 'max-over-pages']),
   })
