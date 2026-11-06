@@ -716,3 +716,38 @@ counts estimated and marked as such. Measurements are copied unchanged. The olde
 
 **Energy is null until measured.** A finding's energy is `not-measured` with a null
 delta. The schema refuses a zero, so an absent measurement cannot look like no effect.
+
+## TDR-019: Optional, budgeted Chromium tracing, attributed only where the trace names a source
+
+**Decision:** `--trace` (or `web-energy trace <url...>`) traces a few pages in Chromium,
+after the Firefox session and Lighthouse. Each page is traced over its load and an idle
+window, and the trace is summarised. Its observations become graph findings with the
+evidence class `trace-supported`, tied to a script, a component or the page only where the
+trace itself names one. Everything else is unattributed, with the reason.
+
+**Why Chromium.** Gecko's profiler is already used for energy, and its markers do not
+name the layout roots, painted elements or timer installation sites that a developer
+needs. Chromium's `devtools.timeline` events do, together with backend node ids that can
+be resolved to the node paths Firefox records. The cost is a second browser. So tracing
+stays outside every energy window, and its figures are never combined with Firefox's.
+
+**Why budgeted.** On the fixture site's pages, a trace with broad categories was 7–23 MB.
+The `devtools.timeline` set gives 1–5 MB there, with everything the analysis reads. Three pages by
+default, at most ten, and a size limit beyond which nothing is analysed. A crawl traces
+one page per family first, so three traces cover three templates rather than three
+similar pages.
+
+**Why page-scoped attribution.** A script is tied to a resource only if Firefox recorded
+that file on the same page. A file Firefox loaded elsewhere on the site says nothing
+about this page. The same rule now applies to Lighthouse's script and resource
+findings.
+
+**Iframes are their own.** A cross-site iframe renders in its own process. Its work is
+summarised under its document URL and tied to the component holding the iframe. Its
+timers and requests are never counted as the page's. Before this, a third-party widget's
+timer could have been reported as idle work of the page, and an iframe timer's id could
+have relabelled a page timer with the same id.
+
+**Refused pages are not traced.** A page the network guard refuses, or one that answers
+with an HTTP error, gets a record that says so, not an analysis of the error page.
+

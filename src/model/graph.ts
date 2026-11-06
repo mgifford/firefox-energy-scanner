@@ -22,7 +22,7 @@
 
 import type { BenchmarkResult, StepResult } from '../core/types.js';
 import type { ComponentInstance, ComponentSignature, OwnCounts } from '../collect/page-anatomy.js';
-import type { LighthouseNodeEvidence, LighthouseScriptEvidence } from '../lighthouse/evidence.js';
+import type { LighthouseNodeEvidence, LighthouseResourceEvidence, LighthouseScriptEvidence } from '../lighthouse/evidence.js';
 import { pageKey } from '../collect/urls.js';
 import { median } from '../core/stats.js';
 import { pagesOf } from '../analysis/families.js';
@@ -42,7 +42,7 @@ export interface Source {
   boundary: string;
 }
 
-export type Unit = 'count' | 'bytes' | 'ms' | 'score' | 'ratio' | 'mWh';
+export type Unit = 'count' | 'bytes' | 'ms' | 'score' | 'ratio' | 'mWh' | 'per-second';
 
 export interface Metric {
   value: number;
@@ -307,6 +307,15 @@ function sourcesOf(result: BenchmarkResult): Source[] {
       boundary: 'Chromium lab, not the Firefox measurement',
     });
   }
+  const firstTrace = result.traces?.find((t) => t.analysis);
+  if (firstTrace) {
+    out.push({
+      id: 'chromium-trace',
+      browser: firstTrace.browser,
+      method: `Chromium performance trace (${firstTrace.categories.length} devtools.timeline categories): the page load, then ${firstTrace.idleMs} ms idle`,
+      boundary: 'Chromium main thread under tracing, not the Firefox measurement',
+    });
+  }
   return out;
 }
 
@@ -469,7 +478,7 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
       for (const s of lh.evidence.scripts as LighthouseScriptEvidence[]) {
         const key = s.url === 'Unattributable' ? undefined : identity(s.url);
         const isPage = key !== undefined && keyOfPage(s.url) === keyOfPage(url);
-        const resource = key && resAcc.has(key) && !isPage ? `rs-${stableHash(key)}` : undefined;
+        const resource = key && pageResources.has(key) && !isPage ? `rs-${stableHash(key)}` : undefined;
         findings.push({
           id: `fd-${stableHash(`${pid}|${s.audit}|${s.url}|${s.source?.line ?? ''}`)}`,
           kind: `lighthouse:${s.audit}`,
@@ -486,6 +495,137 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
           metric: { value: s.value, unit: s.unit, source: 'lighthouse', scope: 'resource-per-page' },
           energy: { status: 'not-measured', measuredWorkloadDeltaMwh: null },
         });
+      }
+      // Findings about one resource: unused code, render blocking, cache, fonts.
+      for (const e of (lh.evidence.resources ?? []) as LighthouseResourceEvidence[]) {
+        const key = identity(e.url);
+        const known = pageResources.has(key);
+        findings.push({
+          id: `fd-${stableHash(`${pid}|${e.audit}|${e.url}`)}`,
+          kind: `lighthouse:${e.audit}`,
+          title: e.detail,
+          page: pid,
+          target: known
+            ? { type: 'resource', id: `rs-${stableHash(key)}` }
+            : { type: 'unattributed', reason: 'Lighthouse named a resource this scan did not record for the page (Chromium and Firefox loaded different files).' },
+          evidenceClass: 'resource-association',
+          role: e.kind,
+          evidence: [{ source: 'lighthouse', ref: `${e.audit} ${e.url}` }],
+          metric: { value: e.value, unit: e.unit, source: 'lighthouse', scope: 'resource-per-page' },
+          energy: { status: 'not-measured', measuredWorkloadDeltaMwh: null },
+        });
+      }
+      // The longest request chain is about the page: its files depend on one another.
+      const chain = lh.evidence.chain;
+      if (chain) {
+        findings.push({
+          id: `fd-${stableHash(`${pid}|${chain.audit}`)}`,
+          kind: `lighthouse:${chain.audit}`,
+          title: `Longest request chain: ${chain.urls.length} requests, ${chain.durationMs} ms`,
+          page: pid,
+          target: { type: 'page', reason: 'A chain of requests is a property of the page, not of one component.' },
+          evidenceClass: 'resource-association',
+          role: chain.kind,
+          evidence: [{ source: 'lighthouse', ref: chain.audit, detail: chain.urls.join(' → ').slice(0, 500) }],
+          metric: { value: chain.durationMs, unit: 'ms', source: 'lighthouse', scope: 'page' },
+          energy: { status: 'not-measured', measuredWorkloadDeltaMwh: null },
+        });
+      }
+    }
+
+    // Chromium trace evidence for this page: what ran during load and while idle.
+    const trace = result.traces?.find((t) => t.analysis && keyOfPage(t.url) === keyOfPage(url));
+    if (trace?.analysis) {
+      const a = trace.analysis;
+      const cands = withIds.map((x) => ({ i: x.i, id: x.id }));
+      const resourceFor = (u: string) => {
+        const k = identity(u);
+        return pageResources.has(k) ? `rs-${stableHash(k)}` : undefined;
+      };
+      const tf = (kind: string, title: string, target: GraphFinding['target'], detail: string, metric?: Metric) =>
+        findings.push({
+          id: `fd-${stableHash(`${pid}|trace|${kind}|${target.id ?? target.reason ?? ''}|${detail}`)}`,
+          kind: `trace:${kind}`,
+          title,
+          page: pid,
+          target,
+          evidenceClass: 'trace-supported',
+          role: 'finding',
+          evidence: [{ source: 'chromium-trace', ref: `traces[${result.traces!.indexOf(trace)}]`, detail: detail.slice(0, 400) }],
+          ...(metric ? { metric } : {}),
+          energy: { status: 'not-measured', measuredWorkloadDeltaMwh: null },
+        });
+      const scriptTarget = (u: string | undefined, why: string): GraphFinding['target'] => {
+        const id = u ? resourceFor(u) : undefined;
+        if (id) return { type: 'resource', id };
+        if (u && keyOfPage(u) === keyOfPage(url)) return { type: 'page', reason: 'The page’s own inline script.' };
+        return { type: 'unattributed', reason: u ? `${identity(u)} is not among the resources Firefox recorded for this page.` : why };
+      };
+      const idle = a.idle;
+      if (idle) {
+        const secs = Math.round(idle.durationMs / 100) / 10;
+        if (idle.animationFrames.perSecond >= 10) {
+          const src = idle.animationFrames.sources[0];
+          tf('continuous-animation-frames', 'Animation frames requested continuously while idle', scriptTarget(src?.url, 'The frames were requested from script with no URL.'),
+            `${idle.animationFrames.perSecond} requestAnimationFrame callbacks a second over ${secs} s of idle${src ? `, requested from ${src.url}${src.line !== undefined ? `:${src.line}` : ''}` : ''}`,
+            { value: idle.animationFrames.perSecond, unit: 'per-second', source: 'chromium-trace', scope: 'page' });
+        }
+        for (const t of idle.timers.sources.filter((x) => x.count >= 2)) {
+          tf('repeating-timer', 'A timer keeps firing while idle', scriptTarget(t.url === '(unknown)' ? undefined : t.url, 'The timer was installed from script with no URL.'),
+            `${t.count} timer callbacks in ${secs} s of idle${t.timeoutMs !== undefined ? `, every ${t.timeoutMs} ms` : ''}, installed from ${t.url}${t.line !== undefined ? `:${t.line}` : ''}`,
+            { value: Math.round((t.count / Math.max(0.1, secs)) * 10) / 10, unit: 'per-second', source: 'chromium-trace', scope: 'page' });
+        }
+        for (const r of idle.requests.slice(0, 10)) {
+          tf('idle-request', 'A request made while idle', scriptTarget(r.url, 'The request was not among the resources Firefox recorded during the load.'), `${r.resourceType ?? 'request'} ${r.url}`);
+        }
+        for (const an of idle.animations) {
+          const m = an.path ? nodeMatch(cands, an.path) : undefined;
+          tf('running-animation', 'An animation runs while idle', m ? { type: 'instance', id: m.id } : { type: 'unattributed', reason: an.path ? 'The animated element is not inside a recorded component.' : 'The trace did not name the animated element.' },
+            `${an.name} on ${an.nodeName ?? an.path ?? 'an element'}${m ? ` (matched by ${m.by})` : ''}`);
+        }
+        if (idle.mainThread.busyMs >= 0.05 * idle.durationMs) {
+          tf('idle-main-thread-work', 'The main thread stays busy while idle', { type: 'page', reason: 'Idle work is the page’s, until the scripts behind it are named.' },
+            `${idle.mainThread.busyMs} ms busy in ${secs} s of idle: script ${idle.mainThread.scriptMs} ms, style ${idle.mainThread.styleMs}, layout ${idle.mainThread.layoutMs}, paint ${idle.mainThread.paintMs}, other ${idle.mainThread.otherMs}`,
+            { value: idle.mainThread.busyMs, unit: 'ms', source: 'chromium-trace', scope: 'page' });
+        }
+      }
+      for (const t of a.load.longTasks) {
+        if (t.urls.length) for (const u of t.urls.slice(0, 3)) tf('long-task', 'A long task during load', scriptTarget(u, 'The script is not among this page’s recorded resources.'), `${t.durationMs} ms task containing script from ${u}`, { value: t.durationMs, unit: 'ms', source: 'chromium-trace', scope: 'page' });
+        else tf('long-task', 'A long task during load', { type: 'unattributed', reason: 'The task contains no script with a URL: parsing, style, layout or browser work.' }, `${t.durationMs} ms task with no named script`, { value: t.durationMs, unit: 'ms', source: 'chromium-trace', scope: 'page' });
+      }
+      for (const f of a.load.forcedLayouts.filter((x) => x.ms >= 1)) {
+        tf('forced-layout', 'Layout forced from script', scriptTarget(f.url, 'The script forcing layout has no URL.'), `${f.ms} ms layout inside ${f.functionName ?? 'a script call'}${f.url ? ` (${f.url}${f.line !== undefined ? `:${f.line}` : ''})` : ''}`, { value: f.ms, unit: 'ms', source: 'chromium-trace', scope: 'page' });
+      }
+      for (const i of a.interactions) {
+        const exec = i.execution[0];
+        const region = i.affected.layoutRoots.map((p) => (p.includes(',') ? nodeMatch(cands, p) : undefined)).find(Boolean);
+        tf('interaction-work', `Work caused by a ${i.type}`, exec ? scriptTarget(exec.url, 'The handler has no URL.') : { type: 'page', reason: 'No handler with a URL ran.' },
+          `${i.type} → ${exec ? `${exec.functionName ?? 'handler'} in ${exec.url}${exec.line !== undefined ? `:${exec.line}` : ''} (${exec.ms} ms)` : 'no named handler'} → ` +
+            `${i.affected.styleElements} elements restyled, ${i.affected.layoutDirtyObjects} objects laid out, over ${i.affected.ms} ms${region ? `; affected region ${region.id}` : i.affected.layoutRoots.length ? `; layout root ${i.affected.layoutRoots[0]}` : ''}`,
+          { value: i.affected.ms, unit: 'ms', source: 'chromium-trace', scope: 'page' });
+      }
+      // Cross-site iframes run in their own renderer: their idle work is named by the frame's document.
+      for (const f of a.frames ?? []) {
+        const fi = f.idle;
+        if (!fi) continue;
+        const secs = Math.round((idle?.durationMs ?? 0) / 100) / 10;
+        const timers = fi.timers.fired;
+        const requests = fi.requests?.length ?? 0;
+        if (timers < 2 && !requests && fi.animationFrames.perSecond < 10 && fi.busyMs < 0.05 * (idle?.durationMs ?? Infinity)) continue;
+        const src = fi.timers.sources[0] ?? fi.animationFrames.sources[0];
+        const docId = resourceFor(f.url);
+        const loader = docId ? withIds.find((x) => x.i.ownResources?.some((r) => r.kind === 'iframe' && identity(r.url) === identity(f.url)))?.id : undefined;
+        tf('iframe-idle-work', 'An embedded frame keeps working while idle',
+          loader ? { type: 'instance', id: loader } : docId ? { type: 'resource', id: docId } : { type: 'unattributed', reason: `The frame ${identity(f.url)} is not among the resources Firefox recorded for this page.` },
+          `${identity(f.url)}, in its own renderer: ${fi.busyMs} ms busy in ${secs} s of idle` +
+            `${timers ? `, ${timers} timer callback${timers === 1 ? '' : 's'}` : ''}${fi.animationFrames.fired ? `, ${fi.animationFrames.perSecond} animation frames a second` : ''}` +
+            `${requests ? `, ${requests} request${requests === 1 ? '' : 's'}` : ''}` +
+            `${src && src.url !== '(unknown)' ? `, from ${src.url}${src.line !== undefined ? `:${src.line}` : ''}` : ''}`,
+          { value: fi.busyMs, unit: 'ms', source: 'chromium-trace', scope: 'page' });
+      }
+      const unattributed = a.load.unattributedScriptMs + (idle?.unattributedScriptMs ?? 0);
+      if (unattributed >= 5) {
+        tf('unattributed-script', 'Script time with no URL', { type: 'unattributed', reason: 'Inline script, eval, or browser automation: the trace names no file.' }, `${Math.round(unattributed)} ms of script with no URL`, { value: Math.round(unattributed), unit: 'ms', source: 'chromium-trace', scope: 'page' });
       }
     }
 

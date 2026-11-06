@@ -103,7 +103,16 @@ Each finding has:
 - **CSV:** `<result>.resources.csv`, one row per resource.
 - **HTML report:** a _Resources_ section listing what nearly every page loads, what a
   family loads, and the heaviest things only one page loads. The components table marks
-  containers and shows owned elements.
+  containers and shows owned elements. With `--trace`, a _Chromium traces_ section lists
+  the work on each traced page and what each observation is tied to.
+
+## Lighthouse and trace findings
+
+Lighthouse findings about one file (unused JavaScript and CSS, render-blocking requests,
+cache lifetimes, font display, duplicated modules) are tied to that resource. This
+happens only when Firefox recorded the file on the same page; otherwise they stay
+unattributed, with the reason. The longest request chain is a property of the page.
+Chromium trace findings follow the rules in [tracing.md](tracing.md).
 
 ## Commands
 
@@ -118,6 +127,8 @@ node dist/cli/index.js graph results/crawl-….json --write    # store it, regen
 - Up to 24 occurrences are recorded per page. Smaller repeated components beyond that are
   counted, but not placed.
 - Resources loaded by script are page-level, even when one component's script loads them.
-  Tracing (planned) can tie some of them to their initiators.
+  A trace (`--trace`) ties idle requests, timers and animation frames to the scripts
+  behind them, but it does not yet credit the resources a script loads to the component
+  that owns the script.
 - Owned counts follow DOM nesting. A component that affects another's rendering, for
   example by script, is not linked by this; that needs trace evidence.

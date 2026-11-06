@@ -89,7 +89,8 @@
                       "ms",
                       "score",
                       "ratio",
-                      "mWh"
+                      "mWh",
+                      "per-second"
                     ]
                   },
                   "source": {
@@ -138,7 +139,8 @@
                       "ms",
                       "score",
                       "ratio",
-                      "mWh"
+                      "mWh",
+                      "per-second"
                     ]
                   },
                   "source": {
@@ -187,7 +189,8 @@
                       "ms",
                       "score",
                       "ratio",
-                      "mWh"
+                      "mWh",
+                      "per-second"
                     ]
                   },
                   "source": {
@@ -759,7 +762,8 @@
                   "ms",
                   "score",
                   "ratio",
-                  "mWh"
+                  "mWh",
+                  "per-second"
                 ]
               },
               "source": {
