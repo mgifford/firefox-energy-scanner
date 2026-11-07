@@ -26,16 +26,23 @@ export const FILE_EXTENSION = new RegExp(
 
 export interface PageCheck {
   url: string;
-  /** html: a page. file: not a page, skipped. unknown: could not tell, so kept. */
-  verdict: 'html' | 'file' | 'unknown';
+  /**
+   * html: a page. file: not a page, skipped. gone: the server says 404 or 410,
+   * so a sample replaces it. unknown: could not tell, so kept.
+   */
+  verdict: 'html' | 'file' | 'gone' | 'unknown';
   /** The served Content-Type, or the file extension that settled it. */
   contentType?: string;
   /** How it was decided: the URL's extension, a HEAD request, or a ranged GET. */
   by: 'extension' | 'head' | 'get' | 'none';
+  /** The status of the response that decided it. */
+  status?: number;
+  /** Where the URL led, when it redirected. */
+  finalUrl?: string;
 }
 
 /** The headers of a response, lower-cased names. */
-export type HeaderRequester = (url: string, method: 'HEAD' | 'GET') => Promise<{ status: number; headers: Record<string, string> } | undefined>;
+export type HeaderRequester = (url: string, method: 'HEAD' | 'GET') => Promise<{ status: number; headers: Record<string, string>; url?: string } | undefined>;
 
 /** HTML and XHTML are pages; everything else a browser would download or show raw. */
 const HTML = /^\s*(text\/html|application\/xhtml\+xml)\s*(;|$)/i;
@@ -65,18 +72,23 @@ export async function checkPage(url: string, request: HeaderRequester): Promise<
   // Only a successful response says what the URL serves. An error (a 404, or
   // a firewall's 403 to a HEAD request) says nothing about the page, so the
   // URL is kept rather than skipped on a block page's Content-Type.
-  const served = (r: { status: number } | undefined): r is { status: number; headers: Record<string, string> } => !!r && r.status < 400;
+  type Res = { status: number; headers: Record<string, string>; url?: string };
+  const served = (r: Res | undefined): r is Res => !!r && r.status < 400;
+  const where = (r: Res) => ({ status: r.status, ...(r.url && r.url !== url ? { finalUrl: r.url } : {}) });
   const head = await request(url, 'HEAD').catch(() => undefined);
   if (served(head)) {
     const j = judgeHeaders(head.headers);
-    if (j.verdict !== 'unknown') return { url, ...j, by: 'head' };
+    if (j.verdict !== 'unknown') return { url, ...j, by: 'head', ...where(head) };
   }
   // A server that refuses HEAD (405, 501), or answers it with no type: a GET for the first kilobyte.
   const get = await request(url, 'GET').catch(() => undefined);
   if (served(get)) {
     const j = judgeHeaders(get.headers);
-    if (j.verdict !== 'unknown') return { url, ...j, by: 'get' };
+    if (j.verdict !== 'unknown') return { url, ...j, by: 'get', ...where(get) };
   }
+  // Gone only when the GET itself says so, with 404 or 410: a page that is not
+  // there. A 403, 429 or 5xx says nothing about the page, so it is kept.
+  if (get && (get.status === 404 || get.status === 410)) return { url, verdict: 'gone', by: 'get', ...where(get) };
   return { url, verdict: 'unknown', by: 'none' };
 }
 
@@ -96,14 +108,14 @@ export async function checkPages(urls: string[], request: HeaderRequester, concu
 
 /** A requester on a Playwright request context: the browser context's, so it goes through the same network guard. */
 export function contextRequester(request: {
-  head: (url: string, o: object) => Promise<{ status(): number; headers(): Record<string, string> }>;
-  get: (url: string, o: object) => Promise<{ status(): number; headers(): Record<string, string> }>;
+  head: (url: string, o: object) => Promise<{ status(): number; headers(): Record<string, string>; url(): string }>;
+  get: (url: string, o: object) => Promise<{ status(): number; headers(): Record<string, string>; url(): string }>;
 }): HeaderRequester {
   return async (url, method) => {
     try {
       const options = { timeout: 10_000, maxRedirects: 5, failOnStatusCode: false };
       const res = method === 'HEAD' ? await request.head(url, options) : await request.get(url, { ...options, headers: { Range: 'bytes=0-1023' } });
-      return { status: res.status(), headers: res.headers() };
+      return { status: res.status(), headers: res.headers(), url: res.url() };
     } catch {
       return undefined;
     }

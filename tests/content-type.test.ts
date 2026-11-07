@@ -48,7 +48,7 @@ describe('checking a URL', () => {
 
   it('asks the server when the address has no extension, as Drupal file aliases do', async () => {
     const s = server({ 'https://cms.gov/files/document/finalpptpdf': { head: { status: 200, type: 'application/pdf' } } });
-    expect(await checkPage('https://cms.gov/files/document/finalpptpdf', s.request)).toEqual({ url: 'https://cms.gov/files/document/finalpptpdf', verdict: 'file', contentType: 'application/pdf', by: 'head' });
+    expect(await checkPage('https://cms.gov/files/document/finalpptpdf', s.request)).toEqual({ url: 'https://cms.gov/files/document/finalpptpdf', verdict: 'file', contentType: 'application/pdf', by: 'head', status: 200 });
     expect(s.asked).toEqual(['HEAD https://cms.gov/files/document/finalpptpdf']);
   });
 
@@ -64,10 +64,26 @@ describe('checking a URL', () => {
   it('never skips a page on an error response, such as a firewall’s 403 to HEAD', async () => {
     const s = server({
       'https://a.gov/blocked': { head: { status: 403, type: 'text/plain' }, get: { status: 200, type: 'text/html' } },
-      'https://a.gov/gone': { head: { status: 404, type: 'text/plain' }, get: { status: 404, type: 'text/plain' } },
+      'https://a.gov/forbidden': { head: { status: 403, type: 'text/html' }, get: { status: 403, type: 'text/html' } },
+      'https://a.gov/busy': { head: { status: 503 }, get: { status: 503 } },
     });
     expect(await checkPage('https://a.gov/blocked', s.request)).toMatchObject({ verdict: 'html', by: 'get' });
-    expect((await checkPage('https://a.gov/gone', s.request)).verdict).toBe('unknown');
+    expect((await checkPage('https://a.gov/forbidden', s.request)).verdict).toBe('unknown');
+    expect((await checkPage('https://a.gov/busy', s.request)).verdict).toBe('unknown');
+  });
+
+  it('calls a page gone only when a GET says 404 or 410', async () => {
+    const s = server({
+      'https://a.gov/gone': { head: { status: 404, type: 'text/plain' }, get: { status: 404, type: 'text/html' } },
+      'https://a.gov/removed': { head: { status: 405 }, get: { status: 410 } },
+    });
+    expect(await checkPage('https://a.gov/gone', s.request)).toMatchObject({ verdict: 'gone', status: 404 });
+    expect(await checkPage('https://a.gov/removed', s.request)).toMatchObject({ verdict: 'gone', status: 410 });
+  });
+
+  it('says where a URL led when it redirected', async () => {
+    const request: HeaderRequester = async () => ({ status: 200, headers: { 'content-type': 'text/html' }, url: 'https://www.a.gov/new-home' });
+    expect(await checkPage('https://a.gov/old-home', request)).toMatchObject({ verdict: 'html', finalUrl: 'https://www.a.gov/new-home' });
   });
 
   it('keeps a URL it cannot check, for Firefox to decide', async () => {

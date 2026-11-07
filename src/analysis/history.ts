@@ -139,6 +139,9 @@ export function compareWithPrevious(current: BenchmarkResult, previous: Benchmar
     ...(components ? { components } : {}),
     energy,
     limitations: [
+      ...(current.sampling?.order && previous.sampling && previous.sampling.method !== 'links' && previous.sampling.order !== current.sampling.order
+        ? ['The previous scan drew its sample in an older order, which reshuffled whenever the sitemap changed. This scan orders pages by URL hash, so few pages are in both this time; later scans will keep most of theirs.']
+        : []),
       'Each page was visited once in each scan, so these differences are indicative. No significance is claimed.',
       'Transfer and elements change with content as well as code: a new article or banner moves them as much as a template change.',
     ],

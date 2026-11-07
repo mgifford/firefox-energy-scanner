@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 /**
  * A sample of a site's pages, taken from its sitemap.
  *
@@ -22,6 +23,7 @@ export type Getter = (url: string) => Promise<Fetched | undefined>;
 
 import { urlSection } from '../analysis/url-pattern.js';
 import type { PageCheck } from './content-type.js';
+import type { SampleHealth } from '../core/types.js';
 
 export type SampleStrategy = 'random' | 'adaptive';
 
@@ -46,7 +48,9 @@ export interface SiteSample {
   /** Pages the sitemap listed that could be scanned (same site, not files). */
   listed: number;
   /** Why each sampled page was picked (the start page is not included). */
-  reasons: Record<string, 'random' | 'representative' | 'proportional' | 'rare-section'>;
+  reasons: Record<string, 'random' | 'representative' | 'proportional' | 'rare-section' | 'video-page' | 'legacy-page'>;
+  /** What the sitemap said about the eligible pages: translations set aside, video and image pages, last-modified dates. */
+  sitemapMeta?: { translationsSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
   /** Adaptive samples only. */
   strata?: Stratum[];
   /** When the sitemap was an index: child sitemaps it named, and how many were read. */
@@ -54,8 +58,14 @@ export interface SiteSample {
   sitemapsRead?: number;
   /** True when a sitemap was longer than MAX_LOCS and only its start was read. */
   capped: boolean;
+  /** How pages were ordered for the draw. */
+  order: typeof SAMPLE_ORDER;
   /** Listed URLs found not to be HTML pages (PDFs, spreadsheets, archives): skipped, and replaced. */
   notHtml?: PageCheck[];
+  /** Listed URLs the server said are not there (404, 410): skipped, and replaced. */
+  gone?: PageCheck[];
+  /** What checking the sample's URLs found. */
+  health?: SampleHealth;
 }
 
 /** At most this many child sitemaps are read from a sitemap index. */
@@ -88,6 +98,46 @@ export function parseSitemapXml(xml: string): { locs: string[]; isIndex: boolean
   return { locs, isIndex };
 }
 
+/** What a sitemap says about one page, beyond its address. */
+export interface SitemapEntry {
+  loc: string;
+  /** <lastmod>, as written (W3C datetime). */
+  lastmod?: string;
+  /** <image:image> and <video:video> entries (Google's sitemap extensions). */
+  images: number;
+  videos: number;
+  /** <xhtml:link rel="alternate" hreflang> translations of the page, itself included when listed. */
+  alternates: { hreflang: string; href: string }[];
+}
+
+/** The <url> entries of a urlset, with their metadata. Pure. */
+export function parseSitemapEntries(xml: string): SitemapEntry[] {
+  const out: SitemapEntry[] = [];
+  const decode = (v: string) => v.replace(/&(amp|lt|gt|quot|apos);/g, (_, e: string) => ENTITIES[e]!);
+  for (const m of xml.matchAll(/<url\b[^>]*>([\s\S]*?)<\/url>/gi)) {
+    if (out.length >= MAX_LOCS) break;
+    const body = m[1]!;
+    const loc = /<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?\s*<\/loc>/i.exec(body)?.[1];
+    if (!loc || !/^https?:\/\//i.test(decode(loc))) continue;
+    const lastmod = /<lastmod>\s*([^<]+?)\s*<\/lastmod>/i.exec(body)?.[1];
+    const alternates: SitemapEntry['alternates'] = [];
+    for (const a of body.matchAll(/<xhtml:link\b([^>]*)>/gi)) {
+      const at = (n: string) => new RegExp(`\\b${n}\\s*=\\s*["']([^"']*)["']`, 'i').exec(a[1]!)?.[1];
+      const href = at('href');
+      const hreflang = at('hreflang');
+      if (at('rel') === 'alternate' && href && hreflang) alternates.push({ hreflang: hreflang.toLowerCase(), href: decode(href) });
+    }
+    out.push({
+      loc: decode(loc),
+      ...(lastmod ? { lastmod } : {}),
+      images: (body.match(/<image:image\b/gi) ?? []).length,
+      videos: (body.match(/<video:video\b/gi) ?? []).length,
+      alternates,
+    });
+  }
+  return out;
+}
+
 /** `Sitemap:` lines of a robots.txt, which apply whatever the user-agent group. */
 export function parseRobotsSitemaps(text: string): string[] {
   const out: string[] = [];
@@ -109,15 +159,38 @@ function hash(seed: string): number {
 }
 
 /**
- * `n` items chosen by a shuffle seeded with `seed`: the same input and seed
- * always give the same choice. The input is sorted first, so a sitemap that
- * lists the same pages in another order gives the same sample.
+ * The order of samples. Each URL's place depends only on the seed and the URL
+ * itself, so adding or removing pages in a sitemap moves no other page: a
+ * re-scan a month later keeps most of its sample, and its comparison with the
+ * last scan stays meaningful. A seeded shuffle, used before, reshuffled every
+ * page when one was added (0 of 20 pages kept after a sitemap grew by 5%).
+ */
+export const SAMPLE_ORDER = 'url-hash' as const;
+
+/** The part of a URL that names the page: no scheme, no leading www., host in lower case. */
+const stableKey = (url: string) => url.replace(/^https?:\/\/(www\.)?([^/?#]*)/i, (_m, _w, host: string) => host.toLowerCase());
+
+/** A URL's rank in a seeded order: SHA-256 of the seed and the page. */
+export function hashRank(item: string, seed: string): string {
+  return createHash('sha256').update(`${seed}\n${stableKey(item)}`).digest('hex');
+}
+
+/** Items in seeded hash order, duplicates removed. */
+export function hashOrder<T extends string>(items: T[], seed: string): T[] {
+  return [...new Set(items)]
+    .map((x) => [hashRank(x, seed), x] as const)
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
+    .map((x) => x[1]);
+}
+
+/**
+ * `n` items in seeded hash order: the same pages and seed always give the
+ * same choice, whatever order they are listed in, and a changed sitemap
+ * changes only the pages that changed. Skipped items (files, found after a
+ * first draw) are stepped over, so the next one in the order takes their place.
  */
 export function seededSample<T extends string>(items: T[], n: number, seed: string, skip?: ReadonlySet<string>): T[] {
-  const pool = [...items].sort();
-  // Skipped items keep their places in the order, so the rest of the sample does not move.
-  if (pool.length <= n) return skip ? pool.filter((u) => !skip.has(u)) : pool;
-  return seededShuffle(pool, seed).filter((u) => !skip?.has(u)).slice(0, n);
+  return hashOrder(items, seed).filter((u) => !skip?.has(u)).slice(0, n);
 }
 
 /** A copy of `items` in an order fixed by `seed` (Fisher–Yates with mulberry32). */
@@ -143,7 +216,7 @@ export interface AdaptivePick {
   url: string;
   /** The stratum it came from. */
   key: string;
-  reason: 'representative' | 'rare-section' | 'proportional';
+  reason: 'representative' | 'rare-section' | 'proportional' | 'video-page' | 'legacy-page';
 }
 
 /** A section holding at most this share of the listed pages (and at least one page) is rare. */
@@ -161,8 +234,8 @@ const RARE_BUDGET = 0.2;
  * 3. the rest shared out in proportion to section size (D'Hondt), so a large
  *    section gets more pages than a small one.
  *
- * Pages within a section are drawn in seeded order. The same pages and seed
- * give the same sample. Representatives come first, then rare sections, then
+ * Pages within a section are drawn in seeded hash order (see SAMPLE_ORDER).
+ * The same pages and seed give the same sample. Representatives come first, then rare sections, then
  * the proportional share, so a page limit cuts the least informative picks.
  *
  * `groups` maps a stratum key to its pages. Pages in `skip` (files, found
@@ -176,14 +249,16 @@ export function adaptiveSample(
   skip?: ReadonlySet<string>,
 ): { picks: AdaptivePick[]; picked: Map<string, number>; rare: Set<string> } {
   const keys = [...groups.keys()].sort();
-  const order = new Map(keys.map((k) => [k, seededShuffle([...groups.get(k)!].sort(), `${seed}|${k}`)]));
+  // Pages within a section, and rare sections among themselves, in hash order:
+  // a section's picks do not move when other pages or sections come and go.
+  const order = new Map(keys.map((k) => [k, hashOrder(groups.get(k)!, seed)]));
   const total = keys.reduce((t, k) => t + order.get(k)!.length, 0);
   const rareMax = Math.max(1, Math.floor(total * RARE_SHARE));
   const size = (k: string) => order.get(k)!.length;
   const bySize = (a: string, b: string) => size(b) - size(a) || (a < b ? -1 : a > b ? 1 : 0);
 
   let common = keys.filter((k) => size(k) > rareMax).sort(bySize);
-  let rare = seededShuffle(keys.filter((k) => size(k) <= rareMax), `${seed}|rare`);
+  let rare = hashOrder(keys.filter((k) => size(k) <= rareMax), `${seed}|section`);
   // With no common section, there is nothing for a rare one to stand out from.
   if (common.length === 0) {
     common = [...rare].sort(bySize);
@@ -265,6 +340,8 @@ export interface SampleOptions {
    * for an adaptive sample), so the sample keeps its size and spread.
    */
   checkPages?: (urls: string[]) => Promise<PageCheck[]>;
+  /** Page keys already chosen (named pages, key pages): not drawn again. */
+  taken?: string[];
 }
 
 /** At most this many URLs are checked for each page the sample asks for. */
@@ -291,6 +368,12 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     // A redirect (canada.ca -> www.canada.ca) moves the site, not the request.
     if (res.url) sites.add(opts.siteOf(res.url));
     const parsed = parseSitemapXml(res.text);
+    // What the sitemaps say about each page, by page key, for the sample's choices.
+    const entries = new Map<string, SitemapEntry>();
+    const keep = (xml: string) => {
+      for (const e of parseSitemapEntries(xml)) if (!entries.has(opts.pageKey(e.loc))) entries.set(opts.pageKey(e.loc), e);
+    };
+    if (!parsed.isIndex) keep(res.text);
     let capped = parsed.locs.length >= MAX_LOCS;
     let locs = parsed.locs;
     // Which child sitemap each page came from, for an adaptive sample's strata.
@@ -308,6 +391,7 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
         if (c?.ok && c.text) {
           index.read++;
           const childLocs = parseSitemapXml(c.text).locs;
+          keep(c.text);
           if (childLocs.length >= MAX_LOCS) capped = true;
           const name = new URL(child).pathname.split('/').pop() || child;
           for (const l of childLocs) if (!fromChild.has(l)) fromChild.set(l, name);
@@ -320,41 +404,86 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       }
     }
     const startKey = opts.pageKey(startUrl);
-    const pages = opts.select(locs, sites).filter((u) => opts.pageKey(u) !== startKey);
+    const taken = new Set(opts.taken ?? []);
+    const listedPages = opts.select(locs, sites).filter((u) => opts.pageKey(u) !== startKey && !taken.has(opts.pageKey(u)));
+    // Translations share a template: one page of each translation group is eligible.
+    const { pages, setAside } = collapseTranslations(listedPages, entries, opts.pageKey, startKey, site);
+    const meta = sitemapMetaOf(pages, entries, opts.pageKey, setAside);
     if (pages.length === 0) continue;
     const budget = Math.max(0, opts.maxPages - 1);
     const common = {
       source: res.url || candidate,
-      listed: pages.length,
+      listed: listedPages.length,
+      ...(meta ? { sitemapMeta: meta } : {}),
       capped,
+      order: SAMPLE_ORDER,
       ...(index ? { sitemapsListed: index.listed, sitemapsRead: index.read } : {}),
     };
 
     // Draw, check the new picks, skip any that are files, draw again: each
     // round only checks the replacements. Capped, so a sitemap of mostly
     // PDFs cannot turn into thousands of requests.
+    //
+    // A draw is also cleaned: a page that is gone (404, 410), that redirects
+    // to a page already in the sample, or that redirects to another site is
+    // replaced in the same way, as update_sitemap.py in mgifford's
+    // sitemap-tools does for a whole sitemap.
     const skip = new Set<string>();
     const notHtml: PageCheck[] = [];
+    const gone: PageCheck[] = [];
+    const finalOf = new Map<string, string>();
+    const health: SampleHealth = { checked: 0, html: 0, files: 0, gone: 0, redirected: 0, duplicates: 0, offSite: 0, unknown: 0 };
     const checked = new Set<string>();
     const maxChecks = budget * CHECKS_PER_PAGE + 5;
     const settle = async (draw: () => string[]): Promise<string[]> => {
       let urls = draw();
-      while (opts.checkPages && checked.size < maxChecks) {
-        const fresh = urls.filter((u) => !checked.has(u)).slice(0, maxChecks - checked.size);
-        if (!fresh.length) break;
-        const results = await opts.checkPages(fresh);
-        for (const u of fresh) checked.add(u);
-        const files = results.filter((r) => r.verdict === 'file');
-        if (!files.length) break;
-        for (const f of files) {
-          skip.add(f.url);
-          notHtml.push(f);
+      while (opts.checkPages) {
+        const before = skip.size;
+        const fresh = urls.filter((u) => !checked.has(u)).slice(0, Math.max(0, maxChecks - checked.size));
+        if (fresh.length) {
+          const results = await opts.checkPages(fresh);
+          for (const u of fresh) checked.add(u);
+          for (const r of results) {
+            health.checked++;
+            if (r.finalUrl) {
+              finalOf.set(r.url, r.finalUrl);
+              health.redirected++;
+            }
+            if (r.verdict === 'file') {
+              health.files++;
+              notHtml.push(r);
+              skip.add(r.url);
+            } else if (r.verdict === 'gone') {
+              health.gone++;
+              gone.push(r);
+              skip.add(r.url);
+            } else if (r.finalUrl && !sites.has(opts.siteOf(r.finalUrl))) {
+              health.offSite++;
+              skip.add(r.url);
+            } else r.verdict === 'html' ? health.html++ : health.unknown++;
+          }
         }
+        // Two sampled URLs that lead to one page: the later one is replaced.
+        const seen = new Set([startKey, ...taken]);
+        for (const u of urls) {
+          if (skip.has(u)) continue;
+          const k = opts.pageKey(finalOf.get(u) ?? u);
+          if (seen.has(k)) {
+            skip.add(u);
+            health.duplicates++;
+          } else seen.add(k);
+        }
+        if (skip.size === before) break;
         urls = draw();
+        if (checked.size >= maxChecks && urls.every((u) => checked.has(u))) break;
       }
       return urls;
     };
-    const withSkips = () => (notHtml.length ? { notHtml } : {});
+    const withSkips = () => ({
+      ...(notHtml.length ? { notHtml } : {}),
+      ...(gone.length ? { gone } : {}),
+      ...(opts.checkPages && health.checked ? { health } : {}),
+    });
 
     if (!adaptive) {
       const sample = await settle(() => seededSample(pages, budget, site, skip));
@@ -367,27 +496,33 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     for (const [l, name] of fromChild) childOf.set(opts.pageKey(l), name);
     const splitByChild = new Set(fromChild.values()).size > 1;
     const groups = new Map<string, string[]>();
-    const meta = new Map<string, { section: string; sitemap?: string }>();
+    const strataMeta = new Map<string, { section: string; sitemap?: string }>();
+    const groupOf = new Map<string, string>();
     for (const u of pages) {
       const section = urlSection(u);
       const sitemap = splitByChild ? childOf.get(opts.pageKey(u)) : undefined;
       const key = sitemap ? `${sitemap} ${section}` : section;
       if (!groups.has(key)) {
         groups.set(key, []);
-        meta.set(key, { section, ...(sitemap ? { sitemap } : {}) });
+        strataMeta.set(key, { section, ...(sitemap ? { sitemap } : {}) });
       }
       groups.get(key)!.push(u);
+      groupOf.set(u, key);
     }
-    let drawn = adaptiveSample(groups, budget, site, skip);
-    await settle(() => (drawn = adaptiveSample(groups, budget, site, skip)).picks.map((p) => p.url));
-    const { picks, picked, rare } = drawn;
+    const draw = () => {
+      const d = adaptiveSample(groups, budget, site, skip);
+      return { ...d, picks: withSpecialPages(d.picks, pages, budget, site, skip, groupOf, (u) => entries.get(opts.pageKey(u))) };
+    };
+    let drawn = draw();
+    await settle(() => (drawn = draw()).picks.map((p) => p.url));
+    const { picks, rare } = drawn;
     const pickedFrom = new Map<string, string[]>();
     for (const p of picks) pickedFrom.set(p.key, [...(pickedFrom.get(p.key) ?? []), p.url]);
     const strata: Stratum[] = [...groups.keys()]
       .map((k) => ({
-        ...meta.get(k)!,
+        ...strataMeta.get(k)!,
         listed: groups.get(k)!.length,
-        picked: picked.get(k) ?? 0,
+        picked: pickedFrom.get(k)?.length ?? 0,
         rare: rare.has(k),
         pages: pickedFrom.get(k) ?? [],
       }))
@@ -401,4 +536,126 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     };
   }
   return undefined;
+}
+
+/** At least this many pages before a sample makes room for a video page or a legacy page. */
+const SPECIAL_MIN_BUDGET = 6;
+/** Pages last modified this long before the newest are likely to use an older template. */
+const LEGACY_YEARS = 3;
+const YEAR_MS = 365.25 * 24 * 3600 * 1000;
+const dateOf = (e: SitemapEntry | undefined) => {
+  const t = e?.lastmod ? Date.parse(e.lastmod) : Number.NaN;
+  return Number.isFinite(t) ? t : undefined;
+};
+
+/**
+ * One page of each translation group, by the sitemap's hreflang alternates:
+ * translations share a template, so measuring each language spends the
+ * budget on the same page several times. The start page's language is kept
+ * when the sitemap names it; otherwise the first in hash order. Pure.
+ */
+export function collapseTranslations(
+  pages: string[],
+  entries: Map<string, SitemapEntry>,
+  keyOf: (u: string) => string,
+  startKey: string,
+  seed: string,
+): { pages: string[]; setAside: number } {
+  const parent = new Map<string, string>();
+  const find = (k: string): string => {
+    let r = k;
+    while (parent.has(r) && parent.get(r) !== r) r = parent.get(r)!;
+    if (r !== k) parent.set(k, r);
+    return r;
+  };
+  const langOf = new Map<string, string>();
+  for (const [k, e] of entries) {
+    for (const a of e.alternates) {
+      const ak = keyOf(a.href);
+      langOf.set(ak, a.hreflang);
+      const [x, y] = [find(k), find(ak)];
+      if (x !== y) parent.set(x < y ? y : x, x < y ? x : y);
+    }
+  }
+  if (!langOf.size) return { pages, setAside: 0 };
+  const startLang = langOf.get(startKey);
+  const byGroup = new Map<string, string[]>();
+  for (const u of pages) {
+    const g = find(keyOf(u));
+    byGroup.set(g, [...(byGroup.get(g) ?? []), u]);
+  }
+  const keep = new Set<string>();
+  for (const members of byGroup.values()) {
+    const sameLang = startLang ? members.filter((u) => langOf.get(keyOf(u)) === startLang) : [];
+    keep.add(hashOrder(sameLang.length ? sameLang : members, seed)[0]!);
+  }
+  const kept = pages.filter((u) => keep.has(u));
+  return { pages: kept, setAside: pages.length - kept.length };
+}
+
+/** A summary of what the sitemap said about the eligible pages. Undefined when it said nothing. */
+export function sitemapMetaOf(
+  pages: string[],
+  entries: Map<string, SitemapEntry>,
+  keyOf: (u: string) => string,
+  translationsSetAside: number,
+): SiteSample['sitemapMeta'] {
+  const es = pages.map((u) => entries.get(keyOf(u))).filter((e): e is SitemapEntry => !!e);
+  const dates = es.map(dateOf).filter((t): t is number => t !== undefined);
+  const videoPages = es.filter((e) => e.videos > 0).length;
+  const imagePages = es.filter((e) => e.images > 0).length;
+  if (!dates.length && !videoPages && !imagePages && !translationsSetAside) return undefined;
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+  return {
+    ...(translationsSetAside ? { translationsSetAside } : {}),
+    ...(videoPages ? { videoPages } : {}),
+    ...(imagePages ? { imagePages } : {}),
+    ...(dates.length ? { dated: dates.length, oldest: iso(Math.min(...dates)), newest: iso(Math.max(...dates)) } : {}),
+  };
+}
+
+/**
+ * Two pages a draw of sections can miss, each in place of the last page of a
+ * large section's proportional share: a page with video, when the sitemap
+ * marks some (video is the heaviest thing a page can load), and the page
+ * least recently modified, when the sitemap spans more than three years
+ * (old pages often keep an older template). Neither when the sample is small.
+ */
+export function withSpecialPages(
+  picks: AdaptivePick[],
+  pages: string[],
+  budget: number,
+  seed: string,
+  skip: ReadonlySet<string>,
+  groupOf: Map<string, string>,
+  entryOf: (u: string) => SitemapEntry | undefined,
+): AdaptivePick[] {
+  if (budget < SPECIAL_MIN_BUDGET) return picks;
+  const out = [...picks];
+  const inSample = new Set(out.map((p) => p.url));
+  const replaceLast = (url: string, reason: AdaptivePick['reason']) => {
+    const i = out.map((p) => p.reason).lastIndexOf('proportional');
+    if (i < 0) return;
+    inSample.delete(out[i]!.url);
+    out[i] = { url, key: groupOf.get(url)!, reason };
+    inSample.add(url);
+  };
+  const eligible = (u: string) => !skip.has(u) && !inSample.has(u);
+
+  if (!out.some((p) => (entryOf(p.url)?.videos ?? 0) > 0)) {
+    const video = hashOrder(pages.filter((u) => (entryOf(u)?.videos ?? 0) > 0 && eligible(u)), `${seed}|video`)[0];
+    if (video) replaceLast(video, 'video-page');
+  }
+
+  const dated = pages.map((u) => [u, dateOf(entryOf(u))] as const).filter((x): x is readonly [string, number] => x[1] !== undefined);
+  if (dated.length) {
+    const newest = Math.max(...dated.map((x) => x[1]));
+    const cutoff = newest - LEGACY_YEARS * YEAR_MS;
+    const hasLegacy = out.some((p) => (dateOf(entryOf(p.url)) ?? Infinity) < cutoff);
+    const oldest = dated
+      .filter(([u, t]) => t < cutoff && eligible(u))
+      .sort((a, b) => a[1] - b[1] || (hashRank(a[0], seed) < hashRank(b[0], seed) ? -1 : 1))[0];
+    if (!hasLegacy && oldest) replaceLast(oldest[0], 'legacy-page');
+  }
+  return out;
 }

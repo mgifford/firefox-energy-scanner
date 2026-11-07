@@ -13,7 +13,7 @@ export interface Args {
  */
 export const BOOLEAN_FLAGS = new Set([
   'adaptive', 'authenticated', 'dry-run', 'crux', 'crux-url', 'green-hosting', 'headed', 'headless', 'help', 'json',
-  'lighthouse', 'lookup-only', 'no-energy', 'no-history', 'public-only', 'sample', 'trace', 'triage-only', 'webnrg',
+  'lighthouse', 'lookup-only', 'no-energy', 'no-history', 'no-key-pages', 'public-only', 'sample', 'trace', 'triage-only', 'webnrg',
   'webnrg-lookup-only', 'write',
 ]);
 
@@ -51,7 +51,7 @@ export const has = (args: Args, key: string): boolean => args.flags.has(key);
  */
 export const KNOWN_FLAGS = new Set([
   ...BOOLEAN_FLAGS,
-  'a', 'also', 'b', 'block-url', 'config', 'crux-form-factor', 'crux-key', 'dir', 'exclude', 'file', 'from',
+  'a', 'also', 'also-file', 'b', 'block-url', 'config', 'crux-form-factor', 'crux-key', 'dir', 'exclude', 'file', 'from',
   'grid-intensity', 'grid-kind', 'grid-source', 'grid-year', 'grid-zone', 'host', 'idle', 'include', 'item', 'journey',
   'keep-eager', 'kind', 'label-a', 'label-b', 'lighthouse-categories', 'lighthouse-form-factor', 'lighthouse-reports',
   'lighthouse-runs', 'lighthouse-top', 'markdown', 'max-depth', 'max-pages', 'name', 'out', 'path', 'previous', 'runs',

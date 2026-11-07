@@ -69,6 +69,9 @@ import { pickLighthouseUrls } from '../lighthouse/select.js';
 import { traceChromium, type TraceRecord } from '../trace/run.js';
 import { pickTraceUrls } from '../trace/select.js';
 import { notHtmlSentence } from '../collect/content-type.js';
+import { KEY_PAGE_LABEL } from '../collect/key-pages.js';
+import { healthSentence, sitemapMetaSentence } from '../collect/sample-text.js';
+import { readUrlList } from '../collect/url-list.js';
 import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
 import { webnrgMarkdown } from '../webnrg/markdown.js';
 import { has, one, parseArgs, unknownFlagWarnings, type Args } from './args.js';
@@ -142,6 +145,12 @@ Options:
                          Also seeded, so a re-scan gets the same pages.
   --no-history           Do not compare with the previous scan of the same site
                          in the output directory.
+  --also-file <file>     Crawl: also measure the pages listed in this file: one URL
+                         a line, a CSV (first column), or a sitemap XML.
+  --no-key-pages         Crawl: do not add the site's key pages. By default a
+                         crawl also measures its search results, contact page,
+                         accessibility statement and "not found" page, found
+                         from the start page, as a WCAG-EM sample has them.
   --also <url>           Crawl: also measure this page of the same site, right
                          after the start page (repeatable).
   --authenticated        Use Drupal auth from environment variables
@@ -301,6 +310,7 @@ async function buildConfig(args: Args): Promise<Config> {
       ...(args.flags.get('exclude') ? { exclude: args.flags.get('exclude')! } : {}),
       ...(has(args, 'sample') ? { strategy: 'sitemap' as const } : {}),
       ...(has(args, 'adaptive') ? { strategy: 'adaptive' as const } : {}),
+      ...(has(args, 'no-key-pages') ? { key_pages: false } : {}),
     },
     co2: {
       ...config.co2,
@@ -799,7 +809,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   const outcome = await crawl({
     config,
     startUrl: start,
-    extraPages: args.flags.get('also') ?? [],
+    extraPages: [...(args.flags.get('also') ?? []), ...(await readUrlList(one(args, 'also-file')))],
     onProgress: progress,
   });
   process.stderr.write('\n');
@@ -849,11 +859,14 @@ async function cmdCrawl(args: Args): Promise<number> {
   return 0;
 }
 
+
 /** One sentence on how a crawl chose its pages. */
 export function describeSampling(s: CrawlSampling): string {
+  const keys = s.keyPages?.length ? ` Key pages: ${s.keyPages.map((k) => KEY_PAGE_LABEL[k.kind]).join(', ')}.` : '';
   const skipped = s.notHtml?.length ? ` ${notHtmlSentence(s.notHtml, s.notHtmlCount, s.method !== 'links')}` : '';
-  return describeChoice(s) + skipped;
+  return describeChoice(s) + keys + skipped + healthSentence(s) + sitemapMetaSentence(s);
 }
+
 
 function describeChoice(s: CrawlSampling): string {
   const listed = s.requested ? `, the ${s.requested} listed page${s.requested === 1 ? '' : 's'}` : '';

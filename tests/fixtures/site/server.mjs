@@ -20,6 +20,10 @@
  * And /assets, for Lighthouse's resource findings: a render-blocking
  * stylesheet whose rules are mostly unused, and a large, mostly unused script.
  *
+ * Key pages, which a crawl finds from the home page: a search form (results
+ * at /search?q=, not in the sitemap, as on most sites), contact and
+ * accessibility statement links in the footer, and an HTML "not found" page.
+ *
  * The sitemap also lists two files, which a scan must skip rather than
  * measure: a PDF at an address with no extension, as Drupal file aliases are
  * (/files/document/annual-reportpdf), and a CSV with one (/files/data.csv).
@@ -38,9 +42,11 @@ const nav = `<nav aria-label="Main" data-component-id="site-nav"><ul>
 const page = (title, body, { head = '', bodyEnd = '' } = {}) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>
 <link rel="stylesheet" href="/css/site.css"><script src="/js/site.js" defer></script>${head}</head>
-<body><header class="site-header" data-component-id="site-header"><a href="/" class="brand">Fixture</a>${nav}</header>
+<body><header class="site-header" data-component-id="site-header"><a href="/" class="brand">Fixture</a>${nav}
+<form role="search" action="/search" method="get"><label>Search <input type="search" name="q"></label> <button>Search</button></form></header>
 <main id="main"><h1>${title}</h1>${body}</main>
-<footer data-component-id="site-footer"><p>Fixture site footer. Synthetic content.</p></footer>${bodyEnd}</body></html>`;
+<footer data-component-id="site-footer"><p>Fixture site footer. Synthetic content.</p>
+<p><a href="/contact">Contact us</a> · <a href="/accessibility">Accessibility statement</a></p></footer>${bodyEnd}</body></html>`;
 
 const cards = (n, prefix) =>
   `<section aria-label="Related" data-component-id="card-list"><script src="/js/cards.js" defer></script>${Array.from({ length: n }, (_, i) =>
@@ -75,6 +81,8 @@ const PAGES = {
   '/assets': page('Assets', '<p class="used">Only one rule of the big stylesheet applies here.</p>', {
     head: '<link rel="stylesheet" href="/css/big.css"><script src="/js/big.js"></script>',
   }),
+  '/contact': page('Contact us', '<p>Write to the fixture team.</p><form action="/contact" method="post"><label>Your message <textarea name="m"></textarea></label><button>Send</button></form>'),
+  '/accessibility': page('Accessibility statement', `<p>${'This synthetic site aims to meet WCAG 2.2 AA. '.repeat(6)}</p>`),
   '/spinner': page('Spinner', '<div class="spinner" role="status" aria-label="Loading" data-component-id="spinner"></div>', {
     head: '<style>.spinner{width:48px;height:48px;border:6px solid #ccc;border-top-color:#036;border-radius:50%;animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style>',
   }),
@@ -128,9 +136,14 @@ export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {})
     }
     if (path === '/img/huge.svg') return send(200, 'image/svg+xml', svg(2400, 1600));
     if (path.startsWith('/img/')) return send(200, 'image/svg+xml', svg(120, 80));
+    if (path === '/search') {
+      const q = new URL(req.url, site).searchParams.get('q') ?? '';
+      const results = q ? Array.from({ length: 10 }, (_, i) => `<li><a href="/articles/a">Result ${i + 1} for ${q.replace(/[<>&"]/g, '')}</a></li>`).join('') : '';
+      return send(200, 'text/html; charset=utf-8', page('Search', `<section aria-label="Search results" data-component-id="search-results"><ol>${results}</ol></section>`));
+    }
     const html = PAGES[path];
     if (html) return send(200, 'text/html; charset=utf-8', html.replace('PORT', String(port)));
-    return send(404, 'text/plain', 'not found');
+    return send(404, 'text/html; charset=utf-8', page('Page not found', '<p>Nothing is at this address.</p>'));
   });
   await new Promise((resolve) => server.listen(port, host, resolve));
   return { url: site, port, pages: Object.keys(PAGES), close: () => new Promise((r) => server.close(r)) };

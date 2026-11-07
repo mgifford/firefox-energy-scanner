@@ -66,16 +66,35 @@ describe('seededSample', () => {
     expect(new Set(a).size).toBe(10);
   });
 
-  // The default sample must not move when sampling code changes: re-scans
-  // compare like with like only while the same site gives the same pages.
-  it('is unchanged from earlier releases', () => {
+  // The sample must not move when sampling code changes: re-scans compare
+  // like with like only while the same site gives the same pages. Changed
+  // once, deliberately, from a seeded shuffle to the URL-hash order, which
+  // the next test shows keeps its pages as a sitemap changes.
+  it('is unchanged from earlier releases (url-hash order)', () => {
     const pool = Array.from({ length: 40 }, (_, i) => `https://www.cms.gov/p/${(i * 7919) % 10007}`);
     expect(seededSample(pool, 4, 'canada.ca')).toEqual([
-      'https://www.cms.gov/p/3666',
-      'https://www.cms.gov/p/7409',
-      'https://www.cms.gov/p/4965',
-      'https://www.cms.gov/p/2877',
+      'https://www.cms.gov/p/7842',
+      'https://www.cms.gov/p/5321',
+      'https://www.cms.gov/p/5398',
+      'https://www.cms.gov/p/9930',
     ]);
+  });
+
+  it('keeps nearly all of its pages when the sitemap gains or loses some', () => {
+    const base = Array.from({ length: 4000 }, (_, i) => `https://www.a.gov/s${i % 40}/page-${i}`);
+    const grown = [...base, ...Array.from({ length: 200 }, (_, i) => `https://www.a.gov/s${i % 40}/new-${i}`)];
+    const shrunk = base.filter((_, i) => i % 50 !== 7);
+    const kept = (a: string[], b: string[]) => a.filter((u) => b.includes(u)).length;
+    const s0 = seededSample(base, 20, 'a.gov');
+    // A page leaves the sample only when a new page outranks it, or it leaves the sitemap.
+    expect(kept(s0, seededSample(grown, 20, 'a.gov'))).toBeGreaterThanOrEqual(17);
+    expect(kept(s0, seededSample(shrunk, 20, 'a.gov'))).toBeGreaterThanOrEqual(18);
+  });
+
+  it('ignores the scheme and www. when ordering, so a site moving to https keeps its sample', () => {
+    const https = Array.from({ length: 50 }, (_, i) => `https://www.a.gov/p${i}`);
+    const http = https.map((u) => u.replace('https://www.', 'http://'));
+    expect(seededSample(http, 5, 'a.gov').map((u) => u.replace('http://', 'https://www.'))).toEqual(seededSample(https, 5, 'a.gov'));
   });
 
   it('gives another sample for another site, and everything when there are few', () => {
@@ -178,6 +197,16 @@ describe('adaptiveSample', () => {
     const reversed = new Map([...groups()].reverse().map(([k, v]) => [k, [...v].reverse()]));
     expect(adaptiveSample(reversed, 10, 'a.org').picks).toEqual(a);
     expect(adaptiveSample(groups(), 10, 'b.org').picks).not.toEqual(a);
+  });
+
+  it('keeps its picks when sections gain pages, or a new section appears', () => {
+    const a = adaptiveSample(groups(), 10, 'a.org').picks.map((p) => p.url);
+    const grown = groups();
+    grown.set('/guidance', [...grown.get('/guidance')!, ...Array.from({ length: 40 }, (_, i) => `https://a.org/guidance/t/new${i}`)]);
+    grown.set('/press', Array.from({ length: 30 }, (_, i) => `https://a.org/press/p${i}`));
+    const b = adaptiveSample(grown, 10, 'a.org').picks.map((p) => p.url);
+    // The new section takes a representative's place; the rest stay.
+    expect(a.filter((u) => b.includes(u)).length).toBeGreaterThanOrEqual(7);
   });
 
   it('keeps no rare share for a tiny budget, and stops when pages run out', () => {

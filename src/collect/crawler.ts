@@ -6,7 +6,8 @@ import { StepRunner, buildStepResults, greenHostingFor, type StepRecord } from '
 import { deriveBaseline, type Baseline } from '../core/baseline.js';
 import { parseRobotsSitemaps, sampleFromSitemaps, type Getter, type SiteSample } from './sitemap.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
-import { FILE_EXTENSION, checkPage, checkPages, contextRequester, type PageCheck } from './content-type.js';
+import { FILE_EXTENSION, checkPage, checkPages, contextRequester, judgeHeaders, type HeaderRequester, type PageCheck } from './content-type.js';
+import { findKeyPages, notFoundUrl, type KeyPage } from './key-pages.js';
 
 export interface CrawlOptions {
   config: Config;
@@ -63,6 +64,9 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
   // Only HTML pages are measured: what each URL is, asked once, before Firefox visits it.
   const checks = new Map<string, PageCheck>();
   const notHtml: PageCheck[] = [];
+  const gone: PageCheck[] = [];
+  let keyPages: KeyPage[] = [];
+  let keyKeys = new Set<string>();
 
   try {
     if (config.auth?.type === 'drupal') {
@@ -95,10 +99,37 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
 
     // Choose the pages before the idle baseline, so no sitemap fetch falls
     // inside an energy window.
-    let queue: QueueItem[] = [{ url: normalizeUrl(startUrl, keyOpts), depth: 0 }];
-    if (sampleFromSitemap) {
+    const startItem: QueueItem = { url: normalizeUrl(startUrl, keyOpts), depth: 0 };
+    const startKey = pageKey(startItem.url, keyOpts);
+    const request = contextRequester(session.getContext().request);
+
+    // Named pages on the same site go right after the start page, ahead of
+    // the key pages and the sample, so the page limit never cuts them.
+    const startSite = siteOf(startUrl);
+    const named = options.extraPages ?? [];
+    const extras = named
+      .filter((u) => siteOf(u) === startSite)
+      .map((u) => normalizeUrl(u, keyOpts))
+      .filter((u, i, all) => all.findIndex((x) => pageKey(x, keyOpts) === pageKey(u, keyOpts)) === i)
+      .filter((u) => pageKey(u, keyOpts) !== startKey);
+    const offSite = named.filter((u) => siteOf(u) !== startSite).length;
+    if (offSite) warnings.push(`${offSite} listed page${offSite === 1 ? ' is' : 's are'} on another site than ${startUrl}, so ${offSite === 1 ? 'it was' : 'they were'} not measured.`);
+    extraKeys = new Set(extras.map((u) => pageKey(u, keyOpts)));
+
+    // Key pages: site search results, contact, the accessibility statement and
+    // the "not found" page, found from the start page's HTML.
+    if (config.crawl.key_pages) {
+      options.onProgress?.('Looking for key pages');
+      keyPages = (await findSiteKeyPages(startUrl, requestGetter(session), request, config, robotsDisallow)).filter(
+        (k) => pageKey(k.url, keyOpts) !== startKey && !extraKeys.has(pageKey(k.url, keyOpts)),
+      );
+    }
+    keyKeys = new Set(keyPages.map((k) => pageKey(k.url, keyOpts)));
+    const fixed = 1 + extras.length + keyPages.length;
+
+    let sampled: QueueItem[] = [];
+    if (sampleFromSitemap && config.crawl.max_pages > fixed) {
       options.onProgress?.('Reading the sitemap');
-      const request = contextRequester(session.getContext().request);
       const sample = await sampleFromSitemaps(startUrl, {
         get: requestGetter(session),
         checkPages: async (urls) => {
@@ -112,7 +143,10 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
           return results;
         },
         robotsSitemaps,
-        maxPages: config.crawl.max_pages,
+        // The sample fills what the start page, named pages and key pages leave.
+        maxPages: config.crawl.max_pages - fixed + 1,
+        // Pages already chosen are not drawn again.
+        taken: [...extraKeys, ...keyKeys],
         siteOf,
         pageKey: (u) => pageKey(u, keyOpts),
         select: (locs, sites) => selectCrawlLinks(locs, startUrl, sites, config.crawl, robotsDisallow),
@@ -120,30 +154,20 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
       });
       if (sample) {
         // Sampled pages are measured as listed; no links are followed.
-        queue = sample.urls.map((u) => ({ url: normalizeUrl(u, keyOpts), depth: config.crawl.max_depth }));
+        sampled = sample.urls.slice(1).map((u) => ({ url: normalizeUrl(u, keyOpts), depth: config.crawl.max_depth }));
         sampledFrom = sample;
       } else {
         warnings.push('No usable sitemap was found, so pages were chosen by following links from the start page.');
       }
     }
-
-    // Named pages on the same site go right after the start page, ahead of
-    // the sample or the links found, so the page limit never cuts them.
-    const startSite = siteOf(startUrl);
-    const extras = (options.extraPages ?? [])
-      .filter((u) => siteOf(u) === startSite)
-      .map((u) => normalizeUrl(u, keyOpts))
-      .filter((u, i, all) => all.findIndex((x) => pageKey(x, keyOpts) === pageKey(u, keyOpts)) === i)
-      .filter((u) => pageKey(u, keyOpts) !== pageKey(queue[0]!.url, keyOpts));
-    if (extras.length) {
-      extraKeys = new Set(extras.map((u) => pageKey(u, keyOpts)));
-      const depth = sampledFrom ? config.crawl.max_depth : 1;
-      queue = [
-        queue[0]!,
-        ...extras.map((url) => ({ url, depth })),
-        ...queue.slice(1).filter((q) => !extraKeys.has(pageKey(q.url, keyOpts))),
-      ];
-    }
+    const pinnedDepth = sampledFrom ? config.crawl.max_depth : 1;
+    let queue: QueueItem[] = [
+      startItem,
+      ...extras.map((url) => ({ url, depth: pinnedDepth })),
+      // A search keeps its query: without it there are no results to measure.
+      ...keyPages.map((k) => ({ url: normalizeUrl(k.url, { queryStrategy: 'keep' }), depth: config.crawl.max_depth })),
+      ...sampled.filter((q) => !extraKeys.has(pageKey(q.url, keyOpts)) && !keyKeys.has(pageKey(q.url, keyOpts))),
+    ];
     requestedPages = Math.min(extras.length, Math.max(0, config.crawl.max_pages - 1));
 
     if (config.energy.baseline && useEnergy) {
@@ -176,6 +200,12 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
       checks.set(item.url, check);
       if (check.verdict === 'file') {
         if (!notHtml.some((n) => n.url === check.url)) notHtml.push(check);
+        continue;
+      }
+      // A page that is not there (404, 410) is skipped too, except the "not
+      // found" key page, which is meant to be one.
+      if (check.verdict === 'gone' && !keyKeys.has(key)) {
+        if (!gone.some((n) => n.url === check.url)) gone.push(check);
         continue;
       }
       discovered.push(item.url);
@@ -241,6 +271,8 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     energyAvailable,
     sampling: describeSample({
       sample: sampledFrom,
+      keyPages,
+      gone: [...(sampledFrom?.gone ?? []), ...gone.filter((n) => !sampledFrom?.gone?.some((m) => m.url === n.url))],
       notHtml: [...(sampledFrom?.notHtml ?? []), ...notHtml.filter((n) => !sampledFrom?.notHtml?.some((m) => m.url === n.url))],
       adaptive: config.crawl.strategy === 'adaptive',
       measured: discovered,
@@ -262,6 +294,10 @@ const MAX_STRATA_RECORDED = 40;
  */
 export function describeSample(o: {
   sample: SiteSample | undefined;
+  /** Key pages measured: search results, contact, accessibility statement, not found. */
+  keyPages?: KeyPage[];
+  /** URLs skipped because the server said they are not there (404, 410). */
+  gone?: PageCheck[];
   /** URLs skipped because they are not HTML pages. */
   notHtml?: PageCheck[];
   adaptive: boolean;
@@ -277,10 +313,13 @@ export function describeSample(o: {
   for (const [u, r] of Object.entries(sample?.reasons ?? {})) why.set(o.keyOf(u), r);
   const reasons: Record<string, SampleReason> = {};
   // The start page is always measured first.
+  const keyKeys = new Set((o.keyPages ?? []).map((p) => o.keyOf(p.url)));
   o.measured.forEach((u, i) => {
     const k = o.keyOf(u);
-    reasons[u] = i === 0 ? 'start' : o.extraKeys.has(k) ? 'requested' : (why.get(k) ?? 'linked');
+    reasons[u] = i === 0 ? 'start' : o.extraKeys.has(k) ? 'requested' : keyKeys.has(k) ? 'key-page' : (why.get(k) ?? 'linked');
   });
+  const measuredKeys = new Set(o.measured.map((u) => o.keyOf(u)));
+  const keyMeasured = (o.keyPages ?? []).filter((p) => measuredKeys.has(o.keyOf(p.url)));
 
   const limitations: string[] = [];
   if (!sample) {
@@ -317,12 +356,16 @@ export function describeSample(o: {
 
   return {
     method: sample ? (o.adaptive ? 'adaptive' : 'sitemap') : 'links',
-    ...(sample ? { source: sample.source, listed: sample.listed } : {}),
+    ...(sample ? { source: sample.source, listed: sample.listed, order: sample.order } : {}),
     picked: o.measured.length,
     ...(o.requested ? { requested: o.requested } : {}),
     reasons,
     ...(strata ? { strata, strataTotal } : {}),
     ...(sample?.sitemapsListed !== undefined ? { sitemapsListed: sample.sitemapsListed, sitemapsRead: sample.sitemapsRead } : {}),
+    ...(keyMeasured.length ? { keyPages: keyMeasured.map((p) => ({ kind: p.kind, url: p.url, from: p.from })) } : {}),
+    ...(o.gone?.length ? { gone: o.gone.slice(0, MAX_NOT_HTML_RECORDED).map((c) => ({ url: c.url, ...(c.status ? { status: c.status } : {}) })) } : {}),
+    ...(sample?.health ? { health: sample.health } : {}),
+    ...(sample?.sitemapMeta ? { sitemapMeta: sample.sitemapMeta } : {}),
     ...(o.notHtml?.length ? { notHtml: o.notHtml.slice(0, MAX_NOT_HTML_RECORDED).map((c) => ({ url: c.url, ...(c.contentType ? { contentType: c.contentType } : {}) })), notHtmlCount: o.notHtml.length } : {}),
     limitations,
   };
@@ -330,6 +373,34 @@ export function describeSample(o: {
 
 /** Skipped files kept by URL in a result; the count covers them all. */
 const MAX_NOT_HTML_RECORDED = 50;
+
+/**
+ * The key pages of a site, from its start page: search results, contact,
+ * accessibility statement, and its "not found" page. Each must pass the
+ * crawl's rules (same site, include/exclude, robots.txt). The "not found"
+ * page is kept only when the site answers an unknown address with an HTML
+ * page of its own; a site that redirects it elsewhere has none to measure.
+ */
+export async function findSiteKeyPages(
+  startUrl: string,
+  get: Getter,
+  request: HeaderRequester,
+  config: Config,
+  robotsDisallow: string[],
+): Promise<KeyPage[]> {
+  const home = await get(startUrl);
+  if (!home?.ok || !home.text) return [];
+  const base = home.url || startUrl;
+  const found = findKeyPages(home.text, base);
+  const nf = notFoundUrl(base);
+  const res = await request(nf, 'GET').catch(() => undefined);
+  if (res && judgeHeaders(res.headers).verdict === 'html' && (!res.url || pageKey(res.url, { queryStrategy: 'keep' }) === pageKey(nf, { queryStrategy: 'keep' }))) {
+    found.push({ kind: 'not-found', url: nf, from: `an address the site does not have (HTTP ${res.status})` });
+  }
+  const sites = new Set([siteOf(startUrl), siteOf(base)]);
+  const rules = { ...config.crawl, query_strategy: 'keep' as const };
+  return found.filter((k) => selectCrawlLinks([k.url], base, sites, rules, robotsDisallow).length > 0);
+}
 
 /** The browser context's request client, which the network guard covers. */
 function requestGetter(session: BrowserSession): Getter {

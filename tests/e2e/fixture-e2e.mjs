@@ -94,6 +94,14 @@ try {
   const html = readFileSync(join(out, files.find((f) => f.endsWith('.html'))), 'utf8');
   check(html.includes('id="traces-h"'), 'the report has a Chromium traces section');
 
+  // Key pages, found from the home page: search results (query kept), contact,
+  // the accessibility statement and the HTML "not found" page.
+  const keys = result.sampling?.keyPages ?? [];
+  check(['search', 'contact', 'accessibility', 'not-found'].every((k) => keys.some((p) => p.kind === k)), `the crawl found the key pages (${keys.map((k) => k.kind).join(', ')})`);
+  check(result.scenarios.some((s) => /\/search\?q=\w+/.test(s.step) && s.valid), 'the search results page was measured, with its query');
+  check(result.scenarios.some((s) => s.step.endsWith('/web-energy-scan-page-not-found')), 'the "not found" page was measured');
+  check(Object.values(result.sampling?.reasons ?? {}).filter((r) => r === 'key-page').length === 4, 'the result says why each key page was measured');
+
   // Only HTML pages are measured: the sitemap's PDF, at an address with no
   // extension, is found from its Content-Type and skipped before Firefox visits it.
   const pdf = `${site.url}/files/document/annual-reportpdf`;
