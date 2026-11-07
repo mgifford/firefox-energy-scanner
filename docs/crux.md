@@ -65,33 +65,95 @@ attributed to a single step. `report` does not query anything, but it re-renders
 
 ## The API key
 
-CrUX needs a Chrome UX Report API key. Enable the API in a Google Cloud project and
-create a key:
+CrUX needs a Chrome UX Report API key. It is free. The API allows 150 queries a minute
+per Google Cloud project; a scan makes at most 100 (`--crux-max`, at most 150), paced to
+stay under that limit.
 
-<https://console.cloud.google.com/apis/library/chromeuxreport.googleapis.com>
+### 1. Create the key (once)
 
-Then either set `CRUX_API_KEY` or pass `--crux-key`:
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project or
+   pick one.
+2. Enable the **Chrome UX Report API**:
+   <https://console.cloud.google.com/apis/library/chromeuxreport.googleapis.com>
+3. Go to **APIs & Services → Credentials → Create credentials → API key**.
+4. Edit the key and **restrict it**. Under *API restrictions*, choose *Restrict key* and
+   tick only the Chrome UX Report API. A leaked key can then query CrUX, which is public
+   data anyway, and nothing else in the project.
+
+### 2a. Local use: a `.env` file
+
+Copy `.env.example` to `.env` in the folder you run the scanner from, and set the key:
 
 ```bash
-export CRUX_API_KEY='…'
-node dist/cli/index.js crux https://example.com/
+cp .env.example .env
+# then edit .env so it reads: CRUX_API_KEY=your-key
+node dist/cli/index.js crux https://www.cms.gov/
 ```
 
-The environment variable is preferred: a key given as a flag is visible in your shell
-history and in the process list. The key is never written into a result file, a report
-or an error message.
+- `.env` is in `.gitignore`, so it is never committed. `git status` should not list it;
+  if it does, stop and check `.gitignore` before you commit anything.
+- The CLI reads `.env` at startup. A `CRUX_API_KEY` already set in your shell wins.
+- On a Mac you can keep the key in the Keychain instead, and leave `.env` out:
 
-The key is resolved **before** Firefox launches, so a missing key fails in a second
-rather than after a ten-minute run.
+  ```bash
+  security add-generic-password -a "$USER" -s crux-api-key -w   # asks for the key
+  export CRUX_API_KEY="$(security find-generic-password -a "$USER" -s crux-api-key -w)"
+  ```
 
-## One call per run
+- Avoid `--crux-key`. It works, but the key then sits in your shell history and in the
+  process list, and the CLI warns about it.
 
-Without `--crux-url`, one query covers the whole origin. That is one request per run,
-no matter how many pages were measured. Per-page field data is deliberately not
-fetched: most pages of a site have no CrUX record of their own, and a crawler would
-spend dozens of requests to find that out.
+### 2b. Hosted scans (GitHub Actions, published to GitHub Pages)
 
-If `measure` is given URLs on more than one origin, only the first origin is queried.
+1. In the repository on GitHub: **Settings → Secrets and variables → Actions → New
+   repository secret**. Name: `CRUX_API_KEY`. Value: the key.
+2. That is all. The scan workflow (`.github/workflows/scan-request.yml`) passes the secret
+   to its *Run scan* step only. When it is set, crawls add `--crux --popular` and page
+   lists add `--crux --crux-pages`. When it is not set, scans run as before, and the log
+   says `CrUX field data: off`.
+
+What protects the key there:
+
+- GitHub masks secrets in workflow logs, and does not give them to workflows run from
+  forks.
+- Only the *Run scan* step has it. The GitHub Pages deploy never sees it: the published
+  results hold field data, which is public, and no key.
+- The scanner takes the key out of its own environment at startup, so Firefox, Chromium
+  and Lighthouse, which it launches, never inherit it.
+- The key travels in the `X-Goog-Api-Key` header, never in a URL, so nothing that logs a
+  URL logs the key.
+
+A self-hosted runner, the machine at home that measures energy, gets the secret the same
+way, for that step only. Rotate the key in the Google Cloud console if it is ever
+exposed, then update the secret or your `.env`.
+
+### What is never written down
+
+The key is never written into a result file, a report, a CSV or an error message. Tests
+check that a result, an API error and a network failure do not contain it. The key is
+resolved **before** Firefox launches, so a missing key fails in a second rather than
+after a ten-minute run.
+
+## Popular pages and per-page field data
+
+`--crux` asks about the whole origin, one query per run. Two options ask about pages:
+
+- `--crux-pages`: field data for **each measured page**, after the browsers have closed.
+  The report gains a *Field data for each page* table, with p75 LCP, INP, CLS and TTFB.
+- `--popular` (crawls): within each URL section, the sample **prefers pages real Chrome
+  users visit**, and it implies `--crux-pages`. Before the draw, the first three
+  candidates of each section are checked, round by round so that every section is asked
+  about before any section's fourth. Candidates with a URL-level record lead their
+  section's draw, still in hash order, so the spread across sections is unchanged and the
+  same site gives the same sample.
+
+**What a record means.** CrUX publishes a URL's data only when it had enough real Chrome
+page views in 28 days and is public. A record is therefore a sign from real use that
+people visit the page, not a guess from its address. **No record** means too little
+Chrome traffic, or a page CrUX does not cover. It does not mean nobody uses the page.
+
+Field data describes the live site and real users. It is never combined with this
+scan's measurement or Lighthouse's lab figures.
 
 ## Privacy
 
@@ -102,7 +164,10 @@ The query leaves this machine and carries the URL or origin to Google. Two rules
   data for them anyway, and they describe infrastructure you should not hand to a third
   party.
 - **No key in any error.** An API failure reports the HTTP status and the API's own
-  message, never the request URL, which carries `?key=`.
+  message. The key is sent in a header, so no URL carries it.
+- **Page URLs go to Google** with `--crux-pages` and `--popular`: the addresses of the
+  pages checked, which are public pages of a public site. Local and private addresses
+  are never sent.
 
 ## Field against lab
 

@@ -11,6 +11,7 @@ import { familiesSection } from './families-html.js';
 import { componentsSection } from './components-html.js';
 import { resourcesSection } from './resources-html.js';
 import { tracesSection } from './traces-html.js';
+import { cruxPagesSection } from './crux-pages-html.js';
 import { focusableScrollRegions } from './scroll-regions.js';
 import { investigationSection, historySection } from './investigation-html.js';
 import { experimentSection } from './experiment-html.js';
@@ -382,6 +383,8 @@ ${
 </section>
 
 ${cruxSection(result.crux, result.lighthouse)}
+
+${cruxPagesSection(result.cruxPages, result.sampling)}
 
 ${lighthouseSection(result.lighthouse)}
 

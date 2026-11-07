@@ -285,6 +285,12 @@ export interface CrawlSampling {
   /** What checking the sample's URLs found. */
   health?: SampleHealth;
   /**
+   * --popular: candidates checked in the Chrome UX Report, and how many have a
+   * URL-level record (enough real Chrome traffic over 28 days). Those lead
+   * their section's draw.
+   */
+  popularity?: { checked: number; withRecord: number };
+  /**
    * What the sitemap said about the eligible pages: translations set aside
    * (one per hreflang group is eligible), earlier years of a year series set
    * aside (the newest is eligible), pages marked with video or images, and
@@ -410,6 +416,12 @@ export interface BenchmarkResult {
    * another browser, never Firefox energy. The raw traces are not stored.
    */
   traces?: import('../trace/run.js').TraceRecord[];
+  /**
+   * --crux-pages (and --popular): CrUX field data for each measured page, URL
+   * level. A page without a record had too little Chrome traffic, or is not
+   * covered. Real users over 28 days: never combined with lab figures.
+   */
+  cruxPages?: import('./crux.js').CruxResult[];
   /**
    * measure: URLs in the list that are not HTML pages (PDFs, spreadsheets),
    * found before Firefox visited them, and skipped. A crawl records its own

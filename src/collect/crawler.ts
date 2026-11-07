@@ -14,6 +14,8 @@ export interface CrawlOptions {
   startUrl: string;
   /** Pages the requester named, measured right after the start page. */
   extraPages?: string[];
+  /** --popular: which of these URLs real users visit (a CrUX record), for the sample to prefer. */
+  popular?: (urls: string[]) => Promise<{ withRecord: Set<string>; checked: number }>;
   onProgress?: (message: string) => void;
 }
 
@@ -155,6 +157,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
         maxPages: config.crawl.max_pages - fixed + 1,
         // Pages already chosen are not drawn again.
         taken: [...extraKeys, ...keyKeys],
+        ...(options.popular ? { popular: options.popular } : {}),
         siteOf,
         pageKey: (u) => pageKey(u, keyOpts),
         select: (locs, sites) => selectCrawlLinks(locs, startUrl, sites, config.crawl, robotsDisallow),
@@ -374,6 +377,7 @@ export function describeSample(o: {
     ...(o.gone?.length ? { gone: o.gone.slice(0, MAX_NOT_HTML_RECORDED).map((c) => ({ url: c.url, ...(c.status ? { status: c.status } : {}) })) } : {}),
     ...(sample?.health ? { health: sample.health } : {}),
     ...(sample?.sitemapMeta ? { sitemapMeta: sample.sitemapMeta } : {}),
+    ...(sample?.popularity ? { popularity: sample.popularity } : {}),
     ...(o.notHtml?.length ? { notHtml: o.notHtml.slice(0, MAX_NOT_HTML_RECORDED).map((c) => ({ url: c.url, ...(c.contentType ? { contentType: c.contentType } : {}) })), notHtmlCount: o.notHtml.length } : {}),
     limitations,
   };

@@ -66,6 +66,8 @@ export interface SiteSample {
   gone?: PageCheck[];
   /** What checking the sample's URLs found. */
   health?: SampleHealth;
+  /** --popular: candidates checked in CrUX, and how many have field data (real Chrome traffic). */
+  popularity?: { checked: number; withRecord: number };
 }
 
 /** At most this many child sitemaps are read from a sitemap index. */
@@ -189,8 +191,13 @@ export function hashOrder<T extends string>(items: T[], seed: string): T[] {
  * changes only the pages that changed. Skipped items (files, found after a
  * first draw) are stepped over, so the next one in the order takes their place.
  */
-export function seededSample<T extends string>(items: T[], n: number, seed: string, skip?: ReadonlySet<string>): T[] {
-  return hashOrder(items, seed).filter((u) => !skip?.has(u)).slice(0, n);
+export function seededSample<T extends string>(items: T[], n: number, seed: string, skip?: ReadonlySet<string>, prefer?: ReadonlySet<string>): T[] {
+  return preferFirst(hashOrder(items, seed), prefer).filter((u) => !skip?.has(u)).slice(0, n);
+}
+
+/** Preferred items first (pages real Chrome users visit), each part still in its own order. */
+export function preferFirst<T extends string>(order: T[], prefer?: ReadonlySet<string>): T[] {
+  return prefer?.size ? [...order.filter((u) => prefer.has(u)), ...order.filter((u) => !prefer.has(u))] : order;
 }
 
 /** A copy of `items` in an order fixed by `seed` (Fisher–Yates with mulberry32). */
@@ -247,11 +254,13 @@ export function adaptiveSample(
   n: number,
   seed: string,
   skip?: ReadonlySet<string>,
+  prefer?: ReadonlySet<string>,
 ): { picks: AdaptivePick[]; picked: Map<string, number>; rare: Set<string> } {
   const keys = [...groups.keys()].sort();
   // Pages within a section, and rare sections among themselves, in hash order:
   // a section's picks do not move when other pages or sections come and go.
-  const order = new Map(keys.map((k) => [k, hashOrder(groups.get(k)!, seed)]));
+  // Preferred pages (with real-user traffic, --popular) lead their section.
+  const order = new Map(keys.map((k) => [k, preferFirst(hashOrder(groups.get(k)!, seed), prefer)]));
   const total = keys.reduce((t, k) => t + order.get(k)!.length, 0);
   const rareMax = Math.max(1, Math.floor(total * RARE_SHARE));
   const size = (k: string) => order.get(k)!.length;
@@ -342,7 +351,16 @@ export interface SampleOptions {
   checkPages?: (urls: string[]) => Promise<PageCheck[]>;
   /** Page keys already chosen (named pages, key pages): not drawn again. */
   taken?: string[];
+  /**
+   * Which of these URLs real users visit (with --popular: those with a CrUX
+   * record). Asked once, for the first few pages of each section in draw
+   * order; the pages it names lead their section's draw.
+   */
+  popular?: (urls: string[]) => Promise<{ withRecord: Set<string>; checked: number }>;
 }
+
+/** Candidates asked about per section for --popular: the first few in its order. */
+const POPULAR_PER_SECTION = 3;
 
 /** At most this many URLs are checked for each page the sample asks for. */
 const CHECKS_PER_PAGE = 3;
@@ -487,9 +505,21 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       ...(opts.checkPages && health.checked ? { health } : {}),
     });
 
+    // --popular: which candidates real users visit, asked once, before any draw.
+    let prefer = new Set<string>();
+    let popularity: SiteSample['popularity'];
+    const askPopular = async (candidates: string[]) => {
+      if (!opts.popular || !candidates.length) return;
+      const r = await opts.popular(candidates);
+      prefer = r.withRecord;
+      popularity = { checked: r.checked, withRecord: r.withRecord.size };
+    };
+    const withPopularity = () => (popularity ? { popularity } : {});
+
     if (!adaptive) {
-      const sample = await settle(() => seededSample(pages, budget, site, skip));
-      return { urls: [startUrl, ...sample], reasons: Object.fromEntries(sample.map((u) => [u, 'random' as const])), ...common, ...withSkips() };
+      await askPopular(hashOrder(pages, site).slice(0, budget * 2));
+      const sample = await settle(() => seededSample(pages, budget, site, skip, prefer));
+      return { urls: [startUrl, ...sample], reasons: Object.fromEntries(sample.map((u) => [u, 'random' as const])), ...common, ...withSkips(), ...withPopularity() };
     }
 
     // Strata: URL section, split by child sitemap when an index named several.
@@ -511,8 +541,13 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       groups.get(key)!.push(u);
       groupOf.set(u, key);
     }
+    // The first few of each section, round by round, largest section first,
+    // so a capped number of queries covers as many sections as it can.
+    const bySize = [...groups.keys()].sort((a, b) => groups.get(b)!.length - groups.get(a)!.length || (a < b ? -1 : 1));
+    const heads = bySize.map((k) => hashOrder(groups.get(k)!, site).slice(0, POPULAR_PER_SECTION));
+    await askPopular(Array.from({ length: POPULAR_PER_SECTION }, (_, i) => heads.map((h) => h[i]).filter((u): u is string => !!u)).flat());
     const draw = () => {
-      const d = adaptiveSample(groups, budget, site, skip);
+      const d = adaptiveSample(groups, budget, site, skip, prefer);
       return { ...d, picks: withSpecialPages(d.picks, pages, budget, site, skip, groupOf, (u) => entries.get(opts.pageKey(u))) };
     };
     let drawn = draw();
@@ -535,6 +570,7 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       strata,
       ...common,
       ...withSkips(),
+      ...withPopularity(),
     };
   }
   return undefined;
