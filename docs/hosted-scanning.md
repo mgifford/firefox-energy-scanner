@@ -55,7 +55,9 @@ listed as not scanned.
 **Following links** (when a site has no usable sitemap) stays on the same site. A leading `www.` and the scheme do not
 matter, and redirects are followed as a browser follows them: a crawl of `france.fr`
 covers `www.france.fr`, and each page is visited once whichever spelling links to it.
-Links to files (PDF, Office documents, images, media) are skipped.
+Links to files (PDF, Office documents, images, media) are skipped, and so is any URL
+whose server says it is not HTML (its `Content-Type`), checked before Firefox visits it,
+which catches file addresses with no extension.
 
 **Runs.** GitHub's cloud cannot measure energy, so there each page is visited once,
 cold — repeating a page only matters for resolving energy. On an energy-measuring

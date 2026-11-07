@@ -118,6 +118,15 @@ The result records why each page was measured (`start`, `requested`, `random`,
 `representative`, `rare-section`, `proportional`, `linked`), each section with the pages
 listed and measured, and the sample's limitations.
 
+**Files are replaced, not measured.** A sitemap often lists PDFs and spreadsheets at
+addresses with no extension. Each sampled URL's `Content-Type` is checked before the scan
+starts (see the README). A file is stepped over in its section's seeded order, so the next
+page of the same section takes its place, and nothing else in the sample moves. The same
+site therefore still gives the same sample. A section holding only files gives its turn
+to the next section. Checks are capped at three a page, so a sitemap of mostly files
+cannot turn into thousands of requests. Skipped files are recorded with their type
+(`sampling.notHtml`).
+
 ## Limitations
 
 - Families describe the pages measured. A small template can be missing from a random

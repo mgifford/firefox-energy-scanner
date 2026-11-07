@@ -93,6 +93,21 @@ try {
     'trace findings are trace-supported and claim no energy');
   const html = readFileSync(join(out, files.find((f) => f.endsWith('.html'))), 'utf8');
   check(html.includes('id="traces-h"'), 'the report has a Chromium traces section');
+
+  // Only HTML pages are measured: the sitemap's PDF, at an address with no
+  // extension, is found from its Content-Type and skipped before Firefox visits it.
+  const pdf = `${site.url}/files/document/annual-reportpdf`;
+  check(!result.scenarios.some((s) => s.step === pdf), 'the PDF listed in the sitemap was not visited');
+  check(result.sampling?.notHtml?.some((n) => n.url === pdf && n.contentType === 'application/pdf'), `the PDF is recorded as skipped, with its type (${JSON.stringify(result.sampling?.notHtml)})`);
+  check(html.includes('was not an HTML page') || html.includes('were not HTML pages'), 'the report says what was skipped');
+
+  // measure: a listed file is skipped once, before any warmup, not run as a download.
+  const mout = mkdtempSync(join(tmpdir(), 'fixture-measure-'));
+  await exec(['dist/cli/index.js', 'measure', `${site.url}/light`, pdf, '--runs', '1', '--warmups', '0', '--headless', '--no-energy', '--no-history', '--out', mout]);
+  const mjson = readdirSync(mout).find((f) => f.endsWith('.json'));
+  const mres = mjson ? JSON.parse(readFileSync(join(mout, mjson), 'utf8')) : null;
+  check(!!mres && mres.scenarios.every((s) => s.step !== pdf) && mres.scenarios.some((s) => s.step.endsWith('/light')), 'measure skips the PDF and measures the page');
+  check((mres?.warnings ?? []).some((w) => w.startsWith(pdf) && /Not an HTML page \(application\/pdf\)/.test(w)), 'measure says why the PDF was skipped');
 } finally {
   await site.close();
 }

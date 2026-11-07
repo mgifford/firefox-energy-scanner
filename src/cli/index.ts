@@ -63,13 +63,15 @@ import { SCHEMA_VERSION, type BenchmarkResult, type CrawlSampling, type StepResu
 import { co2jsVersion } from '../core/co2.js';
 import { describeCapabilities } from '../core/capability.js';
 import { collectHostFacts, judgeEnergy, type EnergyProbe, type FirefoxProbe } from '../energy/probe.js';
+import { detectMachine, energyPreflight, machineName } from '../energy/machine.js';
 import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run.js';
 import { pickLighthouseUrls } from '../lighthouse/select.js';
 import { traceChromium, type TraceRecord } from '../trace/run.js';
 import { pickTraceUrls } from '../trace/select.js';
+import { notHtmlSentence } from '../collect/content-type.js';
 import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
 import { webnrgMarkdown } from '../webnrg/markdown.js';
-import { has, one, parseArgs, type Args } from './args.js';
+import { has, one, parseArgs, unknownFlagWarnings, type Args } from './args.js';
 import {
   cruxApiKey,
   cruxTarget,
@@ -108,7 +110,7 @@ Usage:
   web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
                          [--journey <file>] [--idle <ms>] [--dry-run] [--save-spec <file.yaml>]
   web-energy journey-check <file...>
-  web-energy profile --journey <file> [--step <name>]
+  web-energy profile --journey <file>
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
   web-energy diagnose <url> [--runs <n>]
@@ -403,6 +405,15 @@ async function cmdDoctor(args: Args): Promise<number> {
   const major = Number.parseInt(process.versions.node.split('.')[0]!, 10);
   major >= 20 ? ok(`Node.js ${process.versions.node}`) : fail(`Node.js ${process.versions.node} (need >= 20)`);
   ok(`Platform ${process.platform}/${process.arch}`);
+  const machine = await detectMachine();
+  ok(`Machine: ${machineName(machine)}`);
+  if (machine.rosetta) {
+    const intelFirefox = machine.firefoxArchs && !machine.firefoxArchs.includes('arm64');
+    warn(
+      `Node is the Intel build, running under Rosetta${machine.firefoxArchs ? `; Firefox is built for ${machine.firefoxArchs.join(' and ')}` : ''}. ` +
+        (intelFirefox ? 'Install the Apple Silicon (arm64) build of Node, then run `npm ci` and `npx playwright install firefox` again.' : 'The Apple Silicon build of Node is faster.'),
+    );
+  }
   ok(`Playwright ${playwrightVersion()}`);
   ok(`CO2.js ${co2jsVersion()}`);
 
@@ -495,6 +506,28 @@ async function cmdDoctor(args: Args): Promise<number> {
   console.log(lines.join('\n'));
   console.log(failures === 0 ? '\nDoctor: no blocking problems found.' : `\nDoctor: ${failures} blocking problem(s).`);
   return failures === 0 ? 0 : 1;
+}
+
+/**
+ * Before a scan, say in a sentence what this machine can measure, so a
+ * Linux PC that needs one setting, or a Mac running Node under Rosetta, finds
+ * out before a long crawl rather than after it. A prediction: the run's own
+ * profile decides what the results report.
+ */
+async function announceEnergy(config: Config): Promise<void> {
+  const adapter = config.energy.adapter;
+  if (adapter === 'macos-powermetrics') return;
+  try {
+    const [machine, facts, power] = await Promise.all([detectMachine(), collectHostFacts(), readPowerState()]);
+    const p = energyPreflight(machine, facts, {
+      enabled: adapter !== 'noop',
+      ...(power.onBattery !== undefined ? { onBattery: power.onBattery } : {}),
+      ...(power.lowPowerMode !== undefined ? { lowPowerMode: power.lowPowerMode } : {}),
+    });
+    process.stderr.write(`${p.lines.map((l, i) => (i === 0 ? l : `  ${l}`)).join('\n')}\n`);
+  } catch {
+    /* never block a scan on the forecast */
+  }
 }
 
 /**
@@ -649,6 +682,7 @@ async function cmdMeasure(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  await announceEnergy(config);
   // Fail on a bad grid declaration before spending a session measuring.
   const grid = gridFromConfig(config);
   const crux = cruxFromArgs(args, urls[0]!);
@@ -675,6 +709,7 @@ async function cmdMeasure(args: Args): Promise<number> {
     target: { url: urls[0]! },
     configuration: config,
     scenarios: outcome.steps,
+    ...(outcome.notHtml?.length ? { notHtml: outcome.notHtml.map((n) => ({ url: n.url, ...(n.contentType ? { contentType: n.contentType } : {}) })) } : {}),
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
     ...(grid ? { gridIntensity: grid } : {}),
     warnings: outcome.warnings,
@@ -707,6 +742,7 @@ async function cmdJourney(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  await announceEnergy(config);
   const grid = gridFromConfig(config);
   const journey = await loadJourney(resolve(file));
   const baseUrl = one(args, 'url') ?? config.target?.url ?? process.env.DRUPAL_BASE_URL;
@@ -757,6 +793,7 @@ async function cmdCrawl(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  await announceEnergy(config);
   const grid = gridFromConfig(config);
   const crux = cruxFromArgs(args, start);
   const outcome = await crawl({
@@ -814,6 +851,11 @@ async function cmdCrawl(args: Args): Promise<number> {
 
 /** One sentence on how a crawl chose its pages. */
 export function describeSampling(s: CrawlSampling): string {
+  const skipped = s.notHtml?.length ? ` ${notHtmlSentence(s.notHtml, s.notHtmlCount, s.method !== 'links')}` : '';
+  return describeChoice(s) + skipped;
+}
+
+function describeChoice(s: CrawlSampling): string {
   const listed = s.requested ? `, the ${s.requested} listed page${s.requested === 1 ? '' : 's'}` : '';
   const sampled = s.picked - 1 - (s.requested ?? 0);
   if (s.method === 'adaptive') {
@@ -889,7 +931,7 @@ function printInvestigation(result: BenchmarkResult): void {
   console.log('\nInvestigate first (a sort order, not a score; nothing here is an energy figure):');
   for (const i of q.items.slice(0, 8)) {
     console.log(`  ${String(i.rank).padStart(2)}. ${i.title.slice(0, 70)}  [${i.evidence}, ${i.reach.pages} of ${i.reach.of} pages]`);
-    console.log(`      ${i.because.slice(0, 2).join('; ')}`);
+    console.log(`      ${i.because.slice(0, 3).map((b) => (/[.!?]$/.test(b) ? b : `${b}.`)).join(' ')}`);
     if (i.remediation[0]) console.log(`      -> ${i.remediation[0].title}`);
   }
   if (result.history) {
@@ -1045,6 +1087,7 @@ async function cmdExperiment(args: Args): Promise<number> {
   }
 
   const config = await buildConfig(args);
+  await announceEnergy(config);
   if (spec.runs !== undefined) config.benchmark.runs = spec.runs;
   if (spec.warmups !== undefined) config.benchmark.warmups = spec.warmups;
   const inner = spec.journey ? await loadJourney(resolve(spec.journey)) : undefined;
@@ -1515,6 +1558,16 @@ async function attachTraces(
   for (const r of out.records) if (r.skipped) result.warnings.push(`No trace analysis for ${r.url}: ${r.skipped}`);
 }
 
+/** Host and file name, without the path in between or the query: enough to find the file. */
+function shortUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.host}/${u.pathname.split('/').filter(Boolean).pop() ?? ''}`;
+  } catch {
+    return url;
+  }
+}
+
 function printTraces(records: TraceRecord[]): void {
   const done = records.filter((r) => r.analysis);
   if (!done.length) return;
@@ -1526,17 +1579,23 @@ function printTraces(records: TraceRecord[]): void {
     console.log(`    load: ${busy(a.load)}; ${a.load.longTasks.length} long task${a.load.longTasks.length === 1 ? '' : 's'}`);
     if (a.idle) {
       const i = a.idle;
+      // Where most of it came from. A timeout set again and again is not an interval.
+      const from = (x?: { url: string; line?: number; timeoutMs?: number; singleShot?: boolean }) => {
+        if (!x || x.url === '(unknown)') return '';
+        const when = x.timeoutMs === undefined ? '' : x.singleShot ? `, a ${x.timeoutMs} ms timeout set again and again` : `, every ${x.timeoutMs} ms`;
+        return ` (mostly ${shortUrl(x.url)}${x.line !== undefined ? `:${x.line}` : ''}${when})`;
+      };
       const parts = [
         busy(i),
-        i.animationFrames.fired ? `${i.animationFrames.perSecond}/s animation frames` : '',
-        i.timers.fired ? `${i.timers.fired} timer callback${i.timers.fired === 1 ? '' : 's'}` : '',
+        i.animationFrames.fired ? `${i.animationFrames.perSecond}/s animation frames${from(i.animationFrames.sources[0])}` : '',
+        i.timers.fired ? `${i.timers.fired} timer callback${i.timers.fired === 1 ? '' : 's'}${from(i.timers.sources[0])}` : '',
         i.animations.length ? `${i.animations.length} running animation${i.animations.length === 1 ? '' : 's'}` : '',
         i.requests.length ? `${i.requests.length} request${i.requests.length === 1 ? '' : 's'}` : '',
       ].filter(Boolean);
       console.log(`    idle: ${parts.join('; ')}`);
     }
     const top = [...a.load.scripts, ...(a.idle?.scripts ?? [])].sort((x, y) => y.ms - x.ms)[0];
-    if (top && top.ms >= 1) console.log(`    most script time: ${top.url} (${Math.round(top.ms)} ms)`);
+    if (top && top.ms >= 1) console.log(`    most script time: ${shortUrl(top.url)} (${Math.round(top.ms)} ms)`);
   }
   console.log('\nTraces are one Chromium run per page: evidence of what ran, not a measurement of its energy.');
 }
@@ -1691,6 +1750,7 @@ async function cmdCompare(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  await announceEnergy(config);
   const grid = gridFromConfig(config);
   const journey = await loadJourney(resolve(journeyFile));
   const seed = one(args, 'seed') ?? newSessionId();
@@ -1918,6 +1978,7 @@ async function cmdMatrix(args: Args): Promise<number> {
   }
   const journey = await loadJourney(resolve(journeyFile));
   const config = await buildConfig(args);
+  await announceEnergy(config);
   const grid = gridFromConfig(config);
   const seed = one(args, 'seed') ?? newSessionId();
   const labels = measurable.map((r) => r.target.label);
@@ -2311,6 +2372,7 @@ async function main(): Promise<number> {
     console.log(USAGE);
     return command ? 0 : 1;
   }
+  for (const w of unknownFlagWarnings(args)) console.error(`warning: ${w}`);
 
   try {
     switch (command) {

@@ -15,15 +15,21 @@ The items are of four kinds:
 
 - **components** from the [component inventory](component-inventory.md) that carry a
   structural fact or a Lighthouse finding;
-- **regions** (`<main>`, the banner), but only for a Lighthouse finding that landed on
-  the region itself, since otherwise they repeat the facts of the components inside them;
+- **regions** (`<main>`, the banner), but only for a Lighthouse finding or trace
+  observation that landed on the region itself, since otherwise they repeat the facts of
+  the components inside them;
 - **scripts** that no component loads, summed across pages, such as a bundle or a third
   party that takes main-thread time everywhere;
 - **pages** at least twice their [family's](page-families.md) median elements, transfer
   or requests: something extra is on them;
 - **resources** from the [component graph](component-graph.md):
   - shared ones of 100 KB or more, or with a Lighthouse finding;
-  - files of 1 MB or more that only one page loads.
+  - files of 1 MB or more that only one page loads;
+  - any file, however small and on however few pages, that a [Chromium trace](tracing.md)
+    shows doing work: a repeating timer, continuous animation frames, a long task or
+    forced layout. A small script on one page that runs a timer 100 times a second is
+    worth a look. A file that was only fetched after load is noted, but is not queued
+    for that alone.
 
   Files from one directory, of one kind and scope, are one item, so the files of one icon
   library are one dependency. Remedies include replacing an icon library with the icons
@@ -31,15 +37,20 @@ The items are of four kinds:
   stylesheet, and serving images at the size shown.
 
 Components are judged on what they **own**. A container is queued only for a Lighthouse
-finding that landed on it directly.
+finding or trace observation that landed on it directly. What a trace saw on a
+component's elements, such as an animation still running while idle or an embedded frame
+still working, joins that component's evidence, labelled as a Chromium trace.
 
 ### The order, stated
 
 The order is a **sort on four keys, one after another**. No keys are added, weighted or
 merged, and each one has its own column:
 
-1. **evidence**: a structural fact and a Lighthouse finding, then a Lighthouse finding
-   alone, then a structural fact alone;
+1. **evidence**: a structural fact with a Lighthouse finding or a Chromium trace
+   observation, then either of those alone, then a structural fact alone. Lighthouse
+   and trace evidence share a level, but each is named by its source
+   (`structure-and-lighthouse`, `structure-and-trace`), and one is never reported as
+   the other;
 2. **reach**: the pages it is on;
 3. **opportunity**: whether a known remedy applies;
 4. **workload**: elements, or Chromium main-thread time for a script.

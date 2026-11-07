@@ -201,6 +201,10 @@ export interface EnvironmentInfo {
   cpuCount: number;
   totalMemoryBytes: number;
   machineModel?: string;
+  /** The CPU's name as the OS reports it, such as "Apple M2 Pro". */
+  cpuModel?: string;
+  /** Node ran under Rosetta 2 on an Apple Silicon Mac (Firefox may still be native). */
+  rosetta?: boolean;
   firefoxVersion?: string;
   playwrightVersion?: string;
   co2jsVersion?: string;
@@ -260,6 +264,14 @@ export interface CrawlSampling {
   /** Child sitemaps read, and how many an index named, when it was an index. */
   sitemapsRead?: number;
   sitemapsListed?: number;
+  /**
+   * URLs skipped because they are not HTML pages (PDFs, spreadsheets,
+   * archives), found from the extension or the served Content-Type before
+   * Firefox visited them. They do not count against the page limit; a sample
+   * replaced them. At most 50 are listed; notHtmlCount counts them all.
+   */
+  notHtml?: { url: string; contentType?: string }[];
+  notHtmlCount?: number;
   /** What the sample cannot stand for. Plain sentences, shown as given. */
   limitations?: string[];
 }
@@ -359,6 +371,12 @@ export interface BenchmarkResult {
    * another browser, never Firefox energy. The raw traces are not stored.
    */
   traces?: import('../trace/run.js').TraceRecord[];
+  /**
+   * measure: URLs in the list that are not HTML pages (PDFs, spreadsheets),
+   * found before Firefox visited them, and skipped. A crawl records its own
+   * in sampling.notHtml.
+   */
+  notHtml?: { url: string; contentType?: string }[];
   /** An energy experiment: baseline against one change, as a measured difference only. */
   experiment?: import('../experiments/experiment.js').ExperimentReport;
   warnings: string[];

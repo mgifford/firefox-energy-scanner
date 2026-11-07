@@ -25,7 +25,9 @@ const kb = (b: number) => (b < 1024 ? `${Math.round(b)} B` : `${Math.round(b / 1
 
 const EVIDENCE: Record<InvestigationItem['evidence'], string> = {
   'structure-and-lighthouse': 'structure and Lighthouse',
+  'structure-and-trace': 'structure and Chromium trace',
   lighthouse: 'Lighthouse',
+  trace: 'Chromium trace',
   structure: 'structure',
 };
 

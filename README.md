@@ -109,8 +109,11 @@ Virtual machines do not pass power-measurement hardware through, so cloud scans 
 each page once and report page weight, modelled CO2e, timing, page structure and
 Lighthouse. Their energy column reads **not measured**, which is an absence, not a zero.
 
-**Energy needs a physical machine**: an Apple Silicon Mac, a bare-metal Linux PC with an
-Intel or AMD CPU, or Windows 11. Check yours with one command:
+**Energy needs a physical machine.** On an Apple Silicon Mac (M1 or later) there is
+nothing to set up: scans measure Firefox's own energy by default. Intel Macs, bare-metal
+Linux PCs with an Intel or AMD CPU (after one `sysctl`), and Windows 11 work too. Every
+scan says at the start what this machine can measure, and how to fix it if a setting is
+in the way. For a fuller check:
 
 ```bash
 npm ci && npm run energy-check
@@ -164,6 +167,13 @@ to skip it if you only need the Firefox measurements.
 npm run energy-check        # installs Firefox, builds, then runs doctor
 node dist/cli/index.js doctor --json   # the same verdict as data
 ```
+
+You do not need this before a scan: `measure`, `crawl`, `journey`, `compare`,
+`experiment` and `matrix` begin with one line on what this machine can measure, for
+example `Energy: Apple M1 Mac. Firefox measures the energy of its own processes here,
+with no setup.` A Linux PC that still needs `kernel.perf_event_paranoid=0` is told before
+the scan, not after it. An option the CLI does not recognise, such as a misspelling, is
+reported with the option it is closest to; it is not silently ignored.
 
 `doctor` verifies Node, Playwright and Firefox, then runs Firefox for a few seconds
 with the power profiler on and says plainly whether **this machine can measure
@@ -313,6 +323,16 @@ for A/B comparison. Use them to find what to measure, then write a journey.
 links, the start page first; the same site gives the same sample. Hosted scans of one URL
 use it. `--adaptive` spreads the sample across the site's URL sections instead, keeping a
 few pages for rare ones.
+
+**Only HTML pages are measured.** Before Firefox visits a URL, the scan checks what it
+serves: a file extension (`.pdf`, `.xlsx`) settles it, and otherwise a `HEAD` request
+reads the server's `Content-Type`, or a GET for the first kilobyte where a server refuses
+`HEAD`. That catches file aliases with no extension, such as CMS.gov's
+`/files/document/finalpptpdf`. A PDF, spreadsheet or archive is skipped. It does not count
+against `--max-pages`, and a sample measures another page from the same section in its
+place. The result and report list what was skipped and its type. `measure` skips a listed
+file once, before any warmup. A URL that cannot be checked, or that answers with an error,
+is kept, and Firefox still recognises a download when it gets there.
 
 After a crawl, the pages are grouped into **page families** by how they are built
 (components, landmarks, scripts and stylesheets, Drupal template, URL pattern), each with a

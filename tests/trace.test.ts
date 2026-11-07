@@ -9,6 +9,8 @@ import { extractEvidence } from '../src/lighthouse/evidence.js';
 import { buildGraph, type ComponentGraph } from '../src/model/graph.js';
 import { validateGraph } from '../src/model/schema.js';
 import { buildFamilies } from '../src/analysis/families.js';
+import { buildInvestigation } from '../src/analysis/investigation.js';
+import { buildInventory } from '../src/analysis/components.js';
 import type { BenchmarkResult } from '../src/core/types.js';
 import type { TraceRecord } from '../src/trace/run.js';
 import type { LighthouseSummary } from '../src/lighthouse/summary.js';
@@ -68,8 +70,18 @@ const windows = { navStart: 0, loadEnd: 1_000_000, idleStart: 1_000_000, idleEnd
 describe('analyseTrace', () => {
   const a = analyseTrace(syntheticTrace(), windows, (id) => (id === 7 ? '1,HTML,1,BODY,0,DIV' : undefined))!;
 
-  it('picks the busiest renderer main thread as the page', () => {
-    expect(mainThreadOf(syntheticTrace())).toEqual({ pid: 1, tid: 10 });
+  it('takes the page from the process its main frame committed in, even when an iframe is busier', () => {
+    const busyIframe = [...syntheticTrace(), { name: 'RunTask', ph: 'X', ts: 200_000, dur: 900_000, pid: 2, tid: 20 }];
+    expect(mainThreadOf(busyIframe)).toEqual({ pid: 1, tid: 10 });
+    const a2 = analyseTrace(busyIframe, windows)!;
+    expect(a2.load.scripts[0]?.url).toBe('https://a.test/app.js');
+    expect(a2.frames.map((f) => f.url)).toEqual(['https://widget.test/frame']);
+  });
+
+  it('falls back to the busiest renderer when the trace has no commit record', () => {
+    const noCommits = syntheticTrace().filter((e) => e.name !== 'FrameCommittedInBrowser');
+    expect(mainThreadOf(noCommits)).toEqual({ pid: 1, tid: 10 });
+    expect(mainThreadOf([...noCommits, { name: 'RunTask', ph: 'X', ts: 200_000, dur: 900_000, pid: 2, tid: 20 }])).toEqual({ pid: 2, tid: 20 });
   });
 
   it('names the script in a long task during load', () => {
@@ -278,3 +290,58 @@ describe('scrolling table regions', () => {
     expect(out).toContain('<div class="scroll" role="region" tabindex="0" aria-label="Table"><p>no table</p>');
   });
 });
+
+describe('trace evidence in the investigation queue', () => {
+  it('is labelled as a Chromium trace, never as Lighthouse', () => {
+    // A timer from the site-wide script, as GTM's was on CMS.gov: no Lighthouse run at all.
+    const r = fixture();
+    const t = fixtureTraces();
+    const tiny = t.find((x) => x.url.endsWith('/tiny-work'))!;
+    tiny.analysis!.idle!.timers.sources = [{ url: 'http://www.site.test:8082/js/site.js', line: 1, timeoutMs: 10, singleShot: false, count: 500 }];
+    r.traces = t;
+    r.graph = buildGraph(r)!;
+    r.components = buildInventory(r.scenarios, { families: r.families!, graph: r.graph });
+    const item = buildInvestigation(r)!.items.find((i) => i.title === 'www.site.test/js/site.js')!;
+    expect(item.evidence).toBe('structure-and-trace');
+    expect(item.because).toContain('Chromium trace: A timer keeps firing while idle (166.7 a second)');
+    expect(item.because.some((b) => /Lighthouse/.test(b))).toBe(false);
+  });
+
+  const queued = () => {
+    const r = fixture();
+    r.traces = fixtureTraces();
+    r.graph = buildGraph(r)!;
+    r.components = buildInventory(r.scenarios, { families: r.families!, graph: r.graph });
+    return { r, q: buildInvestigation(r)! };
+  };
+
+  it('queues a one-page script the trace shows at work, however small', () => {
+    // As CMS.gov's home page: a page's own small script running a timer 100 times a second.
+    const chart = queued().q.items.find((i) => i.title === 'www.site.test/js/chart.js')!;
+    expect(chart).toMatchObject({ kind: 'resource', evidence: 'structure-and-trace', reach: { pages: 1 } });
+    expect(chart.because[0]).toBe('317 B of script that no other measured page loads.');
+    expect(chart.because[1]).toMatch(/^Chromium trace: Animation frames requested continuously while idle \(\d+(\.\d)? a second\)$/);
+    expect(queued().q.items.some((i) => i.title === 'www.site.test/js/compute.js' && i.because.includes('Chromium trace: A long task during load'))).toBe(true);
+  });
+
+  it('adds what the trace saw on a component to the component’s own evidence', () => {
+    const { q } = queued();
+    const embed = q.items.find((i) => i.title === 'component:widget-embed')!;
+    expect(embed.evidence).toBe('structure-and-trace');
+    expect(embed.because).toEqual(['1 iframe', 'Chromium trace: An embedded frame keeps working while idle']);
+    expect(q.items.find((i) => i.title === 'component:spinner')!.because).toContain('Chromium trace: An animation runs while idle');
+  });
+
+  it('does not queue a file only because it was fetched while idle', () => {
+    const r = fixture();
+    const t = fixtureTraces();
+    const home = t.find((x) => new URL(x.url).pathname === '/')!;
+    home.analysis!.idle!.requests = [{ url: 'http://www.site.test:8082/js/cards.js', resourceType: 'Script' }];
+    r.traces = t;
+    r.graph = buildGraph(r)!;
+    expect(r.graph.findings.some((f) => f.kind === 'trace:idle-request')).toBe(true);
+    r.components = buildInventory(r.scenarios, { families: r.families!, graph: r.graph });
+    expect(buildInvestigation(r)!.items.some((i) => i.title === 'www.site.test/js/cards.js')).toBe(false);
+  });
+});
+

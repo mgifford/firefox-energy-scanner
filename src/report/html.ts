@@ -393,6 +393,8 @@ ${webnrgSection(result.webnrg)}
   <h2 id="env-h">Environment</h2>
   <dl class="meta">
     <dt>OS</dt><dd>${esc(env.os)} ${esc(env.osVersion)} (${esc(env.architecture)})</dd>
+    ${env.machineModel ? `<dt>Machine</dt><dd>${esc(env.machineModel)}</dd>` : ''}
+    ${env.cpuModel ? `<dt>CPU</dt><dd>${esc(env.cpuModel)}${env.rosetta ? ' (Node under Rosetta)' : ''}</dd>` : ''}
     <dt>CPU count</dt><dd>${esc(env.cpuCount)}</dd>
     <dt>Firefox</dt><dd>${esc(env.firefoxVersion ?? 'unknown')}</dd>
     <dt>Playwright</dt><dd>${esc(env.playwrightVersion ?? 'unknown')}</dd>

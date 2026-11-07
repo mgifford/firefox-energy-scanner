@@ -158,11 +158,13 @@ try {
   check(!pages.some((u) => u.includes('example.org')), 'crawl stayed on the site');
   check(!(crawl?.scenarios ?? []).some((s) => s.step.endsWith('.pdf')), 'crawl skipped the PDF link');
 
-  // 2. A list that includes a PDF directly.
+  // 2. A list that includes a PDF directly: skipped before Firefox visits it,
+  // and still reported, with its type.
   const list = await run(['measure', `${WWW}/en/`, `${WWW}/docs/report.pdf`, '--runs', '1', '--warmups', '0'],
     mkdtempSync(join(tmpdir(), 'list-')));
-  const pdf = (list?.scenarios ?? []).find((s) => s.step.endsWith('.pdf'));
-  check(!!pdf && pdf.valid === false && /^Not a web page/.test(pdf.warnings[0] ?? ''), 'a listed PDF is reported as not a web page');
+  check(!(list?.scenarios ?? []).some((s) => s.step.endsWith('.pdf')), 'a listed PDF is not visited');
+  check((list?.notHtml ?? []).some((n) => n.url === `${WWW}/docs/report.pdf` && n.contentType === '.pdf file'), `a listed PDF is reported as not an HTML page (${JSON.stringify(list?.notHtml)})`);
+  check((list?.warnings ?? []).some((w) => w.startsWith(`${WWW}/docs/report.pdf: Not an HTML page`)), 'the result says why the PDF was skipped');
   const home = (list?.scenarios ?? []).find((s) => s.step === `${WWW}/en/`);
   check(!!home && home.valid && home.network.transferBytes > 0, 'the page next to it was measured normally');
 

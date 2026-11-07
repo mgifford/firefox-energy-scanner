@@ -1,3 +1,4 @@
+import { checkPages, contextRequester, skipReason, type PageCheck } from '../collect/content-type.js';
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config.js';
 import type {
@@ -165,6 +166,8 @@ export interface RunOutcome {
   steps: StepResult[];
   baseline?: Baseline;
   warnings: string[];
+  /** URLs skipped because they are not HTML pages, found before Firefox visited them. */
+  notHtml?: PageCheck[];
   firefoxVersion: string;
   energyAvailable: boolean;
 }
@@ -187,8 +190,20 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
   let energyAvailable = false;
   let closed = false;
 
+  let notHtml: PageCheck[] = [];
+  let urls = options.urls ?? [];
   try {
     await authenticateIfNeeded(session, config, baseUrl, warnings);
+
+    // Only HTML pages are measured. A listed PDF or spreadsheet is skipped
+    // here, once, before any warmup or energy window, rather than run ten
+    // times as a download.
+    if (!options.journey && urls.length) {
+      const checks = await checkPages(urls, contextRequester(session.getContext().request));
+      notHtml = checks.filter((c) => c.verdict === 'file');
+      for (const f of notHtml) warnings.push(`${f.url}: ${skipReason(f)}`);
+      urls = urls.filter((u) => !notHtml.some((f) => f.url === u));
+    }
 
     const runner = new StepRunner(session, config);
     const totalRuns = config.benchmark.warmups + config.benchmark.runs;
@@ -243,7 +258,7 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
           measure: (name, fn) => runner.measure(label(name), fn),
         });
       } else {
-        for (const url of options.urls ?? []) {
+        for (const url of urls) {
           await runner.measure(label(url), async () => {
             await session.getPage().goto(url, { waitUntil: 'domcontentloaded' });
           });
@@ -283,7 +298,7 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
     if (!closed) await session.close().catch(() => {});
   }
 
-  return { steps, baseline, warnings, firefoxVersion, energyAvailable };
+  return { steps, baseline, warnings, firefoxVersion, energyAvailable, ...(notHtml.length ? { notHtml } : {}) };
 }
 
 /**
