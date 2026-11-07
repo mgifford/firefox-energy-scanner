@@ -21,6 +21,7 @@ export interface Fetched {
 export type Getter = (url: string) => Promise<Fetched | undefined>;
 
 import { urlSection } from '../analysis/url-pattern.js';
+import type { PageCheck } from './content-type.js';
 
 export type SampleStrategy = 'random' | 'adaptive';
 
@@ -53,6 +54,8 @@ export interface SiteSample {
   sitemapsRead?: number;
   /** True when a sitemap was longer than MAX_LOCS and only its start was read. */
   capped: boolean;
+  /** Listed URLs found not to be HTML pages (PDFs, spreadsheets, archives): skipped, and replaced. */
+  notHtml?: PageCheck[];
 }
 
 /** At most this many child sitemaps are read from a sitemap index. */
@@ -110,10 +113,11 @@ function hash(seed: string): number {
  * always give the same choice. The input is sorted first, so a sitemap that
  * lists the same pages in another order gives the same sample.
  */
-export function seededSample<T extends string>(items: T[], n: number, seed: string): T[] {
+export function seededSample<T extends string>(items: T[], n: number, seed: string, skip?: ReadonlySet<string>): T[] {
   const pool = [...items].sort();
-  if (pool.length <= n) return pool;
-  return seededShuffle(pool, seed).slice(0, n);
+  // Skipped items keep their places in the order, so the rest of the sample does not move.
+  if (pool.length <= n) return skip ? pool.filter((u) => !skip.has(u)) : pool;
+  return seededShuffle(pool, seed).filter((u) => !skip?.has(u)).slice(0, n);
 }
 
 /** A copy of `items` in an order fixed by `seed` (Fisher–Yates with mulberry32). */
@@ -161,12 +165,15 @@ const RARE_BUDGET = 0.2;
  * give the same sample. Representatives come first, then rare sections, then
  * the proportional share, so a page limit cuts the least informative picks.
  *
- * `groups` maps a stratum key to its pages.
+ * `groups` maps a stratum key to its pages. Pages in `skip` (files, found
+ * after a first draw) are stepped over in their section's order, so the next
+ * page of the same section takes their place and nothing else moves.
  */
 export function adaptiveSample(
   groups: Map<string, string[]>,
   n: number,
   seed: string,
+  skip?: ReadonlySet<string>,
 ): { picks: AdaptivePick[]; picked: Map<string, number>; rare: Set<string> } {
   const keys = [...groups.keys()].sort();
   const order = new Map(keys.map((k) => [k, seededShuffle([...groups.get(k)!].sort(), `${seed}|${k}`)]));
@@ -184,19 +191,38 @@ export function adaptiveSample(
   }
 
   const picked = new Map(keys.map((k) => [k, 0]));
+  // Where each section's draw has got to: past its picks and any skipped pages.
+  const cursor = new Map(keys.map((k) => [k, 0]));
   const picks: AdaptivePick[] = [];
+  const advance = (k: string) => {
+    let i = cursor.get(k)!;
+    while (i < order.get(k)!.length && skip?.has(order.get(k)![i]!)) i++;
+    cursor.set(k, i);
+    return i;
+  };
+  const exhausted = (k: string) => advance(k) >= order.get(k)!.length;
   const take = (k: string, reason: AdaptivePick['reason']) => {
-    const i = picked.get(k)!;
+    const i = advance(k);
     const url = order.get(k)![i];
     if (url === undefined) return false;
-    picked.set(k, i + 1);
+    cursor.set(k, i + 1);
+    picked.set(k, picked.get(k)! + 1);
     picks.push({ url, key: k, reason });
     return true;
   };
 
   const rareQuota = rare.length && n >= 4 ? Math.min(rare.length, Math.max(1, Math.round(n * RARE_BUDGET))) : 0;
-  for (const k of common.slice(0, Math.max(0, n - rareQuota))) take(k, 'representative');
-  for (const k of rare.slice(0, Math.max(0, Math.min(rareQuota, n - picks.length)))) take(k, 'rare-section');
+  // Count what was taken, not what was tried: a section of files only gives its turn to the next.
+  let representatives = 0;
+  for (const k of common) {
+    if (representatives >= Math.max(0, n - rareQuota)) break;
+    if (take(k, 'representative')) representatives++;
+  }
+  let rareTaken = 0;
+  for (const k of rare) {
+    if (rareTaken >= rareQuota || picks.length >= n) break;
+    if (take(k, 'rare-section')) rareTaken++;
+  }
 
   // The rest in proportion to section size: the next page goes to the section
   // with the largest size / (picked + 1), common sections before rare ones.
@@ -205,7 +231,7 @@ export function adaptiveSample(
       let best: string | undefined;
       let bestQ = -1;
       for (const k of pool) {
-        if (picked.get(k)! >= size(k)) continue;
+        if (exhausted(k)) continue;
         const q = size(k) / (picked.get(k)! + 1);
         if (q > bestQ) {
           bestQ = q;
@@ -233,7 +259,16 @@ export interface SampleOptions {
   select: (locs: string[], sites: Set<string>) => string[];
   /** random (the default) or adaptive, see adaptiveSample. */
   strategy?: SampleStrategy;
+  /**
+   * Checks whether URLs are HTML pages. When given, a sampled URL that is a
+   * file is replaced by the next page in the same order (the same section,
+   * for an adaptive sample), so the sample keeps its size and spread.
+   */
+  checkPages?: (urls: string[]) => Promise<PageCheck[]>;
 }
+
+/** At most this many URLs are checked for each page the sample asks for. */
+const CHECKS_PER_PAGE = 3;
 
 /**
  * Sample a site's pages from its sitemap. Undefined when no sitemap lists any
@@ -295,9 +330,35 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       ...(index ? { sitemapsListed: index.listed, sitemapsRead: index.read } : {}),
     };
 
+    // Draw, check the new picks, skip any that are files, draw again: each
+    // round only checks the replacements. Capped, so a sitemap of mostly
+    // PDFs cannot turn into thousands of requests.
+    const skip = new Set<string>();
+    const notHtml: PageCheck[] = [];
+    const checked = new Set<string>();
+    const maxChecks = budget * CHECKS_PER_PAGE + 5;
+    const settle = async (draw: () => string[]): Promise<string[]> => {
+      let urls = draw();
+      while (opts.checkPages && checked.size < maxChecks) {
+        const fresh = urls.filter((u) => !checked.has(u)).slice(0, maxChecks - checked.size);
+        if (!fresh.length) break;
+        const results = await opts.checkPages(fresh);
+        for (const u of fresh) checked.add(u);
+        const files = results.filter((r) => r.verdict === 'file');
+        if (!files.length) break;
+        for (const f of files) {
+          skip.add(f.url);
+          notHtml.push(f);
+        }
+        urls = draw();
+      }
+      return urls;
+    };
+    const withSkips = () => (notHtml.length ? { notHtml } : {});
+
     if (!adaptive) {
-      const sample = seededSample(pages, budget, site);
-      return { urls: [startUrl, ...sample], reasons: Object.fromEntries(sample.map((u) => [u, 'random' as const])), ...common };
+      const sample = await settle(() => seededSample(pages, budget, site, skip));
+      return { urls: [startUrl, ...sample], reasons: Object.fromEntries(sample.map((u) => [u, 'random' as const])), ...common, ...withSkips() };
     }
 
     // Strata: URL section, split by child sitemap when an index named several.
@@ -317,7 +378,9 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       }
       groups.get(key)!.push(u);
     }
-    const { picks, picked, rare } = adaptiveSample(groups, budget, site);
+    let drawn = adaptiveSample(groups, budget, site, skip);
+    await settle(() => (drawn = adaptiveSample(groups, budget, site, skip)).picks.map((p) => p.url));
+    const { picks, picked, rare } = drawn;
     const pickedFrom = new Map<string, string[]>();
     for (const p of picks) pickedFrom.set(p.key, [...(pickedFrom.get(p.key) ?? []), p.url]);
     const strata: Stratum[] = [...groups.keys()]
@@ -334,6 +397,7 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       reasons: Object.fromEntries(picks.map((p) => [p.url, p.reason])),
       strata,
       ...common,
+      ...withSkips(),
     };
   }
   return undefined;

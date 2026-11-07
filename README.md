@@ -324,6 +324,16 @@ links, the start page first; the same site gives the same sample. Hosted scans o
 use it. `--adaptive` spreads the sample across the site's URL sections instead, keeping a
 few pages for rare ones.
 
+**Only HTML pages are measured.** Before Firefox visits a URL, the scan checks what it
+serves: a file extension (`.pdf`, `.xlsx`) settles it, and otherwise a `HEAD` request
+reads the server's `Content-Type`, or a GET for the first kilobyte where a server refuses
+`HEAD`. That catches file aliases with no extension, such as CMS.gov's
+`/files/document/finalpptpdf`. A PDF, spreadsheet or archive is skipped. It does not count
+against `--max-pages`, and a sample measures another page from the same section in its
+place. The result and report list what was skipped and its type. `measure` skips a listed
+file once, before any warmup. A URL that cannot be checked, or that answers with an error,
+is kept, and Firefox still recognises a download when it gets there.
+
 After a crawl, the pages are grouped into **page families** by how they are built
 (components, landmarks, scripts and stylesheets, Drupal template, URL pattern), each with a
 representative page and its outliers. A family is a grouping for investigation, not a

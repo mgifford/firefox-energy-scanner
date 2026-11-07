@@ -6,6 +6,7 @@ import { StepRunner, buildStepResults, greenHostingFor, type StepRecord } from '
 import { deriveBaseline, type Baseline } from '../core/baseline.js';
 import { parseRobotsSitemaps, sampleFromSitemaps, type Getter, type SiteSample } from './sitemap.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
+import { FILE_EXTENSION, checkPage, checkPages, contextRequester, type PageCheck } from './content-type.js';
 
 export interface CrawlOptions {
   config: Config;
@@ -59,6 +60,9 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
   let requestedPages = 0;
   let extraKeys = new Set<string>();
   const keyOpts = { queryStrategy: config.crawl.query_strategy };
+  // Only HTML pages are measured: what each URL is, asked once, before Firefox visits it.
+  const checks = new Map<string, PageCheck>();
+  const notHtml: PageCheck[] = [];
 
   try {
     if (config.auth?.type === 'drupal') {
@@ -94,8 +98,19 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     let queue: QueueItem[] = [{ url: normalizeUrl(startUrl, keyOpts), depth: 0 }];
     if (sampleFromSitemap) {
       options.onProgress?.('Reading the sitemap');
+      const request = contextRequester(session.getContext().request);
       const sample = await sampleFromSitemaps(startUrl, {
         get: requestGetter(session),
+        checkPages: async (urls) => {
+          options.onProgress?.(`Checking ${urls.length} sampled URL${urls.length === 1 ? '' : 's'} are HTML pages`);
+          const results = await checkPages(urls, request);
+          // The queue holds normalised URLs: key both, so no page is checked twice.
+          for (const r of results) {
+            checks.set(r.url, r);
+            checks.set(normalizeUrl(r.url, keyOpts), r);
+          }
+          return results;
+        },
         robotsSitemaps,
         maxPages: config.crawl.max_pages,
         siteOf,
@@ -154,6 +169,15 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
       const key = pageKey(item.url, keyOpts);
       if (visited.has(key)) continue;
       visited.add(key);
+
+      // A file (a PDF, a spreadsheet) is skipped before Firefox visits it, and
+      // does not count against the page limit. A sample's were checked already.
+      const check = checks.get(item.url) ?? (await checkPage(item.url, contextRequester(session.getContext().request)));
+      checks.set(item.url, check);
+      if (check.verdict === 'file') {
+        if (!notHtml.some((n) => n.url === check.url)) notHtml.push(check);
+        continue;
+      }
       discovered.push(item.url);
       pagesMeasured++;
 
@@ -217,6 +241,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     energyAvailable,
     sampling: describeSample({
       sample: sampledFrom,
+      notHtml: [...(sampledFrom?.notHtml ?? []), ...notHtml.filter((n) => !sampledFrom?.notHtml?.some((m) => m.url === n.url))],
       adaptive: config.crawl.strategy === 'adaptive',
       measured: discovered,
       startKey: pageKey(normalizeUrl(startUrl, keyOpts), keyOpts),
@@ -237,6 +262,8 @@ const MAX_STRATA_RECORDED = 40;
  */
 export function describeSample(o: {
   sample: SiteSample | undefined;
+  /** URLs skipped because they are not HTML pages. */
+  notHtml?: PageCheck[];
   adaptive: boolean;
   /** Pages measured, in the order they were. */
   measured: string[];
@@ -296,9 +323,13 @@ export function describeSample(o: {
     reasons,
     ...(strata ? { strata, strataTotal } : {}),
     ...(sample?.sitemapsListed !== undefined ? { sitemapsListed: sample.sitemapsListed, sitemapsRead: sample.sitemapsRead } : {}),
+    ...(o.notHtml?.length ? { notHtml: o.notHtml.slice(0, MAX_NOT_HTML_RECORDED).map((c) => ({ url: c.url, ...(c.contentType ? { contentType: c.contentType } : {}) })), notHtmlCount: o.notHtml.length } : {}),
     limitations,
   };
 }
+
+/** Skipped files kept by URL in a result; the count covers them all. */
+const MAX_NOT_HTML_RECORDED = 50;
 
 /** The browser context's request client, which the network guard covers. */
 function requestGetter(session: BrowserSession): Getter {
@@ -330,20 +361,6 @@ async function extractLinks(
   return selectCrawlLinks(hrefs, pageUrl, sites, config.crawl, robotsDisallow);
 }
 
-/** Paths that name a file rather than a page. */
-const FILE_EXTENSION = new RegExp(
-  '\\.(' +
-    [
-      'pdf', 'docx?', 'xlsx?', 'pptx?', 'odt', 'ods', 'odp', 'rtf', 'epub',
-      'zip', 'gz', 'tgz', 'rar', '7z', 'exe', 'dmg', 'apk', 'iso',
-      'csv', 'json', 'xml', 'rss', 'atom', 'txt', 'ics',
-      'css', 'js', 'mjs', 'map', 'woff2?', 'ttf', 'otf', 'eot', 'ico',
-      'jpe?g', 'png', 'gif', 'svg', 'webp', 'avif', 'bmp', 'tiff?',
-      'mp3', 'm4a', 'wav', 'ogg', 'mp4', 'm4v', 'webm', 'mov', 'avi',
-    ].join('|') +
-    ')$',
-  'i',
-);
 
 /**
  * The links worth crawling from one page. Pure, so it is tested directly.

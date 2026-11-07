@@ -68,6 +68,7 @@ import { formFactorFor, parseCategories, runLighthouse } from '../lighthouse/run
 import { pickLighthouseUrls } from '../lighthouse/select.js';
 import { traceChromium, type TraceRecord } from '../trace/run.js';
 import { pickTraceUrls } from '../trace/select.js';
+import { notHtmlSentence } from '../collect/content-type.js';
 import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
 import { webnrgMarkdown } from '../webnrg/markdown.js';
 import { has, one, parseArgs, unknownFlagWarnings, type Args } from './args.js';
@@ -849,6 +850,11 @@ async function cmdCrawl(args: Args): Promise<number> {
 
 /** One sentence on how a crawl chose its pages. */
 export function describeSampling(s: CrawlSampling): string {
+  const skipped = s.notHtml?.length ? ` ${notHtmlSentence(s.notHtml, s.notHtmlCount, s.method !== 'links')}` : '';
+  return describeChoice(s) + skipped;
+}
+
+function describeChoice(s: CrawlSampling): string {
   const listed = s.requested ? `, the ${s.requested} listed page${s.requested === 1 ? '' : 's'}` : '';
   const sampled = s.picked - 1 - (s.requested ?? 0);
   if (s.method === 'adaptive') {

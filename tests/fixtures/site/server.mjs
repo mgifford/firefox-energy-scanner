@@ -20,6 +20,10 @@
  * And /assets, for Lighthouse's resource findings: a render-blocking
  * stylesheet whose rules are mostly unused, and a large, mostly unused script.
  *
+ * The sitemap also lists two files, which a scan must skip rather than
+ * measure: a PDF at an address with no extension, as Drupal file aliases are
+ * (/files/document/annual-reportpdf), and a CSV with one (/files/data.csv).
+ *
  * Synthetic content only. Usage:
  *   import { startFixtureSite } from './tests/fixtures/site/server.mjs';
  *   const site = await startFixtureSite({ port: 8082 });  // site.url, site.close()
@@ -76,6 +80,12 @@ const PAGES = {
   }),
 };
 
+/** Listed in the sitemap, but not pages. */
+const FILES = {
+  '/files/document/annual-reportpdf': ['application/pdf', '%PDF-1.4\n% synthetic fixture file, not a real PDF\n%%EOF\n'],
+  '/files/data.csv': ['text/csv; charset=utf-8', 'name,value\na,1\n'],
+};
+
 const SCRIPTS = {
   '/js/site.js': 'document.documentElement.classList.add("js");',
   '/js/cards.js': 'window.cardsReady = true;',
@@ -107,10 +117,11 @@ export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {})
     }
     if (path === '/robots.txt') return send(200, 'text/plain', `User-agent: *\nAllow: /\nSitemap: ${site}/sitemap.xml\n`);
     if (path === '/sitemap.xml') {
-      return send(200, 'application/xml', `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${Object.keys(PAGES).map((p) => `<url><loc>${site}${p}</loc></url>`).join('')}</urlset>`);
+      return send(200, 'application/xml', `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${[...Object.keys(PAGES), ...Object.keys(FILES)].map((p) => `<url><loc>${site}${p}</loc></url>`).join('')}</urlset>`);
     }
     if (path === '/css/site.css') return send(200, 'text/css', 'body{font-family:system-ui,sans-serif;margin:0 auto;max-width:60rem;padding:1rem}nav ul{display:flex;gap:1rem;list-style:none;padding:0}article[data-component-id=card]{display:inline-block;width:12rem;margin:.5rem;vertical-align:top}');
     if (SCRIPTS[path]) return send(200, 'text/javascript', SCRIPTS[path]);
+    if (FILES[path]) return send(200, FILES[path][0], FILES[path][1]);
     if (path === '/css/big.css') return send(200, 'text/css', `.used{color:#036}\n${Array.from({ length: 4000 }, (_, i) => `.unused-${i} .deep .chain > li:not(.x){margin:${i % 7}px;padding:${i % 5}px}`).join('\n')}`);
     if (path === '/js/big.js') {
       return send(200, 'text/javascript', `${Array.from({ length: 3000 }, (_, i) => `function unused${i}(a){return a*${i}+Math.sqrt(a+${i});}`).join('\n')}\nwindow.bigReady = unused1(2);`);

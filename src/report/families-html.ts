@@ -1,3 +1,4 @@
+import { notHtmlSentence } from '../collect/content-type.js';
 import type { CrawlSampling } from '../core/types.js';
 import type { FamilyReport } from '../analysis/families.js';
 
@@ -71,6 +72,13 @@ function samplingBlock(s: CrawlSampling | undefined): string {
   <p>${s.picked} page${s.picked === 1 ? '' : 's'} by ${method}${s.listed !== undefined ? `, from ${s.listed} pages the sitemap lists` : ''}.
   ${counts.size ? `Reasons: ${[...counts].map(([r, n]) => `${n} ${esc(REASON_LABEL[r] ?? r)}`).join(', ')}.` : ''}</p>
   ${strata}
+  ${
+    s.notHtml?.length
+      ? `<p>${esc(notHtmlSentence(s.notHtml, s.notHtmlCount, s.method !== 'links'))}</p>
+  <details><summary>URLs skipped as not HTML${(s.notHtmlCount ?? 0) > s.notHtml.length ? ` (the first ${s.notHtml.length} of ${s.notHtmlCount})` : ''}</summary>
+  <ul>${s.notHtml.map((n) => `<li><code>${esc(n.url)}</code>${n.contentType ? `: ${esc(n.contentType)}` : ''}</li>`).join('')}</ul></details>`
+      : ''
+  }
   ${s.limitations?.length ? `<ul class="note">${s.limitations.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}`;
 }
 

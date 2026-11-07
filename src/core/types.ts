@@ -264,6 +264,14 @@ export interface CrawlSampling {
   /** Child sitemaps read, and how many an index named, when it was an index. */
   sitemapsRead?: number;
   sitemapsListed?: number;
+  /**
+   * URLs skipped because they are not HTML pages (PDFs, spreadsheets,
+   * archives), found from the extension or the served Content-Type before
+   * Firefox visited them. They do not count against the page limit; a sample
+   * replaced them. At most 50 are listed; notHtmlCount counts them all.
+   */
+  notHtml?: { url: string; contentType?: string }[];
+  notHtmlCount?: number;
   /** What the sample cannot stand for. Plain sentences, shown as given. */
   limitations?: string[];
 }
