@@ -75,6 +75,7 @@ import { readUrlList } from '../collect/url-list.js';
 import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
 import { webnrgMarkdown } from '../webnrg/markdown.js';
 import { has, one, parseArgs, unknownFlagWarnings, type Args } from './args.js';
+import { holdSecrets, loadDotEnv } from '../core/secrets.js';
 import {
   cruxApiKey,
   cruxTarget,
@@ -199,7 +200,8 @@ Field data (CrUX; optional, read-only, needs a Chrome UX Report API key):
                                 metrics beside the lab results
   --crux-url                    Ask about the URL instead of its whole origin
   --crux-form-factor <f>        all (default) | phone | desktop | tablet
-  --crux-key <key>              API key; prefer the CRUX_API_KEY environment variable
+  --crux-key <key>              API key. Better: CRUX_API_KEY in a .env file (gitignored)
+                                or the environment, which stays out of shell history
 
   \`crux <url>\` queries the field data on its own, without launching a browser.
 
@@ -2380,7 +2382,14 @@ async function cmdProfile(args: Args): Promise<number> {
 }
 
 async function main(): Promise<number> {
+  // Keys from a gitignored .env, then out of the environment: Firefox,
+  // Chromium and Lighthouse are child processes and must not inherit them.
+  loadDotEnv();
+  holdSecrets();
   const args = parseArgs(process.argv.slice(2));
+  if (has(args, 'crux-key')) {
+    console.error('warning: --crux-key puts the key in your shell history and the process list. Put CRUX_API_KEY=… in a .env file instead (see docs/crux.md#the-api-key).');
+  }
   const command = args._[0];
 
   if (!command || has(args, 'help') || command === 'help') {
