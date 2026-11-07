@@ -572,7 +572,7 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
         }
         for (const t of idle.timers.sources.filter((x) => x.count >= 2)) {
           tf('repeating-timer', 'A timer keeps firing while idle', scriptTarget(t.url === '(unknown)' ? undefined : t.url, 'The timer was installed from script with no URL.'),
-            `${t.count} timer callbacks in ${secs} s of idle${t.timeoutMs !== undefined ? `, every ${t.timeoutMs} ms` : ''}, installed from ${t.url}${t.line !== undefined ? `:${t.line}` : ''}`,
+            `${t.count} timer callbacks in ${secs} s of idle${t.timeoutMs === undefined ? '' : t.singleShot ? `, a ${t.timeoutMs} ms timeout set again and again` : `, every ${t.timeoutMs} ms`}, installed from ${t.url}${t.line !== undefined ? `:${t.line}` : ''}`,
             { value: Math.round((t.count / Math.max(0.1, secs)) * 10) / 10, unit: 'per-second', source: 'chromium-trace', scope: 'page' });
         }
         for (const r of idle.requests.slice(0, 10)) {

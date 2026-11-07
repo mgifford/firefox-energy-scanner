@@ -924,7 +924,7 @@ function printInvestigation(result: BenchmarkResult): void {
   console.log('\nInvestigate first (a sort order, not a score; nothing here is an energy figure):');
   for (const i of q.items.slice(0, 8)) {
     console.log(`  ${String(i.rank).padStart(2)}. ${i.title.slice(0, 70)}  [${i.evidence}, ${i.reach.pages} of ${i.reach.of} pages]`);
-    console.log(`      ${i.because.slice(0, 3).map((b) => (/[.!?)]$/.test(b) ? b : `${b}.`)).join(' ')}`);
+    console.log(`      ${i.because.slice(0, 3).map((b) => (/[.!?]$/.test(b) ? b : `${b}.`)).join(' ')}`);
     if (i.remediation[0]) console.log(`      -> ${i.remediation[0].title}`);
   }
   if (result.history) {
@@ -1551,6 +1551,16 @@ async function attachTraces(
   for (const r of out.records) if (r.skipped) result.warnings.push(`No trace analysis for ${r.url}: ${r.skipped}`);
 }
 
+/** Host and file name, without the path in between or the query: enough to find the file. */
+function shortUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.host}/${u.pathname.split('/').filter(Boolean).pop() ?? ''}`;
+  } catch {
+    return url;
+  }
+}
+
 function printTraces(records: TraceRecord[]): void {
   const done = records.filter((r) => r.analysis);
   if (!done.length) return;
@@ -1562,17 +1572,11 @@ function printTraces(records: TraceRecord[]): void {
     console.log(`    load: ${busy(a.load)}; ${a.load.longTasks.length} long task${a.load.longTasks.length === 1 ? '' : 's'}`);
     if (a.idle) {
       const i = a.idle;
-      // Where most of it came from: host and file name, without the query.
-      const from = (x?: { url: string; line?: number; timeoutMs?: number }) => {
+      // Where most of it came from. A timeout set again and again is not an interval.
+      const from = (x?: { url: string; line?: number; timeoutMs?: number; singleShot?: boolean }) => {
         if (!x || x.url === '(unknown)') return '';
-        let name = x.url;
-        try {
-          const u = new URL(x.url);
-          name = `${u.host}/${u.pathname.split('/').filter(Boolean).pop() ?? ''}`;
-        } catch {
-          /* keep the raw text */
-        }
-        return ` (mostly ${name}${x.line !== undefined ? `:${x.line}` : ''}${x.timeoutMs !== undefined ? `, every ${x.timeoutMs} ms` : ''})`;
+        const when = x.timeoutMs === undefined ? '' : x.singleShot ? `, a ${x.timeoutMs} ms timeout set again and again` : `, every ${x.timeoutMs} ms`;
+        return ` (mostly ${shortUrl(x.url)}${x.line !== undefined ? `:${x.line}` : ''}${when})`;
       };
       const parts = [
         busy(i),
@@ -1584,7 +1588,7 @@ function printTraces(records: TraceRecord[]): void {
       console.log(`    idle: ${parts.join('; ')}`);
     }
     const top = [...a.load.scripts, ...(a.idle?.scripts ?? [])].sort((x, y) => y.ms - x.ms)[0];
-    if (top && top.ms >= 1) console.log(`    most script time: ${top.url} (${Math.round(top.ms)} ms)`);
+    if (top && top.ms >= 1) console.log(`    most script time: ${shortUrl(top.url)} (${Math.round(top.ms)} ms)`);
   }
   console.log('\nTraces are one Chromium run per page: evidence of what ran, not a measurement of its energy.');
 }

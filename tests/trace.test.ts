@@ -306,5 +306,42 @@ describe('trace evidence in the investigation queue', () => {
     expect(item.because).toContain('Chromium trace: A timer keeps firing while idle (166.7 a second)');
     expect(item.because.some((b) => /Lighthouse/.test(b))).toBe(false);
   });
+
+  const queued = () => {
+    const r = fixture();
+    r.traces = fixtureTraces();
+    r.graph = buildGraph(r)!;
+    r.components = buildInventory(r.scenarios, { families: r.families!, graph: r.graph });
+    return { r, q: buildInvestigation(r)! };
+  };
+
+  it('queues a one-page script the trace shows at work, however small', () => {
+    // As CMS.gov's home page: a page's own small script running a timer 100 times a second.
+    const chart = queued().q.items.find((i) => i.title === 'www.site.test/js/chart.js')!;
+    expect(chart).toMatchObject({ kind: 'resource', evidence: 'structure-and-trace', reach: { pages: 1 } });
+    expect(chart.because[0]).toBe('317 B of script that no other measured page loads.');
+    expect(chart.because[1]).toMatch(/^Chromium trace: Animation frames requested continuously while idle \(\d+(\.\d)? a second\)$/);
+    expect(queued().q.items.some((i) => i.title === 'www.site.test/js/compute.js' && i.because.includes('Chromium trace: A long task during load'))).toBe(true);
+  });
+
+  it('adds what the trace saw on a component to the component’s own evidence', () => {
+    const { q } = queued();
+    const embed = q.items.find((i) => i.title === 'component:widget-embed')!;
+    expect(embed.evidence).toBe('structure-and-trace');
+    expect(embed.because).toEqual(['1 iframe', 'Chromium trace: An embedded frame keeps working while idle']);
+    expect(q.items.find((i) => i.title === 'component:spinner')!.because).toContain('Chromium trace: An animation runs while idle');
+  });
+
+  it('does not queue a file only because it was fetched while idle', () => {
+    const r = fixture();
+    const t = fixtureTraces();
+    const home = t.find((x) => new URL(x.url).pathname === '/')!;
+    home.analysis!.idle!.requests = [{ url: 'http://www.site.test:8082/js/cards.js', resourceType: 'Script' }];
+    r.traces = t;
+    r.graph = buildGraph(r)!;
+    expect(r.graph.findings.some((f) => f.kind === 'trace:idle-request')).toBe(true);
+    r.components = buildInventory(r.scenarios, { families: r.families!, graph: r.graph });
+    expect(buildInvestigation(r)!.items.some((i) => i.title === 'www.site.test/js/cards.js')).toBe(false);
+  });
 });
 
