@@ -146,13 +146,27 @@ and adds:
 - **site search results**, from the site's search form (a GET form marked as search),
   for the first word of the page's title. Results pages are often among a site's
   heaviest, and no sitemap lists them;
-- the **contact page** and the **accessibility statement**, by link text or address;
+- a **top task**: a link that starts with what a visitor does there ("Apply", "Pay",
+  "Renew", "Book", "Request", "Report a…", "Sign up"), so a service or a form, not a
+  document about one;
+- the **accessibility statement**, in the 24 official EU languages, compounds included
+  (Saavutettavuusseloste, Barrierefreiheitserklärung);
+- the **contact page**, and **help or FAQ**;
 - the **"not found" page**, when the site answers an unknown address with an HTML page of
   its own rather than a redirect.
+
+Pages are recognised by link text or the address's last segment, never a word anywhere
+in the path. The patterns follow
+[mgifford/top-task-finder](https://github.com/mgifford/top-task-finder), but its own
+path matching took "report" for annual reports and "find" for `/findsupportgov` in its
+CMS.gov list. Key pages take at most a quarter of `--max-pages`, in this order: search,
+top task, accessibility, contact, help, not found. A warning names any left out.
 
 Each must pass the crawl's rules: same site, include and exclude, robots.txt. A site that
 disallows `/search/` gets no search page. Key pages come after the start page and any
 named pages (`--also`, `--also-file`), and the sample fills the slots that remain.
+`--also-file` reads one URL a line, a CSV, a sitemap, or JSON, including a list saved by
+top-task-finder (its `selectedUrls`).
 `--no-key-pages` turns them off. The result records each key page and how it was found
 (`sampling.keyPages`).
 
@@ -161,6 +175,12 @@ named pages (`--also`, `--also-file`), and the sample fills the slots that remai
 **Translations are one page.** When a sitemap names `hreflang` alternates, translations of
 a page share its template, so one page of each translation group is eligible, in the
 start page's language when the sitemap names it. The result says how many were set aside.
+
+**A yearly series is one page.** Pages whose addresses differ only by a year
+(`annual-report-2022`, `-2023`, `-2024`; `/budget/2024-2025`) are built on one template,
+so only the newest is eligible (top-task-finder keeps three; for energy, one shows the
+template). A news archive such as `/news/2024/05/story` is untouched, since its pages
+differ by more than the year.
 
 **Gone, duplicate and off-site pages are replaced**, as `update_sitemap.py` does for a
 whole sitemap. A sampled URL is replaced by the next in its order when a GET answers 404

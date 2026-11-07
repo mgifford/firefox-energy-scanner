@@ -286,10 +286,11 @@ export interface CrawlSampling {
   health?: SampleHealth;
   /**
    * What the sitemap said about the eligible pages: translations set aside
-   * (one per hreflang group is eligible), pages marked with video or images,
-   * and the range of last-modified dates.
+   * (one per hreflang group is eligible), earlier years of a year series set
+   * aside (the newest is eligible), pages marked with video or images, and
+   * the range of last-modified dates.
    */
-  sitemapMeta?: { translationsSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
+  sitemapMeta?: { translationsSetAside?: number; seriesSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
   /** What the sample cannot stand for. Plain sentences, shown as given. */
   limitations?: string[];
 }
