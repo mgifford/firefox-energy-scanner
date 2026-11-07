@@ -1,5 +1,5 @@
 import { KEY_PAGE_LABEL } from '../collect/key-pages.js';
-import { healthSentence } from '../collect/sample-text.js';
+import { healthSentence, sitemapMetaSentence } from '../collect/sample-text.js';
 import { notHtmlSentence } from '../collect/content-type.js';
 import type { CrawlSampling } from '../core/types.js';
 import type { FamilyReport } from '../analysis/families.js';
@@ -36,6 +36,8 @@ const REASON_LABEL: Record<string, string> = {
   representative: 'one per URL section',
   'rare-section': 'rare URL section',
   proportional: 'share of a large section',
+  'video-page': 'a page the sitemap marks with video',
+  'legacy-page': 'the page least recently modified (an older template, likely)',
   linked: 'found by following links',
 };
 
@@ -83,6 +85,7 @@ function samplingBlock(s: CrawlSampling | undefined): string {
       : ''
   }
   ${healthSentence(s) ? `<p>${esc(healthSentence(s).trim())}</p>` : ''}
+  ${sitemapMetaSentence(s) ? `<p>${esc(sitemapMetaSentence(s).trim())}</p>` : ''}
   ${
     s.notHtml?.length
       ? `<p>${esc(notHtmlSentence(s.notHtml, s.notHtmlCount, s.method !== 'links'))}</p>

@@ -365,6 +365,7 @@ export function describeSample(o: {
     ...(keyMeasured.length ? { keyPages: keyMeasured.map((p) => ({ kind: p.kind, url: p.url, from: p.from })) } : {}),
     ...(o.gone?.length ? { gone: o.gone.slice(0, MAX_NOT_HTML_RECORDED).map((c) => ({ url: c.url, ...(c.status ? { status: c.status } : {}) })) } : {}),
     ...(sample?.health ? { health: sample.health } : {}),
+    ...(sample?.sitemapMeta ? { sitemapMeta: sample.sitemapMeta } : {}),
     ...(o.notHtml?.length ? { notHtml: o.notHtml.slice(0, MAX_NOT_HTML_RECORDED).map((c) => ({ url: c.url, ...(c.contentType ? { contentType: c.contentType } : {}) })), notHtmlCount: o.notHtml.length } : {}),
     limitations,
   };

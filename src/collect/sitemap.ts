@@ -48,7 +48,9 @@ export interface SiteSample {
   /** Pages the sitemap listed that could be scanned (same site, not files). */
   listed: number;
   /** Why each sampled page was picked (the start page is not included). */
-  reasons: Record<string, 'random' | 'representative' | 'proportional' | 'rare-section'>;
+  reasons: Record<string, 'random' | 'representative' | 'proportional' | 'rare-section' | 'video-page' | 'legacy-page'>;
+  /** What the sitemap said about the eligible pages: translations set aside, video and image pages, last-modified dates. */
+  sitemapMeta?: { translationsSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
   /** Adaptive samples only. */
   strata?: Stratum[];
   /** When the sitemap was an index: child sitemaps it named, and how many were read. */
@@ -94,6 +96,46 @@ export function parseSitemapXml(xml: string): { locs: string[]; isIndex: boolean
     if (/^https?:\/\//i.test(loc)) locs.push(loc);
   }
   return { locs, isIndex };
+}
+
+/** What a sitemap says about one page, beyond its address. */
+export interface SitemapEntry {
+  loc: string;
+  /** <lastmod>, as written (W3C datetime). */
+  lastmod?: string;
+  /** <image:image> and <video:video> entries (Google's sitemap extensions). */
+  images: number;
+  videos: number;
+  /** <xhtml:link rel="alternate" hreflang> translations of the page, itself included when listed. */
+  alternates: { hreflang: string; href: string }[];
+}
+
+/** The <url> entries of a urlset, with their metadata. Pure. */
+export function parseSitemapEntries(xml: string): SitemapEntry[] {
+  const out: SitemapEntry[] = [];
+  const decode = (v: string) => v.replace(/&(amp|lt|gt|quot|apos);/g, (_, e: string) => ENTITIES[e]!);
+  for (const m of xml.matchAll(/<url\b[^>]*>([\s\S]*?)<\/url>/gi)) {
+    if (out.length >= MAX_LOCS) break;
+    const body = m[1]!;
+    const loc = /<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?\s*<\/loc>/i.exec(body)?.[1];
+    if (!loc || !/^https?:\/\//i.test(decode(loc))) continue;
+    const lastmod = /<lastmod>\s*([^<]+?)\s*<\/lastmod>/i.exec(body)?.[1];
+    const alternates: SitemapEntry['alternates'] = [];
+    for (const a of body.matchAll(/<xhtml:link\b([^>]*)>/gi)) {
+      const at = (n: string) => new RegExp(`\\b${n}\\s*=\\s*["']([^"']*)["']`, 'i').exec(a[1]!)?.[1];
+      const href = at('href');
+      const hreflang = at('hreflang');
+      if (at('rel') === 'alternate' && href && hreflang) alternates.push({ hreflang: hreflang.toLowerCase(), href: decode(href) });
+    }
+    out.push({
+      loc: decode(loc),
+      ...(lastmod ? { lastmod } : {}),
+      images: (body.match(/<image:image\b/gi) ?? []).length,
+      videos: (body.match(/<video:video\b/gi) ?? []).length,
+      alternates,
+    });
+  }
+  return out;
 }
 
 /** `Sitemap:` lines of a robots.txt, which apply whatever the user-agent group. */
@@ -174,7 +216,7 @@ export interface AdaptivePick {
   url: string;
   /** The stratum it came from. */
   key: string;
-  reason: 'representative' | 'rare-section' | 'proportional';
+  reason: 'representative' | 'rare-section' | 'proportional' | 'video-page' | 'legacy-page';
 }
 
 /** A section holding at most this share of the listed pages (and at least one page) is rare. */
@@ -326,6 +368,12 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     // A redirect (canada.ca -> www.canada.ca) moves the site, not the request.
     if (res.url) sites.add(opts.siteOf(res.url));
     const parsed = parseSitemapXml(res.text);
+    // What the sitemaps say about each page, by page key, for the sample's choices.
+    const entries = new Map<string, SitemapEntry>();
+    const keep = (xml: string) => {
+      for (const e of parseSitemapEntries(xml)) if (!entries.has(opts.pageKey(e.loc))) entries.set(opts.pageKey(e.loc), e);
+    };
+    if (!parsed.isIndex) keep(res.text);
     let capped = parsed.locs.length >= MAX_LOCS;
     let locs = parsed.locs;
     // Which child sitemap each page came from, for an adaptive sample's strata.
@@ -343,6 +391,7 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
         if (c?.ok && c.text) {
           index.read++;
           const childLocs = parseSitemapXml(c.text).locs;
+          keep(c.text);
           if (childLocs.length >= MAX_LOCS) capped = true;
           const name = new URL(child).pathname.split('/').pop() || child;
           for (const l of childLocs) if (!fromChild.has(l)) fromChild.set(l, name);
@@ -356,12 +405,16 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     }
     const startKey = opts.pageKey(startUrl);
     const taken = new Set(opts.taken ?? []);
-    const pages = opts.select(locs, sites).filter((u) => opts.pageKey(u) !== startKey && !taken.has(opts.pageKey(u)));
+    const listedPages = opts.select(locs, sites).filter((u) => opts.pageKey(u) !== startKey && !taken.has(opts.pageKey(u)));
+    // Translations share a template: one page of each translation group is eligible.
+    const { pages, setAside } = collapseTranslations(listedPages, entries, opts.pageKey, startKey, site);
+    const meta = sitemapMetaOf(pages, entries, opts.pageKey, setAside);
     if (pages.length === 0) continue;
     const budget = Math.max(0, opts.maxPages - 1);
     const common = {
       source: res.url || candidate,
-      listed: pages.length,
+      listed: listedPages.length,
+      ...(meta ? { sitemapMeta: meta } : {}),
       capped,
       order: SAMPLE_ORDER,
       ...(index ? { sitemapsListed: index.listed, sitemapsRead: index.read } : {}),
@@ -443,27 +496,33 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     for (const [l, name] of fromChild) childOf.set(opts.pageKey(l), name);
     const splitByChild = new Set(fromChild.values()).size > 1;
     const groups = new Map<string, string[]>();
-    const meta = new Map<string, { section: string; sitemap?: string }>();
+    const strataMeta = new Map<string, { section: string; sitemap?: string }>();
+    const groupOf = new Map<string, string>();
     for (const u of pages) {
       const section = urlSection(u);
       const sitemap = splitByChild ? childOf.get(opts.pageKey(u)) : undefined;
       const key = sitemap ? `${sitemap} ${section}` : section;
       if (!groups.has(key)) {
         groups.set(key, []);
-        meta.set(key, { section, ...(sitemap ? { sitemap } : {}) });
+        strataMeta.set(key, { section, ...(sitemap ? { sitemap } : {}) });
       }
       groups.get(key)!.push(u);
+      groupOf.set(u, key);
     }
-    let drawn = adaptiveSample(groups, budget, site, skip);
-    await settle(() => (drawn = adaptiveSample(groups, budget, site, skip)).picks.map((p) => p.url));
-    const { picks, picked, rare } = drawn;
+    const draw = () => {
+      const d = adaptiveSample(groups, budget, site, skip);
+      return { ...d, picks: withSpecialPages(d.picks, pages, budget, site, skip, groupOf, (u) => entries.get(opts.pageKey(u))) };
+    };
+    let drawn = draw();
+    await settle(() => (drawn = draw()).picks.map((p) => p.url));
+    const { picks, rare } = drawn;
     const pickedFrom = new Map<string, string[]>();
     for (const p of picks) pickedFrom.set(p.key, [...(pickedFrom.get(p.key) ?? []), p.url]);
     const strata: Stratum[] = [...groups.keys()]
       .map((k) => ({
-        ...meta.get(k)!,
+        ...strataMeta.get(k)!,
         listed: groups.get(k)!.length,
-        picked: picked.get(k) ?? 0,
+        picked: pickedFrom.get(k)?.length ?? 0,
         rare: rare.has(k),
         pages: pickedFrom.get(k) ?? [],
       }))
@@ -477,4 +536,126 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     };
   }
   return undefined;
+}
+
+/** At least this many pages before a sample makes room for a video page or a legacy page. */
+const SPECIAL_MIN_BUDGET = 6;
+/** Pages last modified this long before the newest are likely to use an older template. */
+const LEGACY_YEARS = 3;
+const YEAR_MS = 365.25 * 24 * 3600 * 1000;
+const dateOf = (e: SitemapEntry | undefined) => {
+  const t = e?.lastmod ? Date.parse(e.lastmod) : Number.NaN;
+  return Number.isFinite(t) ? t : undefined;
+};
+
+/**
+ * One page of each translation group, by the sitemap's hreflang alternates:
+ * translations share a template, so measuring each language spends the
+ * budget on the same page several times. The start page's language is kept
+ * when the sitemap names it; otherwise the first in hash order. Pure.
+ */
+export function collapseTranslations(
+  pages: string[],
+  entries: Map<string, SitemapEntry>,
+  keyOf: (u: string) => string,
+  startKey: string,
+  seed: string,
+): { pages: string[]; setAside: number } {
+  const parent = new Map<string, string>();
+  const find = (k: string): string => {
+    let r = k;
+    while (parent.has(r) && parent.get(r) !== r) r = parent.get(r)!;
+    if (r !== k) parent.set(k, r);
+    return r;
+  };
+  const langOf = new Map<string, string>();
+  for (const [k, e] of entries) {
+    for (const a of e.alternates) {
+      const ak = keyOf(a.href);
+      langOf.set(ak, a.hreflang);
+      const [x, y] = [find(k), find(ak)];
+      if (x !== y) parent.set(x < y ? y : x, x < y ? x : y);
+    }
+  }
+  if (!langOf.size) return { pages, setAside: 0 };
+  const startLang = langOf.get(startKey);
+  const byGroup = new Map<string, string[]>();
+  for (const u of pages) {
+    const g = find(keyOf(u));
+    byGroup.set(g, [...(byGroup.get(g) ?? []), u]);
+  }
+  const keep = new Set<string>();
+  for (const members of byGroup.values()) {
+    const sameLang = startLang ? members.filter((u) => langOf.get(keyOf(u)) === startLang) : [];
+    keep.add(hashOrder(sameLang.length ? sameLang : members, seed)[0]!);
+  }
+  const kept = pages.filter((u) => keep.has(u));
+  return { pages: kept, setAside: pages.length - kept.length };
+}
+
+/** A summary of what the sitemap said about the eligible pages. Undefined when it said nothing. */
+export function sitemapMetaOf(
+  pages: string[],
+  entries: Map<string, SitemapEntry>,
+  keyOf: (u: string) => string,
+  translationsSetAside: number,
+): SiteSample['sitemapMeta'] {
+  const es = pages.map((u) => entries.get(keyOf(u))).filter((e): e is SitemapEntry => !!e);
+  const dates = es.map(dateOf).filter((t): t is number => t !== undefined);
+  const videoPages = es.filter((e) => e.videos > 0).length;
+  const imagePages = es.filter((e) => e.images > 0).length;
+  if (!dates.length && !videoPages && !imagePages && !translationsSetAside) return undefined;
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+  return {
+    ...(translationsSetAside ? { translationsSetAside } : {}),
+    ...(videoPages ? { videoPages } : {}),
+    ...(imagePages ? { imagePages } : {}),
+    ...(dates.length ? { dated: dates.length, oldest: iso(Math.min(...dates)), newest: iso(Math.max(...dates)) } : {}),
+  };
+}
+
+/**
+ * Two pages a draw of sections can miss, each in place of the last page of a
+ * large section's proportional share: a page with video, when the sitemap
+ * marks some (video is the heaviest thing a page can load), and the page
+ * least recently modified, when the sitemap spans more than three years
+ * (old pages often keep an older template). Neither when the sample is small.
+ */
+export function withSpecialPages(
+  picks: AdaptivePick[],
+  pages: string[],
+  budget: number,
+  seed: string,
+  skip: ReadonlySet<string>,
+  groupOf: Map<string, string>,
+  entryOf: (u: string) => SitemapEntry | undefined,
+): AdaptivePick[] {
+  if (budget < SPECIAL_MIN_BUDGET) return picks;
+  const out = [...picks];
+  const inSample = new Set(out.map((p) => p.url));
+  const replaceLast = (url: string, reason: AdaptivePick['reason']) => {
+    const i = out.map((p) => p.reason).lastIndexOf('proportional');
+    if (i < 0) return;
+    inSample.delete(out[i]!.url);
+    out[i] = { url, key: groupOf.get(url)!, reason };
+    inSample.add(url);
+  };
+  const eligible = (u: string) => !skip.has(u) && !inSample.has(u);
+
+  if (!out.some((p) => (entryOf(p.url)?.videos ?? 0) > 0)) {
+    const video = hashOrder(pages.filter((u) => (entryOf(u)?.videos ?? 0) > 0 && eligible(u)), `${seed}|video`)[0];
+    if (video) replaceLast(video, 'video-page');
+  }
+
+  const dated = pages.map((u) => [u, dateOf(entryOf(u))] as const).filter((x): x is readonly [string, number] => x[1] !== undefined);
+  if (dated.length) {
+    const newest = Math.max(...dated.map((x) => x[1]));
+    const cutoff = newest - LEGACY_YEARS * YEAR_MS;
+    const hasLegacy = out.some((p) => (dateOf(entryOf(p.url)) ?? Infinity) < cutoff);
+    const oldest = dated
+      .filter(([u, t]) => t < cutoff && eligible(u))
+      .sort((a, b) => a[1] - b[1] || (hashRank(a[0], seed) < hashRank(b[0], seed) ? -1 : 1))[0];
+    if (!hasLegacy && oldest) replaceLast(oldest[0], 'legacy-page');
+  }
+  return out;
 }

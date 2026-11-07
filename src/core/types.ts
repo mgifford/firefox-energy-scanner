@@ -284,11 +284,17 @@ export interface CrawlSampling {
   gone?: { url: string; status?: number }[];
   /** What checking the sample's URLs found. */
   health?: SampleHealth;
+  /**
+   * What the sitemap said about the eligible pages: translations set aside
+   * (one per hreflang group is eligible), pages marked with video or images,
+   * and the range of last-modified dates.
+   */
+  sitemapMeta?: { translationsSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
   /** What the sample cannot stand for. Plain sentences, shown as given. */
   limitations?: string[];
 }
 
-export type SampleReason = 'start' | 'requested' | 'key-page' | 'random' | 'representative' | 'proportional' | 'rare-section' | 'linked';
+export type SampleReason = 'start' | 'requested' | 'key-page' | 'random' | 'representative' | 'proportional' | 'rare-section' | 'video-page' | 'legacy-page' | 'linked';
 
 /** What checking a sample's URLs found, before Firefox visited any. */
 export interface SampleHealth {

@@ -751,3 +751,36 @@ have relabelled a page timer with the same id.
 **Refused pages are not traced.** A page the network guard refuses, or one that answers
 with an HTTP error, gets a record that says so, not an analysis of the error page.
 
+## TDR-020: Samples ordered by URL hash, with key pages and a cleaned draw
+
+**Decision:** Sitemap samples order pages by a hash of the page (SHA-256 of the site and
+the URL, scheme and `www.` ignored), not by a seeded shuffle. A crawl also measures key
+pages found from the start page. The draw replaces pages that are files, gone,
+duplicates by redirect, or off-site. It reads `hreflang`, video and `lastmod` from the
+sitemap.
+
+**Why the order changed.** A sample is only comparable with the last one if it measures
+mostly the same pages. The shuffle reshuffled every page when one was added: on a
+4,000-page sitemap, a 20-page sample kept 0 pages after 5% growth. The hash order keeps
+19. The pinned-output test was changed once, deliberately. Results record
+`sampling.order`, and history explains the one-time drop in shared pages.
+
+**Why key pages.** WCAG-EM's representative sample is a structured sample plus a random
+one. For energy, the site's search results matter most: they are dynamic and often heavy,
+and no sitemap lists them. They are found from the start page's HTML, read from the
+server before the scan, and checked against the same rules (robots.txt included) as
+every other page.
+
+**Why clean the draw.** A slot spent on a 404 page, a second address for a page already
+drawn, or another site's page is a slot not spent on the site. Only definite answers
+replace a page: a GET's 404 or 410, or a redirect. A 403 to an automated request can be
+a firewall, so it is kept.
+
+**Why sitemap metadata.** It is the site's own description of its pages. Translations
+share a template, video pages are the heaviest, and long-unchanged pages are where older
+templates survive. Each special pick replaces a proportional pick, never a section's
+representative, and only in samples of six or more.
+
+Ideas adapted from [mgifford/purple-a11y-fork, sitemap-tools](https://github.com/mgifford/purple-a11y-fork/tree/main/sitemap-tools):
+the hash filter, the required-pages CSV, and URL verification before a scan.
+

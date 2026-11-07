@@ -92,9 +92,20 @@ which share one template.
 
 ## Adaptive sampling
 
-`--sample` (and hosted scans of one URL) takes a seeded random sample of the sitemap.
-**It is unchanged** — a test pins its output — because re-scans compare like with like
-only while the same site gives the same pages.
+`--sample` (and hosted scans of one URL) takes a seeded random sample of the sitemap. A
+test pins its output, because re-scans compare like with like only while the same site
+gives the same pages.
+
+**Pages are ordered by URL hash.** Each page's place in the draw depends only on the site
+and the page itself (SHA-256, scheme and `www.` ignored). A page leaves a sample only
+when it leaves the sitemap, or a new page outranks it. On a 4,000-page sitemap, a
+20-page sample keeps 19 of its pages after the sitemap grows by 5% or loses 2%. The
+seeded shuffle used before kept 0 and 1, so a re-scan a month later compared almost
+nothing. The idea is from the hash filter in `sitemap-randomizer.py`
+([mgifford/purple-a11y-fork, sitemap-tools](https://github.com/mgifford/purple-a11y-fork/tree/main/sitemap-tools)),
+with a fixed page count rather than 10% steps. Samples changed once when this was
+introduced; results record `sampling.order: url-hash`, and the history comparison says
+why few pages are shared with an older scan.
 
 `--adaptive` (or `SAMPLE:adaptive` in an issue title, or _Page sampling: Spread across
 sections_ in the form) takes a stratified sample instead. Strata are URL sections: the
@@ -110,13 +121,52 @@ sitemaps are read, rather than three.
    for four or more pages.
 3. The rest **in proportion** to section size (D'Hondt), so a large section gets more.
 
-Pages within a section are drawn in seeded order, and the order of picks puts the
+Pages within a section are drawn in URL-hash order, and the order of picks puts the
 representatives first, so a page limit cuts the proportional share first. The same
 sitemap and site give the same sample.
 
-The result records why each page was measured (`start`, `requested`, `random`,
-`representative`, `rare-section`, `proportional`, `linked`), each section with the pages
-listed and measured, and the sample's limitations.
+Two pages a draw of sections can miss each take the place of the last proportional pick,
+when the sample has room for six or more:
+
+- a page the sitemap marks with **video** (`<video:video>`), when none was drawn: video
+  is the heaviest thing a page can load;
+- the page **least recently modified** (`<lastmod>`), when the sitemap's dates span more
+  than three years and no older page was drawn: old pages often keep an older template.
+
+The result records why each page was measured (`start`, `requested`, `key-page`,
+`random`, `representative`, `rare-section`, `proportional`, `video-page`, `legacy-page`,
+`linked`), each section with the pages listed and measured, and the sample's limitations.
+
+## Key pages
+
+As in WCAG-EM's structured sample, some pages are measured whatever the draw. A crawl
+reads the start page's HTML once from the server, before the scan, with no Firefox visit,
+and adds:
+
+- **site search results**, from the site's search form (a GET form marked as search),
+  for the first word of the page's title. Results pages are often among a site's
+  heaviest, and no sitemap lists them;
+- the **contact page** and the **accessibility statement**, by link text or address;
+- the **"not found" page**, when the site answers an unknown address with an HTML page of
+  its own rather than a redirect.
+
+Each must pass the crawl's rules: same site, include and exclude, robots.txt. A site that
+disallows `/search/` gets no search page. Key pages come after the start page and any
+named pages (`--also`, `--also-file`), and the sample fills the slots that remain.
+`--no-key-pages` turns them off. The result records each key page and how it was found
+(`sampling.keyPages`).
+
+## A cleaned sample
+
+**Translations are one page.** When a sitemap names `hreflang` alternates, translations of
+a page share its template, so one page of each translation group is eligible, in the
+start page's language when the sitemap names it. The result says how many were set aside.
+
+**Gone, duplicate and off-site pages are replaced**, as `update_sitemap.py` does for a
+whole sitemap. A sampled URL is replaced by the next in its order when a GET answers 404
+or 410, when it redirects to a page already in the sample, or when it redirects to
+another site. A 403, 429 or 5xx says nothing about the page, and it is kept.
+`sampling.health` counts what the check found.
 
 **Files are replaced, not measured.** A sitemap often lists PDFs and spreadsheets at
 addresses with no extension. Each sampled URL's `Content-Type` is checked before the scan

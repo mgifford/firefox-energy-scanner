@@ -70,7 +70,7 @@ import { traceChromium, type TraceRecord } from '../trace/run.js';
 import { pickTraceUrls } from '../trace/select.js';
 import { notHtmlSentence } from '../collect/content-type.js';
 import { KEY_PAGE_LABEL } from '../collect/key-pages.js';
-import { healthSentence } from '../collect/sample-text.js';
+import { healthSentence, sitemapMetaSentence } from '../collect/sample-text.js';
 import { readUrlList } from '../collect/url-list.js';
 import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
 import { webnrgMarkdown } from '../webnrg/markdown.js';
@@ -864,7 +864,7 @@ async function cmdCrawl(args: Args): Promise<number> {
 export function describeSampling(s: CrawlSampling): string {
   const keys = s.keyPages?.length ? ` Key pages: ${s.keyPages.map((k) => KEY_PAGE_LABEL[k.kind]).join(', ')}.` : '';
   const skipped = s.notHtml?.length ? ` ${notHtmlSentence(s.notHtml, s.notHtmlCount, s.method !== 'links')}` : '';
-  return describeChoice(s) + keys + skipped + healthSentence(s);
+  return describeChoice(s) + keys + skipped + healthSentence(s) + sitemapMetaSentence(s);
 }
 
 
