@@ -193,11 +193,16 @@ try {
     'the three news articles are one family');
   check(familyOf('/en/news/budget') !== familyOf('/en/about'), 'articles and basic pages are different families');
   check(Object.values(sampled?.sampling?.reasons ?? {}).includes('random'), 'the result says why each page was picked');
+  // Key pages, found from the start page, come with the sample and count within the page limit.
+  check((sampled?.sampling?.keyPages ?? []).some((k) => k.kind === 'contact' && k.url.endsWith('/en/contact')), `the crawl added the contact page as a key page (${JSON.stringify(sampled?.sampling?.keyPages)})`);
+  check(sampled?.sampling?.reasons?.[`${WWW}/en/contact`] === 'key-page', 'the result says the contact page is a key page');
+  check((sampled?.sampling?.picked ?? 99) <= 20, `key pages count within --max-pages (${sampled?.sampling?.picked} of 20)`);
 
   // 3b. An adaptive sample: one page from each URL section before any second
   // one, and the lone /fr/ page kept as a rare section. Started at /en/ so the
-  // start page is not also a sitemap pick.
-  const adaptive = await run(['crawl', `${WWW}/en/`, '--adaptive', '--max-pages', '5'], mkdtempSync(join(tmpdir(), 'adaptive-')));
+  // start page is not also a sitemap pick. Without key pages, which take
+  // slots from the page limit: this checks the sampler's spread alone.
+  const adaptive = await run(['crawl', `${WWW}/en/`, '--adaptive', '--max-pages', '5', '--no-key-pages'], mkdtempSync(join(tmpdir(), 'adaptive-')));
   const sections = (adaptive?.sampling?.strata ?? []).filter((s) => s.picked > 0).map((s) => s.section).sort();
   annotate('notice', `adaptive: ${JSON.stringify(adaptive?.sampling?.strata)}`);
   check(adaptive?.sampling?.method === 'adaptive', `the adaptive sample came from the sitemap (${adaptive?.sampling?.method})`);
