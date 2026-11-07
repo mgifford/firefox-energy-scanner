@@ -70,11 +70,13 @@ import { traceChromium, type TraceRecord } from '../trace/run.js';
 import { pickTraceUrls } from '../trace/select.js';
 import { notHtmlSentence } from '../collect/content-type.js';
 import { KEY_PAGE_LABEL } from '../collect/key-pages.js';
-import { healthSentence, sitemapMetaSentence } from '../collect/sample-text.js';
+import { healthSentence, popularitySentence, sitemapMetaSentence } from '../collect/sample-text.js';
 import { readUrlList } from '../collect/url-list.js';
+import { CRUX_DEFAULT_MAX, CruxPages } from '../core/crux-pages.js';
 import { collectWebnrg, runWebnrg, type WebnrgSummary } from '../webnrg/run.js';
 import { webnrgMarkdown } from '../webnrg/markdown.js';
 import { has, one, parseArgs, unknownFlagWarnings, type Args } from './args.js';
+import { holdSecrets, loadDotEnv } from '../core/secrets.js';
 import {
   cruxApiKey,
   cruxTarget,
@@ -199,7 +201,13 @@ Field data (CrUX; optional, read-only, needs a Chrome UX Report API key):
                                 metrics beside the lab results
   --crux-url                    Ask about the URL instead of its whole origin
   --crux-form-factor <f>        all (default) | phone | desktop | tablet
-  --crux-key <key>              API key; prefer the CRUX_API_KEY environment variable
+  --crux-key <key>              API key. Better: CRUX_API_KEY in a .env file (gitignored)
+                                or the environment, which stays out of shell history
+
+  --crux-pages                  Also record CrUX field data for each measured page
+  --popular                     Crawl: prefer pages real Chrome users visit (a CrUX
+                                record) within each URL section; implies --crux-pages
+  --crux-max <n>                CrUX queries a scan may make (default 100, at most 150)
 
   \`crux <url>\` queries the field data on its own, without launching a browser.
 
@@ -698,6 +706,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   // Fail on a bad grid declaration before spending a session measuring.
   const grid = gridFromConfig(config);
   const crux = cruxFromArgs(args, urls[0]!);
+  const fieldPages = cruxPagesFromArgs(args);
   const outcome = await runBenchmark({
     config,
     baseUrl: urls[0]!,
@@ -732,6 +741,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   await attachLighthouse(args, config, result, urls, 'measure');
   await attachTraces(args, config, result, urls, 'measure');
   await attachCrux(result, crux);
+  await attachCruxPages(result, fieldPages);
   await attachWebnrg(args, result, urls, 'measure');
   attachInventory(result);
   attachInvestigation(result);
@@ -741,6 +751,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.traces) printTraces(result.traces);
   if (result.crux) printCrux(result.crux);
+  if (result.cruxPages) printCruxPages(result.cruxPages);
   if (result.webnrg) printWebnrg(result.webnrg);
   for (const w of result.warnings) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
@@ -808,10 +819,20 @@ async function cmdCrawl(args: Args): Promise<number> {
   await announceEnergy(config);
   const grid = gridFromConfig(config);
   const crux = cruxFromArgs(args, start);
+  const fieldPages = cruxPagesFromArgs(args);
   const outcome = await crawl({
     config,
     startUrl: start,
     extraPages: [...(args.flags.get('also') ?? []), ...(await readUrlList(one(args, 'also-file')))],
+    ...(fieldPages && has(args, 'popular')
+      ? {
+          popular: async (urls: string[]) => {
+            progress(`Checking ${urls.length} candidate pages in the Chrome UX Report`);
+            const found = await fieldPages.check(urls);
+            return { withRecord: new Set([...found].filter(([, r]) => r.status === 'ok').map(([u]) => u)), checked: found.size };
+          },
+        }
+      : {}),
     onProgress: progress,
   });
   process.stderr.write('\n');
@@ -843,6 +864,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   await attachLighthouse(args, config, result, [start], 'crawl');
   await attachTraces(args, config, result, [start], 'crawl');
   await attachCrux(result, crux);
+  await attachCruxPages(result, fieldPages);
   await attachWebnrg(args, result, [start], 'crawl');
   attachInventory(result);
   attachInvestigation(result);
@@ -852,6 +874,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.traces) printTraces(result.traces);
   if (result.crux) printCrux(result.crux);
+  if (result.cruxPages) printCruxPages(result.cruxPages);
   if (result.webnrg) printWebnrg(result.webnrg);
   if (result.families) printFamilies(result.families);
   if (result.investigation) printInvestigation(result);
@@ -866,7 +889,7 @@ async function cmdCrawl(args: Args): Promise<number> {
 export function describeSampling(s: CrawlSampling): string {
   const keys = s.keyPages?.length ? ` Key pages: ${s.keyPages.map((k) => KEY_PAGE_LABEL[k.kind]).join(', ')}.` : '';
   const skipped = s.notHtml?.length ? ` ${notHtmlSentence(s.notHtml, s.notHtmlCount, s.method !== 'links')}` : '';
-  return describeChoice(s) + keys + skipped + healthSentence(s) + sitemapMetaSentence(s);
+  return describeChoice(s) + keys + skipped + healthSentence(s) + sitemapMetaSentence(s) + popularitySentence(s);
 }
 
 
@@ -1649,6 +1672,46 @@ async function cmdTrace(args: Args): Promise<number> {
 }
 
 /**
+ * --crux-pages, or --popular (crawl): CrUX for individual pages, with one
+ * shared budget. Resolves the key now, before Firefox starts, so a missing
+ * key fails at once rather than after the scan.
+ */
+function cruxPagesFromArgs(args: Args): CruxPages | undefined {
+  if (!has(args, 'crux-pages') && !has(args, 'popular')) return undefined;
+  return new CruxPages({
+    apiKey: cruxApiKey(one(args, 'crux-key')),
+    formFactor: parseCruxFormFactor(one(args, 'crux-form-factor')),
+    max: intFlag(args, 'crux-max', CRUX_DEFAULT_MAX, 1, 150),
+  });
+}
+
+/** Field data for each measured page, after the browsers have closed. */
+async function attachCruxPages(result: BenchmarkResult, field: CruxPages | undefined): Promise<void> {
+  if (!field) return;
+  const pages = [...new Set(result.scenarios.filter((s) => !s.warmup && s.valid).map((s) => s.step))];
+  await field.check(pages);
+  const found = pages.map((u) => field.get(u)).filter((r): r is CruxResult => !!r);
+  if (found.length) result.cruxPages = found;
+  if (field.stoppedBecause) result.warnings.push(`CrUX queries stopped early: ${field.stoppedBecause}`);
+  const unchecked = pages.length - found.length;
+  if (unchecked > 0) result.warnings.push(`${unchecked} page${unchecked === 1 ? ' was' : 's were'} not checked in CrUX: the query limit (--crux-max) was reached, or the address is not public.`);
+}
+
+function printCruxPages(pages: CruxResult[]): void {
+  const withData = pages.filter((p) => p.status === 'ok' && p.record);
+  console.log(`\nField data for each page (CrUX; real Chrome users, 28 days): ${withData.length} of ${pages.length} pages have a record`);
+  const fmt = (r: CruxResult, m: 'lcp' | 'inp' | 'cls') => {
+    const v = r.record?.metrics[m]?.p75;
+    return v === undefined ? '—' : formatCruxValue(m, v);
+  };
+  for (const r of withData.slice(0, 10)) {
+    console.log(`  ${shortUrl(r.target).padEnd(48)} LCP ${fmt(r, 'lcp').padStart(7)}  INP ${fmt(r, 'inp').padStart(7)}  CLS ${fmt(r, 'cls').padStart(5)}`);
+  }
+  if (withData.length > 10) console.log(`  …and ${withData.length - 10} more in the report`);
+  console.log('Pages without a record had too little Chrome traffic, or are not covered. Field data is never combined with lab figures.');
+}
+
+/**
  * Resolve the CrUX options for a command, or undefined when not requested.
  *
  * Called before Firefox starts, so a missing key or a non-public target fails in
@@ -2380,7 +2443,14 @@ async function cmdProfile(args: Args): Promise<number> {
 }
 
 async function main(): Promise<number> {
+  // Keys from a gitignored .env, then out of the environment: Firefox,
+  // Chromium and Lighthouse are child processes and must not inherit them.
+  loadDotEnv();
+  holdSecrets();
   const args = parseArgs(process.argv.slice(2));
+  if (has(args, 'crux-key')) {
+    console.error('warning: --crux-key puts the key in your shell history and the process list. Put CRUX_API_KEY=… in a .env file instead (see docs/crux.md#the-api-key).');
+  }
   const command = args._[0];
 
   if (!command || has(args, 'help') || command === 'help') {

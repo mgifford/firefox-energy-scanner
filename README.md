@@ -237,10 +237,17 @@ never combined with anything else.
 It does not replace Lighthouse. A 28-day window cannot show that a fix made today
 helped, and CrUX has no record for previews, staging or low-traffic pages.
 
+`--crux-pages` adds field data for each measured page, and `--popular` makes a crawl's
+sample prefer pages real Chrome users visit (those with a CrUX record). Keep the key in
+a `.env` file (gitignored; copy `.env.example`), or, for hosted scans, in the repository
+secret `CRUX_API_KEY`, which turns both on. See
+[docs/crux.md](docs/crux.md#the-api-key).
+
 ```bash
-export CRUX_API_KEY='…'
+cp .env.example .env        # then set CRUX_API_KEY=… in .env
 node dist/cli/index.js crux https://example.com/
 node dist/cli/index.js measure https://example.com/ --lighthouse --crux
+node dist/cli/index.js crawl https://example.com/ --adaptive --popular
 ```
 
 The query carries the URL to Google, so local and private targets are refused before

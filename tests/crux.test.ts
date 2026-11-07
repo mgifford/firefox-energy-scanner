@@ -10,6 +10,10 @@ import {
   type CruxResult,
 } from '../src/core/crux.js';
 import { toHtml } from '../src/report/html.js';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { forgetSecrets, holdSecrets, loadDotEnv, parseDotEnv } from '../src/core/secrets.js';
 import type { BenchmarkResult } from '../src/core/types.js';
 import type { LighthouseSummary } from '../src/lighthouse/summary.js';
 
@@ -57,12 +61,13 @@ const PAYLOAD = {
 interface Call {
   url: string;
   body: Record<string, unknown>;
+  headers: Record<string, string>;
 }
 
 function respondWith(payload: unknown, status = 200): { impl: typeof fetch; calls: Call[] } {
   const calls: Call[] = [];
-  const impl = (async (url: unknown, init?: { body?: unknown }) => {
-    calls.push({ url: String(url), body: JSON.parse(String(init?.body)) as Record<string, unknown> });
+  const impl = (async (url: unknown, init?: { body?: unknown; headers?: Record<string, string> }) => {
+    calls.push({ url: String(url), body: JSON.parse(String(init?.body)) as Record<string, unknown>, headers: init?.headers ?? {} });
     return new Response(JSON.stringify(payload), {
       status,
       headers: { 'content-type': 'application/json' },
@@ -104,7 +109,7 @@ describe('cruxApiKey', () => {
   });
 
   it('names both ways to supply a key when there is none', () => {
-    expect(() => cruxApiKey(undefined, {})).toThrow(/CRUX_API_KEY or pass --crux-key/);
+    expect(() => cruxApiKey(undefined, {})).toThrow(/CRUX_API_KEY=… in a \.env file.*CRUX_API_KEY environment variable/);
   });
 });
 
@@ -323,5 +328,48 @@ describe('field data section', () => {
     const html = toHtml(withCrux(OK, multi));
     expect(html).not.toContain('Field against lab');
     expect(html).toContain('while Lighthouse audited 2 individual pages');
+  });
+});
+
+describe('the API key stays out of URLs, results and child processes', () => {
+  it('travels in the X-Goog-Api-Key header, never the URL', async () => {
+    const { impl, calls } = respondWith(PAYLOAD);
+    await fetchCrux({ target: 'https://example.com/a', apiKey: 'secret-123', fetchImpl: impl });
+    expect(calls[0]!.url).toBe('https://chromeuxreport.googleapis.com/v1/records:queryRecord');
+    expect(calls[0]!.url).not.toContain('secret-123');
+    expect(calls[0]!.headers['x-goog-api-key']).toBe('secret-123');
+  });
+
+  it('is not in a result, an error or a refusal', async () => {
+    const outcomes = [
+      await fetchCrux({ target: 'https://example.com/', apiKey: 'secret-123', fetchImpl: respondWith(PAYLOAD).impl }),
+      await fetchCrux({ target: 'https://example.com/', apiKey: 'secret-123', fetchImpl: respondWith({ error: { message: 'API key not valid.' } }, 400).impl }),
+      await fetchCrux({ target: 'https://example.com/', apiKey: 'secret-123', fetchImpl: (async () => { throw new TypeError('fetch failed'); }) as unknown as typeof fetch }),
+    ];
+    for (const o of outcomes) expect(JSON.stringify(o)).not.toContain('secret-123');
+  });
+});
+
+describe('.env and held secrets', () => {
+  it('reads KEY=value lines, comments, export and quotes', () => {
+    expect(parseDotEnv('# keys\nexport CRUX_API_KEY="abc 123"\nDRUPAL_USERNAME=admin # local\n\nBAD LINE\nEMPTY=\n')).toEqual({ CRUX_API_KEY: 'abc 123', DRUPAL_USERNAME: 'admin', EMPTY: '' });
+  });
+
+  it('loads .env without overriding what the environment already sets', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dotenv-'));
+    writeFileSync(join(dir, '.env'), 'CRUX_API_KEY=from-file\nOTHER=x\n');
+    const env: NodeJS.ProcessEnv = { OTHER: 'from-shell' };
+    expect(loadDotEnv(dir, env)).toEqual(['CRUX_API_KEY']);
+    expect(env).toEqual({ OTHER: 'from-shell', CRUX_API_KEY: 'from-file' });
+    expect(loadDotEnv(join(dir, 'missing'), {})).toEqual([]);
+  });
+
+  it('takes the key out of the environment, so browsers launched later do not inherit it', () => {
+    const env: NodeJS.ProcessEnv = { CRUX_API_KEY: ' held-key ', PATH: '/usr/bin' };
+    holdSecrets(env);
+    expect(env).toEqual({ PATH: '/usr/bin' });
+    expect(cruxApiKey(undefined, env)).toBe('held-key');
+    forgetSecrets();
+    expect(() => cruxApiKey(undefined, env)).toThrow();
   });
 });

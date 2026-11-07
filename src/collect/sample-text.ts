@@ -24,3 +24,10 @@ export function sitemapMetaSentence(s: CrawlSampling): string {
   ].filter(Boolean);
   return parts.length ? ` The sitemap: ${parts.join('; ')}.` : '';
 }
+
+/** --popular, in a sentence. */
+export function popularitySentence(s: CrawlSampling): string {
+  const p = s.popularity;
+  if (!p) return '';
+  return ` Of ${p.checked} candidate pages checked in the Chrome UX Report, ${p.withRecord} ha${p.withRecord === 1 ? 's' : 've'} real Chrome traffic; those led their section's draw.`;
+}

@@ -1,4 +1,5 @@
 import { localHostReason } from './addresses.js';
+import { secret } from './secrets.js';
 
 /**
  * Field data from the Chrome UX Report (CrUX).
@@ -117,20 +118,29 @@ export function cruxTarget(target: string): { url: string; origin: string } {
   return { url: parsed.toString(), origin: parsed.origin };
 }
 
-/** Resolve the API key from the flag or the environment, with an actionable error. */
+/**
+ * Resolve the API key: the --crux-key flag, else CRUX_API_KEY (from the
+ * environment or a .env file, held since startup), with an actionable error.
+ */
 export function cruxApiKey(
   flag: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const key = flag?.trim() || env.CRUX_API_KEY?.trim();
+  const key = flag?.trim() || secret('CRUX_API_KEY', env);
   if (!key) {
     throw new Error(
-      'CrUX needs a Chrome UX Report API key: set CRUX_API_KEY or pass --crux-key. ' +
-        'Enable the API and create a key at ' +
+      'CrUX needs a Chrome UX Report API key: put CRUX_API_KEY=… in a .env file here ' +
+        '(git ignores it), or set the CRUX_API_KEY environment variable. ' +
+        'See docs/crux.md#the-api-key to create one at ' +
         'https://console.cloud.google.com/apis/library/chromeuxreport.googleapis.com',
     );
   }
   return key;
+}
+
+/** True when a key is available, without throwing. */
+export function hasCruxKey(flag?: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(flag?.trim() || secret('CRUX_API_KEY', env));
 }
 
 /** Query CrUX. Never throws for a missing record or a refused request; returns a status. */
@@ -148,9 +158,11 @@ export async function fetchCrux(request: CruxRequest): Promise<CruxResult> {
   const doFetch = request.fetchImpl ?? fetch;
 
   try {
-    const response = await doFetch(`${ENDPOINT}?key=${encodeURIComponent(request.apiKey)}`, {
+    // The key goes in a header, never the URL: an error, a log line or a
+    // proxy that records the URL then does not record the key.
+    const response = await doFetch(ENDPOINT, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': request.apiKey },
       body: JSON.stringify(body),
       signal: controller.signal,
     });

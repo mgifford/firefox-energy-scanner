@@ -312,6 +312,13 @@ jobs:
           # Set the repository variable WEBNRG to "off" to stop sending pages
           # to webNRG, or to "lookup" to only reuse results it already has.
           WEBNRG: ${{ vars.WEBNRG }}
+          # Optional. A Chrome UX Report API key in the repository secret
+          # CRUX_API_KEY turns on field data and popular-page sampling. Only
+          # this step sees it; the scanner takes it out of its environment at
+          # startup, so the browsers it launches never inherit it, and sends
+          # it in a header, never a URL. GitHub masks it in logs. Unset, scans
+          # run as before. See docs/crux.md#the-api-key.
+          CRUX_API_KEY: ${{ secrets.CRUX_API_KEY }}
         run: |
           mkdir -p site/results
           # URLs come from an env var and are passed as argv, never interpolated
@@ -355,6 +362,12 @@ jobs:
           const webnrg = process.env.WEBNRG === 'off' ? []
             : process.env.WEBNRG === 'lookup' ? ['--webnrg-lookup-only', '--webnrg-top', '3']
             : ['--webnrg', '--webnrg-top', '3'];
+          // Field data from the Chrome UX Report, only when the secret is set:
+          // the origin's, each page's, and (crawls) a sample that prefers
+          // pages real Chrome users visit. The page URLs go to Google.
+          const hasCrux = Boolean(process.env.CRUX_API_KEY);
+          const crux = !hasCrux ? [] : mode === 'crawl' ? ['--crux', '--popular'] : ['--crux', '--crux-pages'];
+          console.log('CrUX field data:', hasCrux ? 'on (repository secret CRUX_API_KEY is set)' : 'off (no CRUX_API_KEY secret)');
           const args = mode === 'crawl'
             ? ['dist/cli/index.js', 'crawl', urls[0],
                // Other pages listed with a crawl are measured first.
@@ -365,12 +378,12 @@ jobs:
                // Adaptive spreads it across the site's URL sections.
                process.env.SCAN_SAMPLING === 'adaptive' ? '--adaptive' : '--sample',
                ...(process.env.SCAN_INCLUDE ? ['--include', process.env.SCAN_INCLUDE] : []),
-               ...viewport, ...lighthouse, ...guard, ...webnrg, ...greenHosting,
+               ...viewport, ...lighthouse, ...guard, ...webnrg, ...greenHosting, ...crux,
                '--headless', '--out', 'site/results']
             : ['dist/cli/index.js', 'measure', ...urls,
                '--runs', String(plan.runs),
                '--warmups', String(plan.warmups),
-               ...viewport, ...lighthouse, ...guard, ...webnrg, ...greenHosting,
+               ...viewport, ...lighthouse, ...guard, ...webnrg, ...greenHosting, ...crux,
                '--headless', '--out', 'site/results'];
 
           console.log('mode:', mode, '| targets:', urls.length, '| runs:', plan.runs, '| warmups:', plan.warmups);
