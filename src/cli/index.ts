@@ -709,6 +709,7 @@ async function cmdMeasure(args: Args): Promise<number> {
     target: { url: urls[0]! },
     configuration: config,
     scenarios: outcome.steps,
+    ...(outcome.notHtml?.length ? { notHtml: outcome.notHtml.map((n) => ({ url: n.url, ...(n.contentType ? { contentType: n.contentType } : {}) })) } : {}),
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
     ...(grid ? { gridIntensity: grid } : {}),
     warnings: outcome.warnings,

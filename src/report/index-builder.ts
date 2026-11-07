@@ -394,6 +394,22 @@ function summarizeScenarios(steps: StepResult[], grid?: GridIntensity): IndexSce
 export function toIndexEntry(result: BenchmarkResult, file: string): IndexEntry {
   const env = result.environment;
   const scenarios = summarizeScenarios(result.scenarios, result.gridIntensity);
+  // Files skipped before Firefox visited them stay visible, as "not a web page" rows.
+  for (const n of [...(result.notHtml ?? []), ...(result.sampling?.notHtml ?? [])]) {
+    if (scenarios.some((x) => x.step === n.url)) continue;
+    scenarios.push({
+      step: n.url,
+      runs: 0,
+      transferBytes: 0,
+      requests: 0,
+      thirdPartyRequests: 0,
+      durationMs: 0,
+      resolved: false,
+      failed: true,
+      notAPage: true,
+      failureNote: `Not an HTML page (${n.contentType ?? 'not HTML'}), so it was skipped before Firefox visited it.`,
+    });
+  }
   if (greenLookupFailed(result.warnings)) {
     for (const s of scenarios) {
       delete s.co2GreenShare;

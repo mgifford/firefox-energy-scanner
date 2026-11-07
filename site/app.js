@@ -297,7 +297,8 @@
       if (s.failed) {
         const td = make('td', 'unresolved failed-note');
         td.colSpan = entry.gridIntensity ? 8 : 7;
-        text(td, s.notAPage
+        // Newer scans say what the file was (skipped before the visit); older ones found the download.
+        text(td, s.notAPage && !(s.failureNote || '').startsWith('Not an HTML page')
           ? 'Not a web page — the URL starts a file download (usually a PDF), so there was nothing to measure.'
           : (s.failureNote || 'Every measured run failed.'));
         tr.appendChild(td);

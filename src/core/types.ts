@@ -371,6 +371,12 @@ export interface BenchmarkResult {
    * another browser, never Firefox energy. The raw traces are not stored.
    */
   traces?: import('../trace/run.js').TraceRecord[];
+  /**
+   * measure: URLs in the list that are not HTML pages (PDFs, spreadsheets),
+   * found before Firefox visited them, and skipped. A crawl records its own
+   * in sampling.notHtml.
+   */
+  notHtml?: { url: string; contentType?: string }[];
   /** An energy experiment: baseline against one change, as a measured difference only. */
   experiment?: import('../experiments/experiment.js').ExperimentReport;
   warnings: string[];

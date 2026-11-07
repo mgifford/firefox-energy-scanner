@@ -178,3 +178,17 @@ describe('pages refused by the network guard', () => {
     expect(ranked.urls).toEqual(['https://a.com/']);
   });
 });
+
+describe('files skipped before Firefox visited them', () => {
+  it('stay on the published page as "not a web page" rows, with their type', () => {
+    const result = {
+      ...issue6,
+      scenarios: issue6.scenarios.filter((s) => s.step !== PDF),
+      notHtml: [{ url: PDF, contentType: 'application/pdf' }],
+      sampling: { method: 'sitemap', picked: 1, notHtml: [{ url: 'https://cms.gov/files/zip/oct6confcallzip', contentType: 'application/zip' }], notHtmlCount: 1 },
+    } as BenchmarkResult;
+    const rows = toIndexEntry(result, 'x.json').scenarios;
+    expect(rows.find((s) => s.step === PDF)).toMatchObject({ failed: true, notAPage: true, runs: 0, failureNote: 'Not an HTML page (application/pdf), so it was skipped before Firefox visited it.' });
+    expect(rows.find((s) => s.step.endsWith('oct6confcallzip'))).toMatchObject({ notAPage: true, failureNote: expect.stringContaining('application/zip') });
+  });
+});
