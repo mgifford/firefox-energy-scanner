@@ -23,6 +23,7 @@ export type Getter = (url: string) => Promise<Fetched | undefined>;
 
 import { urlSection } from '../analysis/url-pattern.js';
 import type { PageCheck } from './content-type.js';
+import type { SampleHealth } from '../core/types.js';
 
 export type SampleStrategy = 'random' | 'adaptive';
 
@@ -59,6 +60,10 @@ export interface SiteSample {
   order: typeof SAMPLE_ORDER;
   /** Listed URLs found not to be HTML pages (PDFs, spreadsheets, archives): skipped, and replaced. */
   notHtml?: PageCheck[];
+  /** Listed URLs the server said are not there (404, 410): skipped, and replaced. */
+  gone?: PageCheck[];
+  /** What checking the sample's URLs found. */
+  health?: SampleHealth;
 }
 
 /** At most this many child sitemaps are read from a sitemap index. */
@@ -293,6 +298,8 @@ export interface SampleOptions {
    * for an adaptive sample), so the sample keeps its size and spread.
    */
   checkPages?: (urls: string[]) => Promise<PageCheck[]>;
+  /** Page keys already chosen (named pages, key pages): not drawn again. */
+  taken?: string[];
 }
 
 /** At most this many URLs are checked for each page the sample asks for. */
@@ -348,7 +355,8 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       }
     }
     const startKey = opts.pageKey(startUrl);
-    const pages = opts.select(locs, sites).filter((u) => opts.pageKey(u) !== startKey);
+    const taken = new Set(opts.taken ?? []);
+    const pages = opts.select(locs, sites).filter((u) => opts.pageKey(u) !== startKey && !taken.has(opts.pageKey(u)));
     if (pages.length === 0) continue;
     const budget = Math.max(0, opts.maxPages - 1);
     const common = {
@@ -362,28 +370,67 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     // Draw, check the new picks, skip any that are files, draw again: each
     // round only checks the replacements. Capped, so a sitemap of mostly
     // PDFs cannot turn into thousands of requests.
+    //
+    // A draw is also cleaned: a page that is gone (404, 410), that redirects
+    // to a page already in the sample, or that redirects to another site is
+    // replaced in the same way, as update_sitemap.py in mgifford's
+    // sitemap-tools does for a whole sitemap.
     const skip = new Set<string>();
     const notHtml: PageCheck[] = [];
+    const gone: PageCheck[] = [];
+    const finalOf = new Map<string, string>();
+    const health: SampleHealth = { checked: 0, html: 0, files: 0, gone: 0, redirected: 0, duplicates: 0, offSite: 0, unknown: 0 };
     const checked = new Set<string>();
     const maxChecks = budget * CHECKS_PER_PAGE + 5;
     const settle = async (draw: () => string[]): Promise<string[]> => {
       let urls = draw();
-      while (opts.checkPages && checked.size < maxChecks) {
-        const fresh = urls.filter((u) => !checked.has(u)).slice(0, maxChecks - checked.size);
-        if (!fresh.length) break;
-        const results = await opts.checkPages(fresh);
-        for (const u of fresh) checked.add(u);
-        const files = results.filter((r) => r.verdict === 'file');
-        if (!files.length) break;
-        for (const f of files) {
-          skip.add(f.url);
-          notHtml.push(f);
+      while (opts.checkPages) {
+        const before = skip.size;
+        const fresh = urls.filter((u) => !checked.has(u)).slice(0, Math.max(0, maxChecks - checked.size));
+        if (fresh.length) {
+          const results = await opts.checkPages(fresh);
+          for (const u of fresh) checked.add(u);
+          for (const r of results) {
+            health.checked++;
+            if (r.finalUrl) {
+              finalOf.set(r.url, r.finalUrl);
+              health.redirected++;
+            }
+            if (r.verdict === 'file') {
+              health.files++;
+              notHtml.push(r);
+              skip.add(r.url);
+            } else if (r.verdict === 'gone') {
+              health.gone++;
+              gone.push(r);
+              skip.add(r.url);
+            } else if (r.finalUrl && !sites.has(opts.siteOf(r.finalUrl))) {
+              health.offSite++;
+              skip.add(r.url);
+            } else r.verdict === 'html' ? health.html++ : health.unknown++;
+          }
         }
+        // Two sampled URLs that lead to one page: the later one is replaced.
+        const seen = new Set([startKey, ...taken]);
+        for (const u of urls) {
+          if (skip.has(u)) continue;
+          const k = opts.pageKey(finalOf.get(u) ?? u);
+          if (seen.has(k)) {
+            skip.add(u);
+            health.duplicates++;
+          } else seen.add(k);
+        }
+        if (skip.size === before) break;
         urls = draw();
+        if (checked.size >= maxChecks && urls.every((u) => checked.has(u))) break;
       }
       return urls;
     };
-    const withSkips = () => (notHtml.length ? { notHtml } : {});
+    const withSkips = () => ({
+      ...(notHtml.length ? { notHtml } : {}),
+      ...(gone.length ? { gone } : {}),
+      ...(opts.checkPages && health.checked ? { health } : {}),
+    });
 
     if (!adaptive) {
       const sample = await settle(() => seededSample(pages, budget, site, skip));

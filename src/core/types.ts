@@ -278,11 +278,37 @@ export interface CrawlSampling {
    */
   notHtml?: { url: string; contentType?: string }[];
   notHtmlCount?: number;
+  /** Key pages measured, found from the start page. */
+  keyPages?: { kind: 'search' | 'contact' | 'accessibility' | 'not-found'; url: string; from: string }[];
+  /** URLs skipped because the server said they are not there (404, 410). At most 50. */
+  gone?: { url: string; status?: number }[];
+  /** What checking the sample's URLs found. */
+  health?: SampleHealth;
   /** What the sample cannot stand for. Plain sentences, shown as given. */
   limitations?: string[];
 }
 
-export type SampleReason = 'start' | 'requested' | 'random' | 'representative' | 'proportional' | 'rare-section' | 'linked';
+export type SampleReason = 'start' | 'requested' | 'key-page' | 'random' | 'representative' | 'proportional' | 'rare-section' | 'linked';
+
+/** What checking a sample's URLs found, before Firefox visited any. */
+export interface SampleHealth {
+  /** URLs checked. */
+  checked: number;
+  /** HTML pages. */
+  html: number;
+  /** Files: PDFs, spreadsheets, archives. Replaced. */
+  files: number;
+  /** Not there: 404 or 410. Replaced. */
+  gone: number;
+  /** Redirected somewhere else. */
+  redirected: number;
+  /** Redirected to a page already in the sample. Replaced. */
+  duplicates: number;
+  /** Redirected to another site. Replaced. */
+  offSite: number;
+  /** Could not be checked, so kept. */
+  unknown: number;
+}
 
 /**
  * Pages that share a structure, grouped after a scan. Built from what each

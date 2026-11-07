@@ -1,3 +1,5 @@
+import { KEY_PAGE_LABEL } from '../collect/key-pages.js';
+import { healthSentence } from '../collect/sample-text.js';
 import { notHtmlSentence } from '../collect/content-type.js';
 import type { CrawlSampling } from '../core/types.js';
 import type { FamilyReport } from '../analysis/families.js';
@@ -29,6 +31,7 @@ function shortPath(url: string): string {
 const REASON_LABEL: Record<string, string> = {
   start: 'start page',
   requested: 'listed in the request',
+  'key-page': 'key page (search results, contact, accessibility statement, not found)',
   random: 'random sample',
   representative: 'one per URL section',
   'rare-section': 'rare URL section',
@@ -72,6 +75,14 @@ function samplingBlock(s: CrawlSampling | undefined): string {
   <p>${s.picked} page${s.picked === 1 ? '' : 's'} by ${method}${s.listed !== undefined ? `, from ${s.listed} pages the sitemap lists` : ''}.
   ${counts.size ? `Reasons: ${[...counts].map(([r, n]) => `${n} ${esc(REASON_LABEL[r] ?? r)}`).join(', ')}.` : ''}</p>
   ${strata}
+  ${
+    s.keyPages?.length
+      ? `<p>Key pages, found from the start page:</p><ul>${s.keyPages
+          .map((k) => `<li>${esc(KEY_PAGE_LABEL[k.kind])}: <code>${esc(k.url)}</code> <span class="note">(${esc(k.from)})</span></li>`)
+          .join('')}</ul>`
+      : ''
+  }
+  ${healthSentence(s) ? `<p>${esc(healthSentence(s).trim())}</p>` : ''}
   ${
     s.notHtml?.length
       ? `<p>${esc(notHtmlSentence(s.notHtml, s.notHtmlCount, s.method !== 'links'))}</p>

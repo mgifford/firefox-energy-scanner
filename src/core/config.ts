@@ -78,6 +78,11 @@ const crawlSchema = z
      */
     strategy: z.enum(['links', 'sitemap', 'adaptive']).default('links'),
     respect_robots: z.boolean().default(true),
+    /**
+     * Also measure the site's key pages, found from the start page: search
+     * results, contact, the accessibility statement and the "not found" page.
+     */
+    key_pages: z.boolean().default(true),
     delay_ms: z.number().int().min(0).default(250),
   })
   .strict()
