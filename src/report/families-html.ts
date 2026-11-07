@@ -31,7 +31,7 @@ function shortPath(url: string): string {
 const REASON_LABEL: Record<string, string> = {
   start: 'start page',
   requested: 'listed in the request',
-  'key-page': 'key page (search results, contact, accessibility statement, not found)',
+  'key-page': 'key page (search results, a top task, accessibility statement, contact, help, not found)',
   random: 'random sample',
   representative: 'one per URL section',
   'rare-section': 'rare URL section',

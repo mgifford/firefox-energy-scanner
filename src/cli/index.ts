@@ -146,11 +146,13 @@ Options:
   --no-history           Do not compare with the previous scan of the same site
                          in the output directory.
   --also-file <file>     Crawl: also measure the pages listed in this file: one URL
-                         a line, a CSV (first column), or a sitemap XML.
+                         a line, a CSV (first column), a sitemap XML, or JSON
+                         (a top-task-finder list, or an array of URLs).
   --no-key-pages         Crawl: do not add the site's key pages. By default a
-                         crawl also measures its search results, contact page,
-                         accessibility statement and "not found" page, found
-                         from the start page, as a WCAG-EM sample has them.
+                         crawl also measures its search results, a top task,
+                         accessibility statement, contact, help and "not found"
+                         page, found from the start page, as a WCAG-EM sample
+                         has them: at most a quarter of --max-pages.
   --also <url>           Crawl: also measure this page of the same site, right
                          after the start page (repeatable).
   --authenticated        Use Drupal auth from environment variables

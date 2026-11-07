@@ -326,11 +326,14 @@ few pages for rare ones. Either way, each page's place in the draw depends only 
 page, so a re-scan keeps most of its pages even after the sitemap changes.
 
 A crawl also measures the site's **key pages**, found from the start page, as a WCAG-EM
-sample has them: search results, the contact page, the accessibility statement and the
-"not found" page (`--no-key-pages` to leave them out). `--also-file <file>` adds pages
-you always want, from a list, a CSV or a sitemap. Sitemap metadata is used too: one
-language of each translated page, a page with video, and the oldest page when a site's
-dates span years. See [docs/page-families.md](docs/page-families.md).
+sample has them: search results, a top task (a link such as "Apply" or "Renew"), the
+accessibility statement (in 24 languages), contact, help, and the "not found" page. They
+take at most a quarter of `--max-pages` (`--no-key-pages` to leave them out).
+`--also-file <file>` adds pages you always want, from a list, a CSV, a sitemap or a
+[top-task-finder](https://github.com/mgifford/top-task-finder) JSON list. Sitemap
+metadata is used too: one language of each translated page, the newest of a yearly
+series, a page with video, and the oldest page when a site's dates span years. See
+[docs/page-families.md](docs/page-families.md).
 
 **Only HTML pages are measured.** Before Firefox visits a URL, the scan checks what it
 serves: a file extension (`.pdf`, `.xlsx`) settles it, and otherwise a `HEAD` request

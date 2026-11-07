@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collapseTranslations, parseSitemapEntries, sampleFromSitemaps, withSpecialPages, type AdaptivePick, type SitemapEntry } from '../src/collect/sitemap.js';
+import { collapseTranslations, collapseYearSeries, parseSitemapEntries, sampleFromSitemaps, withSpecialPages, type AdaptivePick, type SitemapEntry } from '../src/collect/sitemap.js';
 import { selectCrawlLinks } from '../src/collect/crawler.js';
 import { pageKey, siteOf } from '../src/collect/urls.js';
 import { defaultConfig } from '../src/core/config.js';
@@ -113,5 +113,43 @@ describe('an adaptive sample from a sitemap with metadata', () => {
     expect(sample.reasons['https://a.gov/news/archive-2011']).toBe('legacy-page');
     expect(Object.values(sample.reasons).filter((r) => r === 'video-page' || r === 'representative').length).toBeGreaterThan(0);
     expect(sample.urls).toContain('https://a.gov/media/briefing');
+  });
+});
+
+describe('yearly series', () => {
+  it('keeps the newest page of a series that differs only by its year', () => {
+    const pages = [
+      'https://www.a.gov/reports/annual-report-2022',
+      'https://www.a.gov/reports/annual-report-2023',
+      'https://www.a.gov/reports/annual-report-2024',
+      'https://www.a.gov/budget/2023-2024',
+      'https://www.a.gov/budget/2024-2025',
+      'https://www.a.gov/about',
+    ];
+    expect(collapseYearSeries(pages, 'a.gov')).toEqual({
+      pages: ['https://www.a.gov/reports/annual-report-2024', 'https://www.a.gov/budget/2024-2025', 'https://www.a.gov/about'],
+      setAside: 3,
+    });
+  });
+
+  it('leaves alone pages that differ by more than the year', () => {
+    const pages = ['https://a.gov/news/2024/05/budget-passes', 'https://a.gov/news/2024/06/new-office', 'https://a.gov/news/2023/05/budget-passes-again', 'https://a.gov/2023-transmittals/r12257cp', 'https://a.gov/2024-transmittals/r12516bp'];
+    expect(collapseYearSeries(pages, 'a.gov')).toEqual({ pages, setAside: 0 });
+  });
+
+  it('is part of what a sample records about the sitemap', async () => {
+    const urls = [...['2021', '2022', '2023', '2024'].map((y) => `https://a.gov/reports/annual-report-${y}`), ...Array.from({ length: 10 }, (_, i) => `https://a.gov/news/n${i}`)];
+    const xml = `<?xml version="1.0"?><urlset>${urls.map((u) => `<url><loc>${u}</loc></url>`).join('')}</urlset>`;
+    const sample = (await sampleFromSitemaps('https://a.gov/', {
+      get: async (url) => (new URL(url).pathname === '/sitemap.xml' ? { ok: true, url, text: xml } : { ok: false, url, text: '' }),
+      robotsSitemaps: [],
+      maxPages: 20,
+      siteOf,
+      pageKey: (u) => pageKey(u),
+      select: (l, sites) => selectCrawlLinks(l, 'https://a.gov/', sites, defaultConfig().crawl),
+    }))!;
+    expect(sample.sitemapMeta).toEqual({ seriesSetAside: 3 });
+    expect(sample.urls.filter((u) => u.includes('annual-report'))).toEqual(['https://a.gov/reports/annual-report-2024']);
+    expect(sample.listed).toBe(14);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findKeyPages, notFoundUrl, searchTerm } from '../src/collect/key-pages.js';
+import { findKeyPages, keepKeyPages, keyPageRoom, notFoundUrl, searchTerm, type KeyPage } from '../src/collect/key-pages.js';
 import { findSiteKeyPages } from '../src/collect/crawler.js';
 import { sampleFromSitemaps } from '../src/collect/sitemap.js';
 import { selectCrawlLinks } from '../src/collect/crawler.js';
@@ -40,6 +40,40 @@ describe('finding key pages on a start page', () => {
 
   it('finds a contact page by its address when the link text says nothing', () => {
     expect(findKeyPages('<a href="/en/contact/"><img alt=""></a>', 'https://a.gov/')).toEqual([{ kind: 'contact', url: 'https://a.gov/en/contact/', from: 'the address /en/contact/' }]);
+  });
+
+  it('finds the accessibility statement in the EU’s languages, compounds included', () => {
+    const one = (html: string) => findKeyPages(html, 'https://a.eu/').filter((k) => k.kind === 'accessibility').map((k) => [k.url, k.from]);
+    expect(one('<a href="/fi/saavutettavuusseloste">Saavutettavuusseloste</a>')).toEqual([['https://a.eu/fi/saavutettavuusseloste', 'the link "Saavutettavuusseloste"']]);
+    expect(one('<a href="/de/barrierefreiheitserklaerung">Erklärung</a>')).toEqual([['https://a.eu/de/barrierefreiheitserklaerung', 'the address /de/barrierefreiheitserklaerung']]);
+    expect(one('<a href="/nl/verklaring">Toegankelijkheidsverklaring</a>')).toHaveLength(1);
+    expect(one('<a href="/pl/dost%C4%99pno%C5%9B%C4%87">Deklaracja</a>')).toHaveLength(1);
+    expect(one('<a href="/fr/accessibilite">Déclaration d’accessibilité</a>')).toHaveLength(1);
+    expect(one('<a href="/el/x">Δήλωση προσβασιμότητας</a>')).toHaveLength(1);
+  });
+
+  it('does not take a word that only contains the term, or a section above the page', () => {
+    const kinds = (html: string) => findKeyPages(html, 'https://a.eu/').map((k) => k.kind);
+    expect(kinds('<a href="/news/inaccessible-roads">Inaccessible roads</a>')).toEqual([]);
+    expect(kinds('<a href="/accessibility/news/item-4">A story</a>')).toEqual([]);
+  });
+
+  it('finds help and a top task by what the link says, not a word anywhere in the path', () => {
+    const html = `<a href="/annual-report-2023">Annual report 2023</a><a href="/data/reports">Reports</a>
+      <a href="/passports/apply-online">Apply for a passport</a><a href="/support/faq">FAQs</a>`;
+    expect(findKeyPages(html, 'https://a.gov/').map((k) => [k.kind, k.url])).toEqual([
+      ['top-task', 'https://a.gov/passports/apply-online'],
+      ['help', 'https://a.gov/support/faq'],
+    ]);
+    expect(findKeyPages('<a href="/report-a-problem">Report a problem</a>', 'https://a.gov/').map((k) => k.kind)).toEqual(['top-task']);
+  });
+
+  it('keeps a quarter of the page limit for key pages, the most useful first', () => {
+    const all: KeyPage[] = ['not-found', 'help', 'contact', 'accessibility', 'top-task', 'search'].map((kind) => ({ kind: kind as KeyPage['kind'], url: `https://a.gov/${kind}`, from: 'x' }));
+    expect(keyPageRoom(20)).toBe(5);
+    expect(keyPageRoom(5)).toBe(1);
+    expect(keepKeyPages(all, keyPageRoom(20)).map((k) => k.kind)).toEqual(['search', 'top-task', 'accessibility', 'contact', 'help']);
+    expect(keepKeyPages(all, keyPageRoom(8)).map((k) => k.kind)).toEqual(['search', 'top-task']);
   });
 
   it('searches for a word from the title, the same every time', () => {
@@ -123,5 +157,13 @@ describe('a list of pages to measure (--also-file)', () => {
     expect(parseUrlList('# required pages\nhttps://a.gov/contact\n\nhttps://a.gov/search?q=x\r\n')).toEqual(['https://a.gov/contact', 'https://a.gov/search?q=x']);
     expect(parseUrlList('url,views\n"https://a.gov/",1200\nhttps://a.gov/news,300\n')).toEqual(['https://a.gov/', 'https://a.gov/news']);
     expect(parseUrlList('<?xml version="1.0"?><urlset><url><loc>https://a.gov/x</loc></url></urlset>')).toEqual(['https://a.gov/x']);
+  });
+
+  it('reads a list saved by top-task-finder, and other JSON lists', () => {
+    const ttf = JSON.stringify({ requestId: 'cache-1', selectedUrls: ['https://cms.gov/', 'https://cms.gov/digital-service/digital-accessibility'], requestedCount: 100, totalDiscoveredPages: 9986 });
+    expect(parseUrlList(ttf)).toEqual(['https://cms.gov/', 'https://cms.gov/digital-service/digital-accessibility']);
+    expect(parseUrlList('["https://a.gov/", "not a url", 3]')).toEqual(['https://a.gov/']);
+    expect(parseUrlList('[{"url": "https://a.gov/x", "views": 900}, {"title": "no url"}]')).toEqual(['https://a.gov/x']);
+    expect(parseUrlList('{"broken": ')).toEqual([]);
   });
 });

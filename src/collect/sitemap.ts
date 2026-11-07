@@ -50,7 +50,7 @@ export interface SiteSample {
   /** Why each sampled page was picked (the start page is not included). */
   reasons: Record<string, 'random' | 'representative' | 'proportional' | 'rare-section' | 'video-page' | 'legacy-page'>;
   /** What the sitemap said about the eligible pages: translations set aside, video and image pages, last-modified dates. */
-  sitemapMeta?: { translationsSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
+  sitemapMeta?: { translationsSetAside?: number; seriesSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
   /** Adaptive samples only. */
   strata?: Stratum[];
   /** When the sitemap was an index: child sitemaps it named, and how many were read. */
@@ -407,8 +407,10 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
     const taken = new Set(opts.taken ?? []);
     const listedPages = opts.select(locs, sites).filter((u) => opts.pageKey(u) !== startKey && !taken.has(opts.pageKey(u)));
     // Translations share a template: one page of each translation group is eligible.
-    const { pages, setAside } = collapseTranslations(listedPages, entries, opts.pageKey, startKey, site);
-    const meta = sitemapMetaOf(pages, entries, opts.pageKey, setAside);
+    const translated = collapseTranslations(listedPages, entries, opts.pageKey, startKey, site);
+    // Pages that differ only by a year (annual-report-2022, -2023, -2024) share one too.
+    const { pages, setAside: seriesSetAside } = collapseYearSeries(translated.pages, site);
+    const meta = sitemapMetaOf(pages, entries, opts.pageKey, translated.setAside, seriesSetAside);
     if (pages.length === 0) continue;
     const budget = Math.max(0, opts.maxPages - 1);
     const common = {
@@ -599,15 +601,17 @@ export function sitemapMetaOf(
   entries: Map<string, SitemapEntry>,
   keyOf: (u: string) => string,
   translationsSetAside: number,
+  seriesSetAside = 0,
 ): SiteSample['sitemapMeta'] {
   const es = pages.map((u) => entries.get(keyOf(u))).filter((e): e is SitemapEntry => !!e);
   const dates = es.map(dateOf).filter((t): t is number => t !== undefined);
   const videoPages = es.filter((e) => e.videos > 0).length;
   const imagePages = es.filter((e) => e.images > 0).length;
-  if (!dates.length && !videoPages && !imagePages && !translationsSetAside) return undefined;
+  if (!dates.length && !videoPages && !imagePages && !translationsSetAside && !seriesSetAside) return undefined;
   const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
   return {
     ...(translationsSetAside ? { translationsSetAside } : {}),
+    ...(seriesSetAside ? { seriesSetAside } : {}),
     ...(videoPages ? { videoPages } : {}),
     ...(imagePages ? { imagePages } : {}),
     ...(dates.length ? { dated: dates.length, oldest: iso(Math.min(...dates)), newest: iso(Math.max(...dates)) } : {}),
@@ -658,4 +662,40 @@ export function withSpecialPages(
     if (!hasLegacy && oldest) replaceLast(oldest[0], 'legacy-page');
   }
   return out;
+}
+
+/**
+ * A year in an address: -2023, /2023, _2023, or a range, -2022-2023
+ * (top-task-finder's pattern), followed by a separator or the end.
+ */
+const YEAR_TOKEN = /[-_/]((?:19|20)\d{2})(?:[-_]((?:19|20)\d{2}))?(?=[-_/?#.]|$)/g;
+
+/**
+ * Pages whose addresses differ only by a year (annual-report-2022, -2023,
+ * -2024; /budget/2024, /budget/2025) are one series built on one template:
+ * only the most recent is eligible. A news archive (/news/2024/05/story) is
+ * untouched, since its pages differ by more than the year. Pure.
+ */
+export function collapseYearSeries(pages: string[], seed: string): { pages: string[]; setAside: number } {
+  const series = new Map<string, { url: string; year: number }[]>();
+  for (const u of pages) {
+    let url: URL;
+    try {
+      url = new URL(u);
+    } catch {
+      continue;
+    }
+    const years = [...url.pathname.matchAll(YEAR_TOKEN)].flatMap((m) => [m[1], m[2]].filter(Boolean).map(Number));
+    if (!years.length) continue;
+    const key = `${url.host.replace(/^www\./, '')}${url.pathname.replace(YEAR_TOKEN, (m) => `${m[0]![0]}{YEAR}`)}${url.search}`;
+    series.set(key, [...(series.get(key) ?? []), { url: u, year: Math.max(...years) }]);
+  }
+  const drop = new Set<string>();
+  for (const members of series.values()) {
+    if (members.length < 2) continue;
+    const newest = Math.max(...members.map((m) => m.year));
+    const keep = hashOrder(members.filter((m) => m.year === newest).map((m) => m.url), seed)[0];
+    for (const m of members) if (m.url !== keep) drop.add(m.url);
+  }
+  return drop.size ? { pages: pages.filter((u) => !drop.has(u)), setAside: drop.size } : { pages, setAside: 0 };
 }

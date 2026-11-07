@@ -279,17 +279,18 @@ export interface CrawlSampling {
   notHtml?: { url: string; contentType?: string }[];
   notHtmlCount?: number;
   /** Key pages measured, found from the start page. */
-  keyPages?: { kind: 'search' | 'contact' | 'accessibility' | 'not-found'; url: string; from: string }[];
+  keyPages?: { kind: 'search' | 'top-task' | 'accessibility' | 'contact' | 'help' | 'not-found'; url: string; from: string }[];
   /** URLs skipped because the server said they are not there (404, 410). At most 50. */
   gone?: { url: string; status?: number }[];
   /** What checking the sample's URLs found. */
   health?: SampleHealth;
   /**
    * What the sitemap said about the eligible pages: translations set aside
-   * (one per hreflang group is eligible), pages marked with video or images,
-   * and the range of last-modified dates.
+   * (one per hreflang group is eligible), earlier years of a year series set
+   * aside (the newest is eligible), pages marked with video or images, and
+   * the range of last-modified dates.
    */
-  sitemapMeta?: { translationsSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
+  sitemapMeta?: { translationsSetAside?: number; seriesSetAside?: number; videoPages?: number; imagePages?: number; dated?: number; oldest?: string; newest?: string };
   /** What the sample cannot stand for. Plain sentences, shown as given. */
   limitations?: string[];
 }

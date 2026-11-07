@@ -7,7 +7,7 @@ import { deriveBaseline, type Baseline } from '../core/baseline.js';
 import { parseRobotsSitemaps, sampleFromSitemaps, type Getter, type SiteSample } from './sitemap.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 import { FILE_EXTENSION, checkPage, checkPages, contextRequester, judgeHeaders, type HeaderRequester, type PageCheck } from './content-type.js';
-import { findKeyPages, notFoundUrl, type KeyPage } from './key-pages.js';
+import { KEY_PAGE_LABEL, findKeyPages, keepKeyPages, keyPageRoom, notFoundUrl, type KeyPage } from './key-pages.js';
 
 export interface CrawlOptions {
   config: Config;
@@ -120,9 +120,17 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
     // the "not found" page, found from the start page's HTML.
     if (config.crawl.key_pages) {
       options.onProgress?.('Looking for key pages');
-      keyPages = (await findSiteKeyPages(startUrl, requestGetter(session), request, config, robotsDisallow)).filter(
+      const found = (await findSiteKeyPages(startUrl, requestGetter(session), request, config, robotsDisallow)).filter(
         (k) => pageKey(k.url, keyOpts) !== startKey && !extraKeys.has(pageKey(k.url, keyOpts)),
       );
+      // A quarter of the page limit at most, so key pages never crowd out the sample.
+      keyPages = keepKeyPages(found, keyPageRoom(config.crawl.max_pages));
+      const leftOut = found.filter((k) => !keyPages.includes(k));
+      if (leftOut.length) {
+        warnings.push(
+          `${leftOut.length} key page${leftOut.length === 1 ? ' was' : 's were'} left out to keep room for the sample (${leftOut.map((k) => KEY_PAGE_LABEL[k.kind]).join(', ')}); a higher --max-pages includes ${leftOut.length === 1 ? 'it' : 'them'}.`,
+        );
+      }
     }
     keyKeys = new Set(keyPages.map((k) => pageKey(k.url, keyOpts)));
     const fixed = 1 + extras.length + keyPages.length;
