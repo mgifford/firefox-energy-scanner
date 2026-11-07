@@ -124,4 +124,12 @@ describe('a list of pages to measure (--also-file)', () => {
     expect(parseUrlList('url,views\n"https://a.gov/",1200\nhttps://a.gov/news,300\n')).toEqual(['https://a.gov/', 'https://a.gov/news']);
     expect(parseUrlList('<?xml version="1.0"?><urlset><url><loc>https://a.gov/x</loc></url></urlset>')).toEqual(['https://a.gov/x']);
   });
+
+  it('reads a list saved by top-task-finder, and other JSON lists', () => {
+    const ttf = JSON.stringify({ requestId: 'cache-1', selectedUrls: ['https://cms.gov/', 'https://cms.gov/digital-service/digital-accessibility'], requestedCount: 100, totalDiscoveredPages: 9986 });
+    expect(parseUrlList(ttf)).toEqual(['https://cms.gov/', 'https://cms.gov/digital-service/digital-accessibility']);
+    expect(parseUrlList('["https://a.gov/", "not a url", 3]')).toEqual(['https://a.gov/']);
+    expect(parseUrlList('[{"url": "https://a.gov/x", "views": 900}, {"title": "no url"}]')).toEqual(['https://a.gov/x']);
+    expect(parseUrlList('{"broken": ')).toEqual([]);
+  });
 });
