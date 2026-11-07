@@ -279,7 +279,7 @@ export interface CrawlSampling {
   notHtml?: { url: string; contentType?: string }[];
   notHtmlCount?: number;
   /** Key pages measured, found from the start page. */
-  keyPages?: { kind: 'search' | 'contact' | 'accessibility' | 'not-found'; url: string; from: string }[];
+  keyPages?: { kind: 'search' | 'top-task' | 'accessibility' | 'contact' | 'help' | 'not-found'; url: string; from: string }[];
   /** URLs skipped because the server said they are not there (404, 410). At most 50. */
   gone?: { url: string; status?: number }[];
   /** What checking the sample's URLs found. */

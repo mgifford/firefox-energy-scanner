@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findKeyPages, notFoundUrl, searchTerm } from '../src/collect/key-pages.js';
+import { findKeyPages, keepKeyPages, keyPageRoom, notFoundUrl, searchTerm, type KeyPage } from '../src/collect/key-pages.js';
 import { findSiteKeyPages } from '../src/collect/crawler.js';
 import { sampleFromSitemaps } from '../src/collect/sitemap.js';
 import { selectCrawlLinks } from '../src/collect/crawler.js';
@@ -40,6 +40,40 @@ describe('finding key pages on a start page', () => {
 
   it('finds a contact page by its address when the link text says nothing', () => {
     expect(findKeyPages('<a href="/en/contact/"><img alt=""></a>', 'https://a.gov/')).toEqual([{ kind: 'contact', url: 'https://a.gov/en/contact/', from: 'the address /en/contact/' }]);
+  });
+
+  it('finds the accessibility statement in the EU’s languages, compounds included', () => {
+    const one = (html: string) => findKeyPages(html, 'https://a.eu/').filter((k) => k.kind === 'accessibility').map((k) => [k.url, k.from]);
+    expect(one('<a href="/fi/saavutettavuusseloste">Saavutettavuusseloste</a>')).toEqual([['https://a.eu/fi/saavutettavuusseloste', 'the link "Saavutettavuusseloste"']]);
+    expect(one('<a href="/de/barrierefreiheitserklaerung">Erklärung</a>')).toEqual([['https://a.eu/de/barrierefreiheitserklaerung', 'the address /de/barrierefreiheitserklaerung']]);
+    expect(one('<a href="/nl/verklaring">Toegankelijkheidsverklaring</a>')).toHaveLength(1);
+    expect(one('<a href="/pl/dost%C4%99pno%C5%9B%C4%87">Deklaracja</a>')).toHaveLength(1);
+    expect(one('<a href="/fr/accessibilite">Déclaration d’accessibilité</a>')).toHaveLength(1);
+    expect(one('<a href="/el/x">Δήλωση προσβασιμότητας</a>')).toHaveLength(1);
+  });
+
+  it('does not take a word that only contains the term, or a section above the page', () => {
+    const kinds = (html: string) => findKeyPages(html, 'https://a.eu/').map((k) => k.kind);
+    expect(kinds('<a href="/news/inaccessible-roads">Inaccessible roads</a>')).toEqual([]);
+    expect(kinds('<a href="/accessibility/news/item-4">A story</a>')).toEqual([]);
+  });
+
+  it('finds help and a top task by what the link says, not a word anywhere in the path', () => {
+    const html = `<a href="/annual-report-2023">Annual report 2023</a><a href="/data/reports">Reports</a>
+      <a href="/passports/apply-online">Apply for a passport</a><a href="/support/faq">FAQs</a>`;
+    expect(findKeyPages(html, 'https://a.gov/').map((k) => [k.kind, k.url])).toEqual([
+      ['top-task', 'https://a.gov/passports/apply-online'],
+      ['help', 'https://a.gov/support/faq'],
+    ]);
+    expect(findKeyPages('<a href="/report-a-problem">Report a problem</a>', 'https://a.gov/').map((k) => k.kind)).toEqual(['top-task']);
+  });
+
+  it('keeps a quarter of the page limit for key pages, the most useful first', () => {
+    const all: KeyPage[] = ['not-found', 'help', 'contact', 'accessibility', 'top-task', 'search'].map((kind) => ({ kind: kind as KeyPage['kind'], url: `https://a.gov/${kind}`, from: 'x' }));
+    expect(keyPageRoom(20)).toBe(5);
+    expect(keyPageRoom(5)).toBe(1);
+    expect(keepKeyPages(all, keyPageRoom(20)).map((k) => k.kind)).toEqual(['search', 'top-task', 'accessibility', 'contact', 'help']);
+    expect(keepKeyPages(all, keyPageRoom(8)).map((k) => k.kind)).toEqual(['search', 'top-task']);
   });
 
   it('searches for a word from the title, the same every time', () => {
