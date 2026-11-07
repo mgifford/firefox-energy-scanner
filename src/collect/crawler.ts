@@ -317,7 +317,7 @@ export function describeSample(o: {
 
   return {
     method: sample ? (o.adaptive ? 'adaptive' : 'sitemap') : 'links',
-    ...(sample ? { source: sample.source, listed: sample.listed } : {}),
+    ...(sample ? { source: sample.source, listed: sample.listed, order: sample.order } : {}),
     picked: o.measured.length,
     ...(o.requested ? { requested: o.requested } : {}),
     reasons,

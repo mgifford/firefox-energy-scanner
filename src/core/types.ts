@@ -261,6 +261,12 @@ export interface CrawlSampling {
   strataTotal?: number;
   /** Why each picked page was chosen, by URL. */
   reasons?: Record<string, SampleReason>;
+  /**
+   * How a sitemap sample was ordered: url-hash, where each page's place
+   * depends only on the page, so re-scans keep most of their pages. Absent
+   * in older results, which used a seeded shuffle.
+   */
+  order?: 'url-hash';
   /** Child sitemaps read, and how many an index named, when it was an index. */
   sitemapsRead?: number;
   sitemapsListed?: number;

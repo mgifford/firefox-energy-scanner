@@ -195,6 +195,13 @@ describe('compareWithPrevious', () => {
     expect(compareWithPrevious(now, noLighthouseBefore, 'x').components!.newSignals.map((s) => s.signal)).toEqual(['1 animation that never stops (spin).']);
   });
 
+  it('explains a sample drawn in the older order, so fewer shared pages are not read as a change to the site', () => {
+    const sampled = (r: BenchmarkResult, order?: 'url-hash') => ({ ...r, sampling: { method: 'adaptive' as const, picked: 3, ...(order ? { order } : {}) } });
+    const changed = compareWithPrevious(sampled(now, 'url-hash'), sampled(before), 'x');
+    expect(changed.limitations[0]).toMatch(/older order.*URL hash/);
+    expect(compareWithPrevious(sampled(now, 'url-hash'), sampled(before, 'url-hash'), 'x').limitations[0]).not.toMatch(/older order/);
+  });
+
   it('compares energy only when both scans measured and resolved it', () => {
     expect(compareWithPrevious(now, before, 'x').energy).toMatchObject({ comparable: false, note: expect.stringMatching(/not measured/) });
     const e = (r: BenchmarkResult, j: number[]) => ({ ...r, scenarios: j.map((x, i) => step(`https://a.org/${i}`, 1, 1, x)) });

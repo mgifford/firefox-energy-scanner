@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 /**
  * A sample of a site's pages, taken from its sitemap.
  *
@@ -54,6 +55,8 @@ export interface SiteSample {
   sitemapsRead?: number;
   /** True when a sitemap was longer than MAX_LOCS and only its start was read. */
   capped: boolean;
+  /** How pages were ordered for the draw. */
+  order: typeof SAMPLE_ORDER;
   /** Listed URLs found not to be HTML pages (PDFs, spreadsheets, archives): skipped, and replaced. */
   notHtml?: PageCheck[];
 }
@@ -109,15 +112,38 @@ function hash(seed: string): number {
 }
 
 /**
- * `n` items chosen by a shuffle seeded with `seed`: the same input and seed
- * always give the same choice. The input is sorted first, so a sitemap that
- * lists the same pages in another order gives the same sample.
+ * The order of samples. Each URL's place depends only on the seed and the URL
+ * itself, so adding or removing pages in a sitemap moves no other page: a
+ * re-scan a month later keeps most of its sample, and its comparison with the
+ * last scan stays meaningful. A seeded shuffle, used before, reshuffled every
+ * page when one was added (0 of 20 pages kept after a sitemap grew by 5%).
+ */
+export const SAMPLE_ORDER = 'url-hash' as const;
+
+/** The part of a URL that names the page: no scheme, no leading www., host in lower case. */
+const stableKey = (url: string) => url.replace(/^https?:\/\/(www\.)?([^/?#]*)/i, (_m, _w, host: string) => host.toLowerCase());
+
+/** A URL's rank in a seeded order: SHA-256 of the seed and the page. */
+export function hashRank(item: string, seed: string): string {
+  return createHash('sha256').update(`${seed}\n${stableKey(item)}`).digest('hex');
+}
+
+/** Items in seeded hash order, duplicates removed. */
+export function hashOrder<T extends string>(items: T[], seed: string): T[] {
+  return [...new Set(items)]
+    .map((x) => [hashRank(x, seed), x] as const)
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
+    .map((x) => x[1]);
+}
+
+/**
+ * `n` items in seeded hash order: the same pages and seed always give the
+ * same choice, whatever order they are listed in, and a changed sitemap
+ * changes only the pages that changed. Skipped items (files, found after a
+ * first draw) are stepped over, so the next one in the order takes their place.
  */
 export function seededSample<T extends string>(items: T[], n: number, seed: string, skip?: ReadonlySet<string>): T[] {
-  const pool = [...items].sort();
-  // Skipped items keep their places in the order, so the rest of the sample does not move.
-  if (pool.length <= n) return skip ? pool.filter((u) => !skip.has(u)) : pool;
-  return seededShuffle(pool, seed).filter((u) => !skip?.has(u)).slice(0, n);
+  return hashOrder(items, seed).filter((u) => !skip?.has(u)).slice(0, n);
 }
 
 /** A copy of `items` in an order fixed by `seed` (Fisher–Yates with mulberry32). */
@@ -161,8 +187,8 @@ const RARE_BUDGET = 0.2;
  * 3. the rest shared out in proportion to section size (D'Hondt), so a large
  *    section gets more pages than a small one.
  *
- * Pages within a section are drawn in seeded order. The same pages and seed
- * give the same sample. Representatives come first, then rare sections, then
+ * Pages within a section are drawn in seeded hash order (see SAMPLE_ORDER).
+ * The same pages and seed give the same sample. Representatives come first, then rare sections, then
  * the proportional share, so a page limit cuts the least informative picks.
  *
  * `groups` maps a stratum key to its pages. Pages in `skip` (files, found
@@ -176,14 +202,16 @@ export function adaptiveSample(
   skip?: ReadonlySet<string>,
 ): { picks: AdaptivePick[]; picked: Map<string, number>; rare: Set<string> } {
   const keys = [...groups.keys()].sort();
-  const order = new Map(keys.map((k) => [k, seededShuffle([...groups.get(k)!].sort(), `${seed}|${k}`)]));
+  // Pages within a section, and rare sections among themselves, in hash order:
+  // a section's picks do not move when other pages or sections come and go.
+  const order = new Map(keys.map((k) => [k, hashOrder(groups.get(k)!, seed)]));
   const total = keys.reduce((t, k) => t + order.get(k)!.length, 0);
   const rareMax = Math.max(1, Math.floor(total * RARE_SHARE));
   const size = (k: string) => order.get(k)!.length;
   const bySize = (a: string, b: string) => size(b) - size(a) || (a < b ? -1 : a > b ? 1 : 0);
 
   let common = keys.filter((k) => size(k) > rareMax).sort(bySize);
-  let rare = seededShuffle(keys.filter((k) => size(k) <= rareMax), `${seed}|rare`);
+  let rare = hashOrder(keys.filter((k) => size(k) <= rareMax), `${seed}|section`);
   // With no common section, there is nothing for a rare one to stand out from.
   if (common.length === 0) {
     common = [...rare].sort(bySize);
@@ -327,6 +355,7 @@ export async function sampleFromSitemaps(startUrl: string, opts: SampleOptions):
       source: res.url || candidate,
       listed: pages.length,
       capped,
+      order: SAMPLE_ORDER,
       ...(index ? { sitemapsListed: index.listed, sitemapsRead: index.read } : {}),
     };
 
