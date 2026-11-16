@@ -62,6 +62,8 @@ export interface RemovalCheckpoint {
   /** Up to ten of the roots, for the report. */
   identities: SubtreeIdentity[];
   content: SubtreeContent;
+  /** Set by the experiment: this checkpoint was in a warm-up run. */
+  warmup?: boolean;
 }
 
 /** After the idle window: did the component come back? */
@@ -74,6 +76,7 @@ export interface RemovalProbe {
   firstReinsertionMs?: number;
   /** Removed roots that are back in the document (the same element re-attached). */
   rootsReconnected: number;
+  warmup?: boolean;
 }
 
 /** Script callbacks fired since the page loaded, counted in the main frame. */
@@ -94,6 +97,7 @@ export interface ActivityWindow {
   animationFrames: number;
   /** Running animations at the checkpoint and after idle. */
   runningAnimations: [number, number];
+  warmup?: boolean;
 }
 
 export const DEFAULT_MAX_MATCHES = 24;

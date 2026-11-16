@@ -41,6 +41,10 @@ export interface FindingStep {
   runs: [number, number];
   /** Median power samples per run in the step, per side. */
   samples?: [number, number];
+  /** incremental (baseline subtracted) or window (none subtracted, when the baseline exceeded the step). */
+  basis?: 'incremental' | 'window';
+  /** The idle baseline subtracted, mW, median per side. */
+  baselineMw?: [number, number];
   /** Median and IQR per side, mWh; absent when energy was not measured. */
   baseline?: { medianMwh: number; iqrMwh: number };
   variant?: { medianMwh: number; iqrMwh: number };
@@ -138,6 +142,8 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
     verdict: d.verdict,
     runs: d.runs,
     ...(d.samples ? { samples: d.samples } : {}),
+    ...(d.energy?.basis ? { basis: d.energy.basis } : {}),
+    ...(d.energy?.baselineMw ? { baselineMw: d.energy.baselineMw } : {}),
     ...(d.energy ? { baseline: { medianMwh: d.energy.medianMwh[0], iqrMwh: d.energy.iqrMwh[0] }, variant: { medianMwh: d.energy.medianMwh[1], iqrMwh: d.energy.iqrMwh[1] }, differenceMwh: d.energy.differenceMwh, ...(d.energy.percent !== undefined ? { percent: d.energy.percent } : {}) } : {}),
     durationMs: d.durationMs,
     ...(d.transferBytes ? { transferBytes: d.transferBytes } : {}),
@@ -366,10 +372,12 @@ export function findingMarkdown(r: EvidenceRecord): string {
   }
   lines.push('## 3. Experimentally supported outcome', '', md(r.outcome.statement), '');
   if (r.outcome.steps.length) {
-    lines.push('| Step | Role | Runs | Baseline median mWh (IQR) | With the change (IQR) | Difference mWh | Reading |', '| --- | --- | --- | --- | --- | --- | --- |');
+    lines.push('| Step | Role | Runs | Basis | Baseline median mWh (IQR) | With the change (IQR) | Difference mWh | Reading |', '| --- | --- | --- | --- | --- | --- | --- | --- |');
     for (const s of r.outcome.steps) {
-      lines.push(`| ${md(s.step)} | ${s.role} | ${s.runs[0]} / ${s.runs[1]} | ${s.baseline ? `${mwh(s.baseline.medianMwh)} (${mwh(s.baseline.iqrMwh)})` : 'not measured'} | ${s.variant ? `${mwh(s.variant.medianMwh)} (${mwh(s.variant.iqrMwh)})` : 'not measured'} | ${s.differenceMwh !== undefined ? `${s.differenceMwh >= 0 ? '+' : ''}${mwh(s.differenceMwh)}${s.percent !== undefined ? ` (${s.percent}%)` : ''}` : '—'} | ${s.verdict} |`);
+      lines.push(`| ${md(s.step)} | ${s.role} | ${s.runs[0]} / ${s.runs[1]} | ${s.basis === 'window' ? 'window (no baseline)' : s.baseline ? 'incremental' : '—'} | ${s.baseline ? `${mwh(s.baseline.medianMwh)} (${mwh(s.baseline.iqrMwh)})` : 'not measured'} | ${s.variant ? `${mwh(s.variant.medianMwh)} (${mwh(s.variant.iqrMwh)})` : 'not measured'} | ${s.differenceMwh !== undefined ? `${s.differenceMwh >= 0 ? '+' : ''}${mwh(s.differenceMwh)}${s.percent !== undefined ? ` (${s.percent}%)` : ''}` : '—'} | ${s.verdict} |`);
     }
+    lines.push('');
+    for (const s of r.outcome.steps) lines.push(`- ${md(s.step)}: ${md(s.reading)}${s.baselineMw ? ` Idle baseline subtracted: ${s.baselineMw[0].toFixed(1)} / ${s.baselineMw[1].toFixed(1)} mW.` : ''}`);
     lines.push('');
   }
   lines.push('## 4. Recommended production change', '', md(r.recommendation.statement), '', `> ${md(r.recommendation.caution)}`, '');

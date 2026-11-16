@@ -80,7 +80,7 @@ describe('remove: did it apply, and hold?', () => {
   it('is applied only when every variant run removed it and it stayed removed', () => {
     const r = removalApplied(v, s(side(false, 3)), s(side(true, 3)));
     expect(r.ok).toBe(true);
-    expect(r.note).toMatch(/^Removed 1 subtree .*in each of 3 variant runs; none came back/);
+    expect(r.note).toMatch(/^Removed 1 subtree .*in each of 3 measured variant runs; none came back/);
   });
 
   it('counts nested matches once', () => {
@@ -191,9 +191,9 @@ describe('remove: the report', () => {
     expect(html).toContain('<caption>Script work from the checkpoint to the end of idle');
     expect(html).not.toMatch(/<script|<canvas/i);
     const csv = experimentCsv({ experiment: r } as unknown as BenchmarkResult).trim().split('\n');
-    expect(csv[0]).toMatch(/,step_role,like_for_like,removal_verified,removal_reinserted$/);
-    expect(csv[1]).toMatch(/,negative-control,true,true,false$/);
-    expect(csv[2]).toMatch(/,attributable,true,true,false$/);
+    expect(csv[0]).toMatch(/,step_role,like_for_like,removal_verified,removal_reinserted,energy_basis,baseline_mw_baseline,baseline_mw_variant,window_median_mwh_baseline,window_median_mwh_variant,window_verdict$/);
+    expect(csv[1]).toMatch(/,negative-control,true,true,false,incremental,/);
+    expect(csv[2]).toMatch(/,attributable,true,true,false,incremental,/);
   });
 
   it('reads experiment results written before removals and roles existed', () => {
@@ -262,5 +262,18 @@ describe('the example removal specs', () => {
     const { parse } = await import('yaml');
     expect(parseSpec(parse(readFileSync('examples/experiments/ticker-remove.yaml', 'utf8')))).toMatchObject({ kind: 'remove', idle_ms: 5_000, settle_ms: 1_000, seed: 'fixture-ticker' });
     expect(parseSpec(parse(readFileSync('examples/experiments/hero-carousel-remove.yaml', 'utf8')))).toMatchObject({ kind: 'remove', max_matches: 4 });
+  });
+});
+
+describe('warm-ups and measured runs', () => {
+  it('checks warm-ups, but counts and reports the measured runs', () => {
+    const v = { kind: 'remove' as const, selector: '.hero', maxMatches: 24 };
+    const b = side(true, 12);
+    b.removals = b.removals!.map((c, i) => (i < 2 ? { ...c, warmup: true } : c));
+    b.removalProbes = b.removalProbes!.map((p, i) => (i < 2 ? { ...p, warmup: true } : p));
+    const r = removalApplied(v, { counts: emptySide().counts, removals: side(false, 12).removals, removalProbes: side(false, 12).removalProbes }, { counts: b.counts, removals: b.removals, removalProbes: b.removalProbes });
+    expect(r.note).toMatch(/in each of 10 measured variant runs and 2 warm-ups/);
+    const report = buildReport(spec, { a: side(false, 10), b }, { a: series('baseline', around(0.5, 10), around(0.1, 10)), b: series('variant', around(0.5, 10), around(0.06, 10)) }, 's', ['a', 'b']);
+    expect(report.removal!.variant.removed).toHaveLength(10);
   });
 });

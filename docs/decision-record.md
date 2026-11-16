@@ -880,3 +880,35 @@ control, equal valid runs and equivalent page states.
 **WSG.** The record carries plain topic tags for mapping to the W3C Web Sustainability
 Guidelines and asserts no guideline number (`wsg.mapping: not-asserted`). That mapping is a
 judgement for the system that imports the record.
+
+## TDR-024: The idle baseline is the median of its window, and a comparison says its basis
+
+**Decision:** The idle baseline subtracted from every step is the median power of the
+idle window's bins (`baseline.method: median-of-bins`), not the window's mean energy over
+its length. The mean is kept beside it (`baseline.meanWatts`). Each experiment step also
+carries window energy (no baseline subtracted) as a cross-check, and says which basis its
+verdict uses.
+
+**Evidence.** The first experiments on an Apple M2 (Firefox 153, per-process counters,
+fixture site `/articles/d`) gave negative incremental energy for every idle step: about
+−0.24 mWh over 10 s on both sides. For that, the baseline had to average about 100 mW,
+while the diagnose run's idle baseline bins had a median of about 1 mW. The idle window
+starts five seconds after Firefox launches, and its own start-up work (BrowserGlue,
+remote settings, a system add-on update check, all seen in the same profiles) runs in
+it. A mean takes that work in; so every light page measured "below idle" and no
+difference could resolve, in either experiment.
+
+**Why the median.** The idle floor is what the browser draws doing nothing. Its own
+bursts of work are not idle; they also land at random in measured windows, where
+interleaving and medians over runs deal with them. The median of 250 ms bins is stable
+with the default 10 s window (40 bins). With fewer than five usable bins, the mean is
+used, and the result says so.
+
+**Why window energy beside it.** In an A/B experiment both sides measure the same window
+(the idle window has a fixed length), so the difference of window energy needs no
+baseline at all, and has none of the baseline's own noise. When incremental energy cannot
+be read because the baseline exceeded what the step drew, the verdict uses window energy
+and says so (`energy.basis: window`). On machine-wide counters (RAPL), a load step that
+takes longer on one side carries more idle floor in its window energy, and the reading
+says that too. Stored results are re-read with the current rules by `finding` and
+`report`, from their own runs; no measurement is changed.

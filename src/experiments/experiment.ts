@@ -168,8 +168,10 @@ async function checkAssertions(page: Page, assertions: Assertion[]): Promise<str
  * load, then an intentional idle window, where running animations and
  * timers show up.
  */
-export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | undefined, apply: boolean, state: SideState): JourneyDefinition {
+export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | undefined, apply: boolean, state: SideState, warmups = 0): JourneyDefinition {
   const variant = variantOf(spec);
+  // The runner calls run() for each warm-up, then the measured run: mark what each was.
+  let calls = 0;
   // The built-in workloads send no input and navigate once, so anything else
   // is from outside the test (a click in the headed window) and the run is not
   // used. A journey acts on the page itself, so it is not checked.
@@ -223,6 +225,7 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
       }
     },
     async run(args) {
+      const warmup = calls++ < warmups;
       if (variant.kind === 'remove') {
         // Load, as on any experiment: the component is on both sides here.
         const nav = await load(args);
@@ -230,7 +233,7 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
         // matches on both sides, remove them on the variant only.
         const before = await readActivity(args.page);
         const at = Date.now();
-        const cp = await duringRun(() => checkpoint(args.page, variant.selector!, apply, variant.maxMatches ?? DEFAULT_MAX_MATCHES));
+        const cp = { ...(await duringRun(() => checkpoint(args.page, variant.selector!, apply, variant.maxMatches ?? DEFAULT_MAX_MATCHES))), ...(warmup ? { warmup } : {}) };
         (state.removals ??= []).push(cp);
         // Refused here means refused on every run: end this one now rather than measure an unchanged page.
         if (cp.refused) throw new RemovalRefused(cp.refusedDetail ?? cp.refused);
@@ -241,9 +244,9 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
           await args.page.waitForTimeout(spec.idle_ms);
         });
         await clean(args, nav);
-        (state.removalProbes ??= []).push(await duringRun(() => removalProbe(args.page, variant.selector!)));
+        (state.removalProbes ??= []).push({ ...(await duringRun(() => removalProbe(args.page, variant.selector!))), ...(warmup ? { warmup } : {}) });
         const activity = activityBetween(before, await readActivity(args.page), Date.now() - at);
-        if (activity) (state.activity ??= []).push(activity);
+        if (activity) (state.activity ??= []).push({ ...activity, ...(warmup ? { warmup } : {}) });
       } else if (variant.kind === 'remove-before-load') {
         const nav = await load(args);
         const before = await readActivity(args.page);
@@ -255,9 +258,9 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
           });
         }
         await clean(args, nav);
-        (state.removalProbes ??= []).push(await duringRun(() => removalProbe(args.page, variant.selector!)));
+        (state.removalProbes ??= []).push({ ...(await duringRun(() => removalProbe(args.page, variant.selector!))), ...(warmup ? { warmup } : {}) });
         const activity = activityBetween(before, await readActivity(args.page), Date.now() - at);
-        if (activity) (state.activity ??= []).push(activity);
+        if (activity) (state.activity ??= []).push({ ...activity, ...(warmup ? { warmup } : {}) });
       } else if (inner) {
         await inner.run(args);
       } else {
@@ -295,13 +298,26 @@ export interface StepDifference {
   /** Absent in results made before roles were recorded: read as attributable. */
   role?: StepRole;
   runs: [number, number];
-  /** Observed incremental energy, mWh: median and IQR per side. */
+  /**
+   * Observed energy, mWh: median and IQR per side, on the basis named.
+   * incremental: the window's energy minus the idle baseline's (the default).
+   * window: the window's energy, with no baseline subtracted. Used when the
+   * baseline exceeded what the step drew, which makes incremental energy
+   * unusable; valid for an A/B because both sides measure the same window.
+   * Absent `basis` in older results: incremental.
+   */
   energy?: {
+    basis?: 'incremental' | 'window';
     medianMwh: [number, number];
     iqrMwh: [number, number];
     differenceMwh: number;
     percent?: number;
     resolved: [boolean, boolean];
+    /** Window energy, as a cross-check beside incremental energy. */
+    window?: { medianMwh: [number, number]; iqrMwh: [number, number]; differenceMwh: number; verdict: Verdict };
+    /** The idle baseline subtracted, mW: median over runs, per side, and how it was found. */
+    baselineMw?: [number, number];
+    baselineMethod?: 'median-of-bins' | 'mean';
   };
   verdict: Verdict;
   /** Plain words for the verdict. */
@@ -328,6 +344,31 @@ const mwh = (j: number) => joulesToMilliwattHours(j);
  * - lower / higher: the variant's median is below or above the baseline's
  *   by more than that.
  */
+/** Medians, spreads and a verdict for one basis of energy. */
+function readSeries(ja: number[], jb: number[]) {
+  const A = ja.map(mwh);
+  const B = jb.map(mwh);
+  const cmp = compare(A, B);
+  const ra = resolution(A);
+  const rb = resolution(B);
+  const sumA = summarize(A);
+  const sumB = summarize(B);
+  const diff = cmp.medianDifference;
+  const spread = Math.max(sumA.iqr, sumB.iqr);
+  const verdict: Verdict = !ra.resolved || !rb.resolved ? 'below-resolution' : Math.abs(diff) <= spread ? 'within-spread' : diff < 0 ? 'lower' : 'higher';
+  const pct = Number.isFinite(cmp.percentDifference) ? Math.round(cmp.percentDifference * 10) / 10 : undefined;
+  return { cmp, ra, rb, sumA, sumB, diff, verdict, pct, nonPositive: sumA.median <= 0 || sumB.median <= 0 };
+}
+
+const READING = (verdict: Verdict, diff: number, pct: number | undefined) =>
+  ({
+    lower: `The variant used ${Math.abs(diff).toFixed(3)} mWh less (${pct}%), more than either side's run-to-run spread.`,
+    higher: `The variant used ${diff.toFixed(3)} mWh more (+${pct}%), more than either side's run-to-run spread.`,
+    'within-spread': `The difference (${diff.toFixed(3)} mWh) is within the run-to-run spread: no difference shown.`,
+    'below-resolution': 'At least one side is below the resolution of this setup (its median does not exceed its spread, or is at or below idle): no difference can be read.',
+    'not-measured': '',
+  })[verdict];
+
 export function summarizeExperiment(baseline: StepResult[], variant: StepResult[], roles: Record<string, StepRole> = {}): StepDifference[] {
   const a = groupByStep(baseline);
   const b = groupByStep(variant);
@@ -337,6 +378,8 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     if (!runsB.length) continue;
     const ja = runsA.map((r) => r.energy?.incrementalJoules).filter((v): v is number => v !== undefined);
     const jb = runsB.map((r) => r.energy?.incrementalJoules).filter((v): v is number => v !== undefined);
+    const wa = runsA.map((r) => r.energy?.raw.totalJoules).filter((v): v is number => v !== undefined);
+    const wb = runsB.map((r) => r.energy?.raw.totalJoules).filter((v): v is number => v !== undefined);
     const durationMs: [number, number] = [median(runsA.map((r) => r.timing.durationMs)), median(runsB.map((r) => r.timing.durationMs))];
     const ta = runsA.flatMap((r) => (r.network ? [r.network.transferBytes] : []));
     const tb = runsB.flatMap((r) => (r.network ? [r.network.transferBytes] : []));
@@ -348,44 +391,65 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     const samples: [number, number] | undefined = sa.length && sb.length ? [median(sa), median(sb)] : undefined;
     const base = { step, role, runs: [runsA.length, runsB.length] as [number, number], ...(samples ? { samples } : {}), durationMs, ...(transferBytes ? { transferBytes } : {}) };
 
-    if (!ja.length || !jb.length) {
+    if ((!ja.length || !jb.length) && (!wa.length || !wb.length)) {
       out.push({ ...base, verdict: 'not-measured', reading: `${control}Energy was not measured on this machine, so there is no energy difference to report.`, indicative: true });
       continue;
     }
-    const cmp = compare(ja.map(mwh), jb.map(mwh));
-    const ra = resolution(ja.map(mwh));
-    const rb = resolution(jb.map(mwh));
-    const sumA = summarize(ja.map(mwh));
-    const sumB = summarize(jb.map(mwh));
-    const diff = cmp.medianDifference;
-    const spread = Math.max(sumA.iqr, sumB.iqr);
-    let verdict: Verdict;
-    if (!ra.resolved || !rb.resolved) verdict = 'below-resolution';
-    else if (Math.abs(diff) <= spread) verdict = 'within-spread';
-    else verdict = diff < 0 ? 'lower' : 'higher';
-    const pct = Number.isFinite(cmp.percentDifference) ? Math.round(cmp.percentDifference * 10) / 10 : undefined;
-    const reading = {
-      lower: `The variant used ${Math.abs(diff).toFixed(3)} mWh less (${pct}%), more than either side's run-to-run spread.`,
-      higher: `The variant used ${diff.toFixed(3)} mWh more (+${pct}%), more than either side's run-to-run spread.`,
-      'within-spread': `The difference (${diff.toFixed(3)} mWh) is within the run-to-run spread: no difference shown.`,
-      'below-resolution': 'At least one side is below the resolution of this setup (its median does not exceed its spread, or is at or below idle): no difference can be read.',
-      'not-measured': '',
-    }[verdict];
+    const ba = runsA.map((r) => r.energy?.baselineWatts).filter((v): v is number => v !== undefined);
+    const bb = runsB.map((r) => r.energy?.baselineWatts).filter((v): v is number => v !== undefined);
+    const baselineMw: [number, number] | undefined = ba.length && bb.length ? [median(ba) * 1000, median(bb) * 1000] : undefined;
+    const method = runsA.find((r) => r.energy?.baselineMethod)?.energy?.baselineMethod ?? (baselineMw ? 'mean' : undefined);
+    const inc = ja.length && jb.length ? readSeries(ja, jb) : undefined;
+    const win = wa.length && wb.length ? readSeries(wa, wb) : undefined;
+    // The baseline exceeded what the step drew, so incremental energy says nothing;
+    // window energy needs no baseline, and both sides measured the same window.
+    const useWindow = !!win && (!inc || (inc.verdict === 'below-resolution' && inc.nonPositive && win.verdict !== 'below-resolution'));
+    const r = useWindow ? win! : inc!;
+    const machineWide = runsA.some((x) => x.energy?.raw.measurementScope && x.energy.raw.measurementScope !== 'process');
+    const unequal = Math.abs(durationMs[0] - durationMs[1]) > 0.05 * Math.max(durationMs[0], durationMs[1]);
+    let reading = READING(r.verdict, r.diff, r.pct);
+    if (useWindow) {
+      reading =
+        `On window energy, with no baseline subtracted: ${reading} ` +
+        `(The idle baseline subtracted${baselineMw ? `, ${baselineMw[0].toFixed(1)} mW on the baseline side` : ''}, was more than this step drew, so incremental energy could not be read.)` +
+        (machineWide && unequal ? ' These counters cover the whole machine and the sides took different times, so part of this difference is the idle floor over that time.' : '');
+    }
     out.push({
       ...base,
       energy: {
-        medianMwh: [sumA.median, sumB.median],
-        iqrMwh: [sumA.iqr, sumB.iqr],
-        differenceMwh: diff,
-        ...(pct !== undefined ? { percent: pct } : {}),
-        resolved: [ra.resolved, rb.resolved],
+        basis: useWindow ? 'window' : 'incremental',
+        medianMwh: [r.sumA.median, r.sumB.median],
+        iqrMwh: [r.sumA.iqr, r.sumB.iqr],
+        differenceMwh: r.diff,
+        ...(r.pct !== undefined ? { percent: r.pct } : {}),
+        resolved: [r.ra.resolved, r.rb.resolved],
+        ...(win ? { window: { medianMwh: [win.sumA.median, win.sumB.median] as [number, number], iqrMwh: [win.sumA.iqr, win.sumB.iqr] as [number, number], differenceMwh: win.diff, verdict: win.verdict } } : {}),
+        ...(baselineMw ? { baselineMw } : {}),
+        ...(method ? { baselineMethod: method } : {}),
       },
-      verdict,
-      reading: `${control}${cmp.sufficientSamples ? reading : `${reading} Indicative: fewer than 10 runs per side.`}`,
-      indicative: !cmp.sufficientSamples,
+      verdict: r.verdict,
+      reading: `${control}${r.cmp.sufficientSamples ? reading : `${reading} Indicative: fewer than 10 runs per side.`}`,
+      indicative: !r.cmp.sufficientSamples,
     });
   }
   return out;
+}
+
+/**
+ * The differences again, from a stored result's own runs, with the current
+ * rules. Differences are derived data, as the component graph is; the runs
+ * are not changed.
+ */
+export function refreshDifferences(result: { scenarios: StepResult[]; experiment?: ExperimentReport }): void {
+  const x = result.experiment;
+  if (!x || !x.applied.ok) return;
+  const roles: Record<string, StepRole> = Object.fromEntries((x.workload?.steps ?? []).map((s) => [s.name, s.role]));
+  if (!x.workload && x.variant.kind === 'remove') Object.assign(roles, { load: 'negative-control', idle: 'attributable' });
+  x.differences = summarizeExperiment(
+    result.scenarios.filter((s) => s.scenario === 'baseline'),
+    result.scenarios.filter((s) => s.scenario === 'variant'),
+    roles,
+  );
 }
 
 export interface ExperimentProtocol {
@@ -645,11 +709,12 @@ export function activityFindings(a: ActivityWindow | undefined, b: ActivityWindo
 }
 
 function sideSummary(s: SideState): RemovalSideSummary {
-  const cps = s.removals ?? [];
-  const probes = s.removalProbes ?? [];
+  // Per-run figures are for the measured runs; warm-ups are checked, not reported.
+  const cps = (s.removals ?? []).filter((c) => !c.warmup);
+  const probes = (s.removalProbes ?? []).filter((p) => !p.warmup);
   const first = cps[0];
   const refused = cps.find((c) => c.refused);
-  const activity = activityMedian(s.activity);
+  const activity = activityMedian((s.activity ?? []).filter((a) => !a.warmup));
   return {
     matched: cps.map((c) => c.matched),
     roots: first?.roots ?? 0,

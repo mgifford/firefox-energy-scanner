@@ -16,7 +16,7 @@ import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
 import { buildFindings } from '../report/findings.js';
 import { describeBlocked, describeStepFailure } from './failures.js';
-import { buildTimeline } from '../energy/timeline.js';
+import { buildTimeline, medianWindowPower } from '../energy/timeline.js';
 import { detectSpikes, type SpikeSettings } from '../energy/spikes.js';
 import { geckoEvidence } from '../energy/gecko-evidence.js';
 import { energyByProcess } from '../energy/gecko-profile.js';
@@ -319,7 +319,13 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
     }
 
     const baselineEnergy = energyByLabel.get('__baseline__');
-    if (baselineEnergy) baseline = deriveBaseline(baselineEnergy);
+    if (baselineEnergy) {
+      // The idle floor: the median power of the window's bins, not its mean (see deriveBaseline).
+      const w = records.find((r) => r.label === '__baseline__');
+      const selection = session.energy?.powerSelection();
+      const robust = w && selection ? medianWindowPower(selection, w.startedAt, w.endedAt) : undefined;
+      baseline = deriveBaseline(baselineEnergy, robust);
+    }
 
     const profile = session.energy?.parsedProfile();
     if (options.onProfile && profile) await options.onProfile(profile, records);

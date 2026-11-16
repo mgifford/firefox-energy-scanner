@@ -380,14 +380,17 @@ export function removalApplied(v: VariantSpec, a: AppliedSide, b: AppliedSide): 
   const roots = cb[0]!.roots;
   const nested = cb[0]!.nested;
   const differs = ca.some((c) => c.matched !== cb[0]!.matched);
+  // Warm-ups are checked too, but the count said is of measured runs.
+  const measured = cb.filter((c) => !c.warmup).length;
+  const warm = cb.length - measured;
   return {
     ok: true,
     note:
       `Removed ${plural(roots, 'subtree')} (${describeContent(cb[0]!.content)})` +
       `${nested ? `; ${plural(nested, 'further match', 'further matches')} sat inside them and went with them, counted once` : ''}` +
       (v.kind === 'remove-before-load'
-        ? ` from the markup before parsing, in each of ${plural(cb.length, 'variant run')}; the page did not create it during load or idle.`
-        : ` in each of ${plural(cb.length, 'variant run')}; none came back during the settle and idle windows.`) +
+        ? ` from the markup before parsing, in each of ${plural(measured, 'measured variant run')}${warm ? ` and ${plural(warm, 'warm-up')}` : ''}; the page did not create it during load or idle.`
+        : ` in each of ${plural(measured, 'measured variant run')}${warm ? ` and ${plural(warm, 'warm-up')}` : ''}; none came back during the settle and idle windows.`) +
       (differs ? ` The selector matched ${ca.map((c) => c.matched).join('/')} on the baseline and ${cb.map((c) => c.matched).join('/')} on the variant at the checkpoint: the pages were not in the same state.` : ''),
   };
 }

@@ -53,7 +53,7 @@ import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
-import { RemovalRefused, RunInterrupted, buildReport, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
+import { RemovalRefused, RunInterrupted, buildReport, refreshDifferences, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
 import { specFromQueue } from '../experiments/from-queue.js';
 import { checkJourneySource } from '../experiments/journey-lint.js';
 import { experimentCsv } from '../report/experiment-csv.js';
@@ -1214,7 +1214,7 @@ async function cmdExperiment(args: Args): Promise<number> {
       outcome = await runBenchmark({
       config: { ...config, benchmark: { ...config.benchmark, runs: 1, warmups } },
       baseUrl: spec.url,
-      journey: sideJourney(spec, inner, side === 'b', state[side]),
+      journey: sideJourney(spec, inner, side === 'b', state[side], warmups),
       scenarioName: side === 'a' ? 'baseline' : 'variant',
       // Power samples only: the timeline adds no profiler overhead to the comparison.
       ...(has(args, 'timeline') ? { timeline: { binMs: one(args, 'bin') ? parseIntegerFlag('--bin', one(args, 'bin')!) : 250, spikes: spikeSettingsFromArgs(args), run: runIndex[side] } } : {}),
@@ -2400,7 +2400,9 @@ async function cmdDiagnose(args: Args): Promise<number> {
   // Something acting on the headed window (a click on a link, a scroll) makes
   // the run describe other pages: it is detected, said, and nothing is
   // captured from a page the run navigated to.
-  let acted: string | undefined;
+  // Per run: what acted on it, and whether the page left. Only a measured run
+  // that left the page stops leads; input alone, or in a warm-up, is a caveat.
+  const acted: { measured: boolean; navigated: boolean; why: string }[] = [];
   const journey = defineJourney({
     name: 'diagnose',
     async setup({ context }) {
@@ -2422,7 +2424,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
       nav.stop();
       const why = interference(nav.visited(), await readInput(page));
       const measured = ++runsDone >= totalRuns;
-      if (why) acted = `${measured ? 'Measured run' : 'Warm-up run'}: ${why}`;
+      if (why) acted.push({ measured, navigated: nav.visited().length > 0, why });
       // After the workload, outside every measured window, on the measured run, and only of the page itself.
       if (!measured || nav.visited().length) return;
       anatomy = await collectPageAnatomy(page);
@@ -2481,7 +2483,18 @@ async function cmdDiagnose(args: Args): Promise<number> {
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
     capture: { page: url, capturedAt: new Date().toISOString(), selectorMatches },
     warnings: [
-      ...(acted ? [`${acted} Intervals after that point are not of this page, and no lead was drawn from this run.`] : []),
+      ...acted.map(
+        (a) =>
+          `${a.measured ? 'Measured run' : 'Warm-up run'}: ${a.why} ${
+            a.navigated
+              ? a.measured
+                ? 'Intervals after that point are not of this page, and no lead was drawn from this run.'
+                : 'The warm-up’s intervals after that point are not of this page; the measured run was not affected by it.'
+              : a.measured
+                ? 'The measured workload included that input: read its intervals with care.'
+                : 'The warm-up’s intervals include that input; the measured run was not affected by it.'
+          }`,
+      ),
       ...(lowOverhead || config.energy.adapter === 'noop' ? [] : ['Diagnostic run: the profiler sampled stacks (js, stackwalk, cpu), which adds work to what was measured. Use its energy to find where to look; compare variants with experiment.']),
       ...outcome.warnings,
     ],
@@ -2491,8 +2504,9 @@ async function cmdDiagnose(args: Args): Promise<number> {
   attachInvestigation(result);
   if (outcome.timeline) {
     const analysis = { ...outcome.timeline, page: url, selectorMatches };
-    if (acted) analysis.timeline.warnings.unshift(`${acted} Leads were not drawn from this run.`);
-    else analysis.leads = linkSpikes(result, analysis, url);
+    const left = acted.find((a) => a.measured && a.navigated);
+    for (const a of acted) analysis.timeline.warnings.unshift(`${a.measured ? 'Measured run' : 'Warm-up run'}: ${a.why}`);
+    if (!left) analysis.leads = linkSpikes(result, analysis, url);
     result.timelines = [analysis];
   }
 
@@ -2525,7 +2539,10 @@ async function cmdDiagnose(args: Args): Promise<number> {
     console.log('');
   }
 
-  if (acted) console.log(`WARNING: ${acted}\nRun diagnose again without touching the Firefox window (or with --headless).\n`);
+  for (const a of acted) {
+    console.log(`WARNING (${a.measured ? 'measured run' : 'warm-up run'}): ${a.why}`);
+    console.log(a.measured && a.navigated ? 'No leads were drawn. Run diagnose again without touching the Firefox window (or with --headless).\n' : a.measured ? 'Leads are drawn, but the measured workload included that input.\n' : 'The measured run was not affected: leads are drawn from it.\n');
+  }
   const t = result.timelines?.[0];
   if (t) {
     console.log(`Energy timeline: ${t.timeline.bins.length} bins of ${t.timeline.binMs} ms (${t.timeline.basis})`);
@@ -2737,6 +2754,8 @@ async function cmdFinding(args: Args): Promise<number> {
   }
   const evidenceFile = one(args, 'evidence');
   const evidence = evidenceFile ? (JSON.parse(await readFile(resolve(evidenceFile), 'utf8')) as BenchmarkResult) : undefined;
+  // Differences are derived from the stored runs: read them with the current rules.
+  refreshDifferences(result);
   const stem = resolve(file).replace(/\.json$/, '');
   const name = stem.split(/[\\/]/).pop()!;
   const record = buildEvidenceRecord(result, {
@@ -2750,6 +2769,7 @@ async function cmdFinding(args: Args): Promise<number> {
     await writeFile(resolve(file), JSON.stringify(result, null, 2));
     await writeFile(`${stem}.finding.md`, findingMarkdown(record));
     await writeFile(`${stem}.html`, toHtml(result));
+    await writeFile(`${stem}.experiment.csv`, experimentCsv(result));
     console.error(`Wrote the finding into ${file}, ${stem}.finding.md, and regenerated ${stem}.html`);
   }
   return 0;
@@ -2764,6 +2784,7 @@ async function cmdReport(args: Args): Promise<number> {
   const { readFile } = await import('node:fs/promises');
   // Older results are read through migration, so the report shows what they support.
   const { result } = migrateResult(JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult);
+  refreshDifferences(result);
   // --with <experiment.json>: experiments run on this result's components, shown beside them.
   const related = args.flags.get('with') ?? [];
   if (related.length) {

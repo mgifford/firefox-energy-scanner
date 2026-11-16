@@ -298,7 +298,18 @@ export function buildTimeline(selection: PowerSelection, windows: WindowRecord[]
     }
     const p0 = phaseAt(b.startMs + 0.001);
     const p1 = phaseAt(b.endMs);
-    const mid = phaseAt((b.startMs + b.endMs) / 2);
+    // The measured step the bin overlaps most. A step shorter than a bin (a fast
+    // load) still owns the bin it falls in; time between steps only gets the bins
+    // that touch no step. Bins on a boundary are flagged either way.
+    let mid: number | undefined;
+    let most = 0;
+    phases.forEach((p, k) => {
+      const overlap = Math.min(b.endMs, p.endMs) - Math.max(b.startMs, p.startMs);
+      if (overlap > most) {
+        most = overlap;
+        mid = k;
+      }
+    });
     if (p0 !== p1) flags.push('phase-boundary');
     if (mid !== undefined) b.phase = mid;
     const width = (b.endMs - b.startMs) / 1000;
@@ -375,4 +386,17 @@ export function rebin(t: EnergyTimeline, binMs: number): EnergyTimeline {
 export function phaseEnergy(t: EnergyTimeline, phase: number): number | null {
   const own = t.bins.filter((b) => b.phase === phase && b.energyJ !== null);
   return own.length ? own.reduce((a, b) => a + b.energyJ!, 0) : null;
+}
+
+/**
+ * The typical power of a window: the median of its bins' power, on the
+ * narrowest bins the counters support (at least 250 ms). Undefined with fewer
+ * than five bins that have power, when the median would not be typical of
+ * anything.
+ */
+export function medianWindowPower(selection: PowerSelection, startEpochMs: number, endEpochMs: number): { watts: number; bins: number } | undefined {
+  const t = buildTimeline(selection, [], { binMs: 250, fromEpochMs: startEpochMs, toEpochMs: endEpochMs });
+  const powers = (t?.bins ?? []).filter((b) => b.averagePowerW !== null).map((b) => b.averagePowerW!);
+  if (powers.length < 5) return undefined;
+  return { watts: median(powers), bins: powers.length };
 }

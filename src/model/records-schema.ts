@@ -223,6 +223,8 @@ const findingStep = z
     verdict: z.enum(['lower', 'higher', 'within-spread', 'below-resolution', 'not-measured']),
     runs: z.tuple([z.number().int().min(0), z.number().int().min(0)]),
     samples: z.tuple([z.number(), z.number()]).optional(),
+    basis: z.enum(['incremental', 'window']).optional(),
+    baselineMw: z.tuple([z.number(), z.number()]).optional(),
     baseline: mwhPair.optional(),
     variant: mwhPair.optional(),
     differenceMwh: z.number().optional(),

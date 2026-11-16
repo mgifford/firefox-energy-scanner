@@ -7,6 +7,7 @@ const COLUMNS = [
   'energy_difference_mwh', 'energy_difference_percent', 'resolved_baseline', 'resolved_variant', 'verdict', 'indicative',
   'duration_ms_baseline', 'duration_ms_variant', 'transfer_bytes_baseline', 'transfer_bytes_variant', 'seed',
   'step_role', 'like_for_like', 'removal_verified', 'removal_reinserted',
+  'energy_basis', 'baseline_mw_baseline', 'baseline_mw_variant', 'window_median_mwh_baseline', 'window_median_mwh_variant', 'window_verdict',
 ] as const;
 
 function cell(value: unknown): string {
@@ -49,6 +50,12 @@ export function experimentCsv(result: BenchmarkResult): string {
       like_for_like: x!.likeForLike?.ok,
       removal_verified: x!.removal?.verified,
       removal_reinserted: x!.removal?.reinserted,
+      energy_basis: e?.basis ?? (e ? 'incremental' : undefined),
+      baseline_mw_baseline: e?.baselineMw?.[0],
+      baseline_mw_variant: e?.baselineMw?.[1],
+      window_median_mwh_baseline: e?.window?.medianMwh[0],
+      window_median_mwh_variant: e?.window?.medianMwh[1],
+      window_verdict: e?.window?.verdict,
     };
     lines.push(COLUMNS.map((k) => cell(row[k])).join(','));
   }

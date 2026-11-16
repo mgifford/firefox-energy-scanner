@@ -127,6 +127,24 @@ It also showed three more defects, now fixed:
 The fixture site was stopped while the experiments ran (`ECONNREFUSED`): both commands
 now check the address before the first run.
 
+### First experiments on hardware (the same M2, `/articles/d`, 10 runs a side)
+
+Both removal experiments applied and held in every run, and the checks passed on both
+sides. The script-activity counts showed the central claim directly: after a **post-load**
+removal of the live chart, animation-frame callbacks went on at 60 a second (its loop kept
+drawing into a detached canvas); after a **pre-load** removal they fell to 0.
+
+The energy could not be read: every idle step's incremental energy was negative (about
+−0.24 mWh), because the idle baseline's mean was inflated by Firefox's own start-up work
+(TDR-024). Both experiments showed the variant's idle about 0.025 mWh lower, but as stored
+they read "below resolution" and "no difference shown". Now fixed: the baseline is the
+median of its window, and steps carry window energy as a cross-check. `web-energy finding
+<result.json> --write` re-reads the stored runs with these rules.
+
+Also fixed from this run: removal summaries counted warm-ups as variant runs; scrolling
+in a warm-up stopped leads from the measured run; and a load shorter than a bin was
+labelled as time between steps.
+
 Still to do on a physical machine that measures energy (an Apple Silicon Mac is simplest):
 
 1. `npm run energy-check`, to confirm the machine measures energy.

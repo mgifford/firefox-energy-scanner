@@ -210,6 +210,14 @@ For each measured step (by default `load`, then `idle`):
 | **within spread** | Both resolve, but the medians differ by no more than the larger IQR. No difference shown. |
 | **lower / higher** | The variant's median is below or above the baseline's by more than that. |
 
+Each step's energy has a **basis**. By default it is incremental energy: the window's
+energy minus the idle baseline (the median power of an `about:blank` window measured in
+every run, TDR-024). Window energy, with no baseline subtracted, is shown beside it. When
+the baseline was more than the step drew (as with a mean baseline taken while Firefox was
+still starting up), incremental energy cannot be read, and the verdict uses window energy
+and says so; both sides measured the same window, so the difference needs no baseline.
+The baseline subtracted on each side is shown too.
+
 Fewer than 10 runs per side is marked **indicative**, as everywhere in this tool, and no
 significance is claimed. Duration and transfer are shown beside energy, in their own
 units, and never combined with it.

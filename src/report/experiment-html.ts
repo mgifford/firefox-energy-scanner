@@ -65,7 +65,7 @@ export function experimentSection(x: ExperimentReport | undefined): string {
   const rows = x.differences
     .map((d) => {
       const e = d.energy;
-      return `<tr><th scope="row">${esc(d.step)}${d.role === 'negative-control' ? ' <span class="note">(negative control)</span>' : ''}</th><td>${d.runs[0]} / ${d.runs[1]}</td>
+      return `<tr><th scope="row">${esc(d.step)}${d.role === 'negative-control' ? ' <span class="note">(negative control)</span>' : ''}${d.energy?.basis === 'window' ? ' <span class="note">(window)</span>' : ''}</th><td>${d.runs[0]} / ${d.runs[1]}</td>
         <td>${e ? `${e.medianMwh[0].toFixed(3)} (IQR ${e.iqrMwh[0].toFixed(3)})` : '—'}</td>
         <td>${e ? `${e.medianMwh[1].toFixed(3)} (IQR ${e.iqrMwh[1].toFixed(3)})` : '—'}</td>
         <td>${e ? `${e.differenceMwh >= 0 ? '+' : ''}${e.differenceMwh.toFixed(3)}${e.percent !== undefined ? ` (${e.percent >= 0 ? '+' : ''}${e.percent}%)` : ''}` : '—'}</td>
@@ -101,11 +101,18 @@ export function experimentSection(x: ExperimentReport | undefined): string {
   ${
     rows
       ? `<div class="scroll"><table>
-    <caption>Measured difference per step: observed incremental energy in mWh (baseline → with the change)</caption>
+    <caption>Measured difference per step: observed incremental energy in mWh (baseline → with the change)${x.differences.some((d) => d.energy?.basis === 'window') ? '; steps marked “window” use window energy, with no baseline subtracted' : ''}</caption>
     <thead><tr><th scope="col">Step</th><th scope="col">Runs</th><th scope="col">Baseline, median</th><th scope="col">With the change, median</th>
       <th scope="col">Difference</th><th scope="col" class="text">Reading</th><th scope="col">Duration, ms</th><th scope="col">Transfer</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
-  <ul>${x.differences.map((d) => `<li><strong>${esc(d.step)}:</strong> ${esc(d.reading)}</li>`).join('')}</ul>`
+  <ul>${x.differences
+    .map((d) => {
+      const e = d.energy;
+      const cross = e?.window && e.basis !== 'window' ? ` Window energy (no baseline subtracted): ${e.window.medianMwh[0].toFixed(3)} → ${e.window.medianMwh[1].toFixed(3)} mWh (IQR ${e.window.iqrMwh[0].toFixed(3)} / ${e.window.iqrMwh[1].toFixed(3)}), ${VERDICT[e.window.verdict]}.` : '';
+      const base = e?.baselineMw ? ` Idle baseline subtracted: ${e.baselineMw[0].toFixed(1)} / ${e.baselineMw[1].toFixed(1)} mW per run (median; ${e.baselineMethod === 'median-of-bins' ? 'the median power of the idle window' : 'the idle window’s mean power'}).` : '';
+      return `<li><strong>${esc(d.step)}:</strong> ${esc(d.reading)}<span class="note">${esc(cross)}${esc(base)}</span></li>`;
+    })
+    .join('')}</ul>`
       : ''
   }
   <ul class="note">${x.limitations.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>

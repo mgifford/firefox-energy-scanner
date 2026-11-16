@@ -79,6 +79,8 @@ export interface EnergyResult {
 export interface EnergyWithBaseline {
   raw: EnergyResult;
   baselineWatts?: number;
+  /** How the baseline was found (see Baseline.method). Absent in older results: mean. */
+  baselineMethod?: 'median-of-bins' | 'mean';
   estimatedIdleJoules?: number;
   incrementalJoules?: number;
   /** True when incremental energy came out negative (measurement noise). */
@@ -365,6 +367,8 @@ export interface BenchmarkResult {
     durationMs: number;
     samples: number;
     adapterId: string;
+    method?: 'median-of-bins' | 'mean';
+    meanWatts?: number;
   };
   /**
    * The grid assumption used to derive Class C carbon from observed energy.
