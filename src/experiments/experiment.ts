@@ -261,6 +261,8 @@ export interface StepDifference {
   reading: string;
   /** Fewer than 10 runs per side: indicative only. */
   indicative: boolean;
+  /** Median power-counter samples per run in this step, per side: few samples, little resolution. */
+  samples?: [number, number];
   /** Other indicators, in their own units, never combined with energy. */
   durationMs: [number, number];
   transferBytes?: [number, number];
@@ -294,7 +296,10 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     const transferBytes: [number, number] | undefined = ta.length && tb.length ? [median(ta), median(tb)] : undefined;
     const role = roles[step] ?? 'attributable';
     const control = role === 'negative-control' ? 'Negative control (the change was not yet in place during this step): ' : '';
-    const base = { step, role, runs: [runsA.length, runsB.length] as [number, number], durationMs, ...(transferBytes ? { transferBytes } : {}) };
+    const sa = runsA.map((r) => r.energy?.raw.sampleCount).filter((v): v is number => v !== undefined);
+    const sb = runsB.map((r) => r.energy?.raw.sampleCount).filter((v): v is number => v !== undefined);
+    const samples: [number, number] | undefined = sa.length && sb.length ? [median(sa), median(sb)] : undefined;
+    const base = { step, role, runs: [runsA.length, runsB.length] as [number, number], ...(samples ? { samples } : {}), durationMs, ...(transferBytes ? { transferBytes } : {}) };
 
     if (!ja.length || !jb.length) {
       out.push({ ...base, verdict: 'not-measured', reading: `${control}Energy was not measured on this machine, so there is no energy difference to report.`, indicative: true });
@@ -303,10 +308,10 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     const cmp = compare(ja.map(mwh), jb.map(mwh));
     const ra = resolution(ja.map(mwh));
     const rb = resolution(jb.map(mwh));
-    const sa = summarize(ja.map(mwh));
-    const sb = summarize(jb.map(mwh));
+    const sumA = summarize(ja.map(mwh));
+    const sumB = summarize(jb.map(mwh));
     const diff = cmp.medianDifference;
-    const spread = Math.max(sa.iqr, sb.iqr);
+    const spread = Math.max(sumA.iqr, sumB.iqr);
     let verdict: Verdict;
     if (!ra.resolved || !rb.resolved) verdict = 'below-resolution';
     else if (Math.abs(diff) <= spread) verdict = 'within-spread';
@@ -322,8 +327,8 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     out.push({
       ...base,
       energy: {
-        medianMwh: [sa.median, sb.median],
-        iqrMwh: [sa.iqr, sb.iqr],
+        medianMwh: [sumA.median, sumB.median],
+        iqrMwh: [sumA.iqr, sumB.iqr],
         differenceMwh: diff,
         ...(pct !== undefined ? { percent: pct } : {}),
         resolved: [ra.resolved, rb.resolved],
@@ -334,6 +339,24 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     });
   }
   return out;
+}
+
+export interface ExperimentProtocol {
+  design: 'interleaved A/B, seeded order, a fresh browser per run';
+  runsPerSide: number;
+  /** Warm-ups before each side's first run, discarded. */
+  warmupsPerSide: number;
+  /** The idle baseline (about:blank) measured in every run before the workload, ms; null when off. */
+  idleBaselineMs: number | null;
+  cacheMode: string;
+  viewport: { width: number; height: number };
+  headed: boolean;
+  network: string;
+  profilerFeatures: string[];
+  profilerIntervalMs: number;
+  /** A label for the build measured, when given (--release). */
+  release?: string;
+  /** Seeds and order are in the report itself. */
 }
 
 /** One side of a removal: what the checkpoint found and did, run by run, and what followed. */
@@ -372,6 +395,8 @@ export interface RemovalSummary {
   variant: RemovalSideSummary;
   /** Removed in every variant run, none left behind. */
   verified: boolean;
+  /** The selector matched the same number of elements on both sides at every checkpoint: comparable page states. */
+  comparable: boolean;
   /** The page put a matching element back in at least one run. */
   reinserted: boolean;
   /** What the callback counters show about script work after the removal. Evidence, not energy. */
@@ -400,6 +425,11 @@ export interface ExperimentReport {
    * check, or took away content people use. Absent in older results.
    */
   likeForLike?: { ok: boolean; reasons: string[] };
+  /**
+   * How the comparison was run: what was controlled, and what was only
+   * recorded. Absent in older results.
+   */
+  protocol?: ExperimentProtocol;
   /** The workload, and which steps the change could have affected. Absent in older results. */
   workload?: { kind: 'load-and-idle' | 'journey' | 'load-checkpoint-idle'; steps: { name: string; role: StepRole }[]; idleMs?: number; settleMs?: number };
   seed: string;
@@ -605,6 +635,7 @@ export function summarizeRemoval(spec: ExperimentSpec, variant: VariantSpec, sta
     baseline,
     variant: v,
     verified,
+    comparable: baseline.matched.length > 0 && v.matched.length > 0 && new Set([...baseline.matched, ...v.matched]).size === 1,
     reinserted: (state.b.removalProbes ?? []).some((p) => p.reinsertions > 0 || p.matchesNow > 0 || p.rootsReconnected > 0),
     activity: activityFindings(baseline.activity, v.activity),
     removedEssential: v.content && v.removed.some((n) => n > 0) ? essentialContent(v.content) : [],

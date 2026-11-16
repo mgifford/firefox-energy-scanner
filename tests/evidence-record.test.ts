@@ -89,6 +89,18 @@ describe('the evidence record', () => {
     expect(buildEvidenceRecord(few)!.outcome.confidence).toBe('indicative');
   });
 
+  it('a reduction from non-equivalent sides is indicative, and says why', () => {
+    const differs = side(false, 10);
+    differs.removals = differs.removals!.map((c) => ({ ...c, matched: 2, roots: 2 }));
+    const r = buildEvidenceRecord(result(differs, side(true, 10)))!;
+    expect(r.outcome).toMatchObject({ status: 'reduction-shown', confidence: 'indicative' });
+    expect(r.outcome.statement).toMatch(/page states were not the same/);
+    const lost = result(side(false, 10), side(true, 10), { a: series('baseline', around(0.5, 10), around(0.1, 10)), b: series('variant', around(0.5, 10), around(0.06, 8)) });
+    const u = buildEvidenceRecord(lost)!;
+    expect(u.outcome.confidence).toBe('indicative');
+    expect(u.outcome.statement).toMatch(/unequal valid runs \(idle: 10 and 8\)/);
+  });
+
   it('takes its observed activity and source files from a diagnose result that names the component', () => {
     const t = {
       leads: {

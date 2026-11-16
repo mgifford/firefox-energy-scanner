@@ -86,6 +86,11 @@ export function experimentSection(x: ExperimentReport | undefined): string {
     <dt>Change</dt><dd>${esc(x.description)}</dd>
     ${x.from ? `<dt>From</dt><dd>item ${x.from.rank} of the investigation queue in <code>${esc(x.from.file)}</code>: <code>${esc(x.from.title)}</code></dd>` : ''}
     <dt>Order</dt><dd>interleaved, seed <code>${esc(x.seed)}</code>: <code>${esc(x.order.join(' '))}</code></dd>
+    ${
+      x.protocol
+        ? `<dt>Protocol</dt><dd>${esc(x.protocol.design)}; ${x.protocol.runsPerSide} runs a side after ${x.protocol.warmupsPerSide} warm-up${x.protocol.warmupsPerSide === 1 ? '' : 's'}; idle baseline ${x.protocol.idleBaselineMs === null ? 'off' : `${x.protocol.idleBaselineMs} ms`} in every run; cache ${esc(x.protocol.cacheMode)}; viewport ${x.protocol.viewport.width}×${x.protocol.viewport.height}${x.protocol.headed ? ', headed' : ', headless'}; network ${esc(x.protocol.network)}; profiler ${esc(x.protocol.profilerFeatures.join(', ') || 'off')} every ${x.protocol.profilerIntervalMs} ms${x.protocol.release ? `; build <code>${esc(x.protocol.release)}</code>` : ''}</dd>`
+        : ''
+    }
   </dl>
   <p class="${x.applied.ok ? '' : 'warning'}"><strong>Applied: ${x.applied.ok ? 'yes' : 'no'}.</strong> ${esc(x.applied.note)}${x.applied.ok ? '' : ' No difference is reported, because there was none to measure. This is not a finding of “no saving”.'}</p>
   ${x.workload?.kind === 'load-checkpoint-idle' ? `<p><strong>Workload:</strong> the page loads (<code>load</code>, a negative control: the component is on both sides), then the change is made outside every measured window, both sides wait ${x.workload.settleMs ?? 0} ms, and the idle window (<code>idle</code>, ${x.workload.idleMs ?? 0} ms) is measured. Only the idle window can show the change’s effect.</p>` : ''}

@@ -45,6 +45,7 @@ import { buildFamilies, type FamilyReport } from '../analysis/families.js';
 import { buildInventory, type ComponentInventory } from '../analysis/components.js';
 import { buildGraph, type ComponentGraph } from '../model/graph.js';
 import { validateGraph } from '../model/schema.js';
+import { validateFinding, validateTimelineAnalysis } from '../model/records-schema.js';
 import { migrateResult } from '../model/migrate.js';
 import { resourcesCsv } from '../report/resources-csv.js';
 import { componentsCsv } from '../report/components-csv.js';
@@ -634,6 +635,15 @@ async function writeOutputs(result: BenchmarkResult, config: Config, beforeWrite
     const problems = validateGraph(result.graph);
     if (problems.length) result.warnings.push(`The component graph did not validate: ${problems.slice(0, 3).join('; ')}`);
   }
+  // The timelines and the finding are checked against their schemas too, after beforeWrite has built them.
+  for (const t of result.timelines ?? []) {
+    const problems = validateTimelineAnalysis(t);
+    if (problems.length) result.warnings.push(`An energy timeline did not validate: ${problems.slice(0, 3).join('; ')}`);
+  }
+  if (result.finding) {
+    const problems = validateFinding(result.finding);
+    if (problems.length) result.warnings.push(`The finding did not validate: ${problems.slice(0, 3).join('; ')}`);
+  }
   if (config.output.json) await writeFile(`${base}.json`, JSON.stringify(result, null, 2));
   if (config.output.csv) await writeFile(`${base}.csv`, toCsv(result));
   if (config.output.csv && result.components) await writeFile(`${base}.components.csv`, componentsCsv(result));
@@ -1197,6 +1207,19 @@ async function cmdExperiment(args: Args): Promise<number> {
   process.stderr.write('\n');
 
   const report = buildReport(spec, state, steps, seed, order, from);
+  report.protocol = {
+    design: 'interleaved A/B, seeded order, a fresh browser per run',
+    runsPerSide: config.benchmark.runs,
+    warmupsPerSide: config.benchmark.warmups,
+    idleBaselineMs: config.energy.baseline && config.energy.adapter !== 'noop' ? config.energy.baseline_duration_ms : null,
+    cacheMode: config.benchmark.cache_mode,
+    viewport: config.browser.viewport,
+    headed: config.browser.headed,
+    network: config.network.public_only ? 'unthrottled; public addresses only' : 'unthrottled',
+    profilerFeatures: config.energy.adapter === 'noop' ? [] : ['power'],
+    profilerIntervalMs: config.energy.profiler_interval_ms,
+    ...(one(args, 'release') ? { release: one(args, 'release') } : {}),
+  };
   const energyAvailable = [...steps.a, ...steps.b].some((s) => s.energy?.raw.sampleCount);
   const result: BenchmarkResult = {
     schemaVersion: SCHEMA_VERSION,

@@ -39,6 +39,8 @@ export interface FindingStep {
   role: 'attributable' | 'negative-control';
   verdict: StepDifference['verdict'];
   runs: [number, number];
+  /** Median power samples per run in the step, per side. */
+  samples?: [number, number];
   /** Median and IQR per side, mWh; absent when energy was not measured. */
   baseline?: { medianMwh: number; iqrMwh: number };
   variant?: { medianMwh: number; iqrMwh: number };
@@ -135,6 +137,7 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
     role: d.role ?? 'attributable',
     verdict: d.verdict,
     runs: d.runs,
+    ...(d.samples ? { samples: d.samples } : {}),
     ...(d.energy ? { baseline: { medianMwh: d.energy.medianMwh[0], iqrMwh: d.energy.iqrMwh[0] }, variant: { medianMwh: d.energy.medianMwh[1], iqrMwh: d.energy.iqrMwh[1] }, differenceMwh: d.energy.differenceMwh, ...(d.energy.percent !== undefined ? { percent: d.energy.percent } : {}) } : {}),
     durationMs: d.durationMs,
     ...(d.transferBytes ? { transferBytes: d.transferBytes } : {}),
@@ -145,9 +148,17 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
   }
   const attributable = x.differences.filter((d) => (d.role ?? 'attributable') === 'attributable');
   const control = x.differences.find((d) => d.role === 'negative-control' && (d.verdict === 'lower' || d.verdict === 'higher'));
+  // Not equivalent: a side lost runs, or the page was in a different state at the checkpoint.
+  const unequal = attributable.filter((d) => d.runs[0] !== d.runs[1]);
+  const incomparable = x.removal && x.removal.comparable === false;
+  const caveat = [
+    ...(control ? ['The negative control moved too, so treat this as indicative.'] : []),
+    ...(unequal.length ? [`The sides had unequal valid runs (${unequal.map((d) => `${d.step}: ${d.runs[0]} and ${d.runs[1]}`).join('; ')}).`] : []),
+    ...(incomparable ? ['The selector matched different numbers of elements on the two sides at the checkpoint: the page states were not the same.'] : []),
+  ].join(' ');
   const lower = attributable.filter((d) => d.verdict === 'lower');
   const higher = attributable.filter((d) => d.verdict === 'higher');
-  const confidence = (ds: StepDifference[]): EvidenceRecord['outcome']['confidence'] => (ds.some((d) => d.indicative) || control ? 'indicative' : 'confirmatory');
+  const confidence = (ds: StepDifference[]): EvidenceRecord['outcome']['confidence'] => (ds.some((d) => d.indicative) || caveat ? 'indicative' : 'confirmatory');
   const where = (ds: StepDifference[]) => ds.map((d) => `${d.step}: ${d.reading}`).join(' ');
   if (attributable.length && attributable.every((d) => d.verdict === 'not-measured')) {
     return { status: 'not-measured', confidence: 'none', steps, statement: 'Energy was not measured on this machine. The change applied; timing and transfer are shown, and the energy comparison needs hardware that measures it.' };
@@ -158,11 +169,11 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
       status: lfl ? 'reduction-shown' : 'reduction-not-like-for-like',
       confidence: confidence(lower),
       steps,
-      statement: `With the change, this page used less energy on this machine, by more than either side’s run-to-run spread. ${where(lower)}${lfl ? '' : ` But the change also took away function or content: ${x.likeForLike!.reasons.join(' ')}`}${control ? ' The negative control moved too, so treat this as indicative.' : ''}`,
+      statement: `With the change, this page used less energy on this machine, by more than either side’s run-to-run spread. ${where(lower)}${lfl ? '' : ` But the change also took away function or content: ${x.likeForLike!.reasons.join(' ')}`}${caveat ? ` ${caveat}` : ''}`,
     };
   }
   if (higher.length && !lower.length) {
-    return { status: 'increase-shown', confidence: confidence(higher), steps, statement: `With the change, this page used more energy on this machine. ${where(higher)}` };
+    return { status: 'increase-shown', confidence: confidence(higher), steps, statement: `With the change, this page used more energy on this machine. ${where(higher)}${caveat ? ` ${caveat}` : ''}` };
   }
   if (attributable.some((d) => d.verdict === 'within-spread') || (lower.length && higher.length)) {
     return { status: 'no-difference-shown', confidence: 'none', steps, statement: 'No difference was shown: the measured difference is within the run-to-run spread. That is not proof of no effect; a smaller effect than this setup resolves may remain.' };
@@ -219,7 +230,10 @@ function envOf(r: BenchmarkResult): EvidenceRecord['environment'] {
     idleBaseline: c?.energy?.baseline ? `${c.energy.baseline_duration_ms} ms` : 'none',
     profilerIntervalMs: c?.energy?.profiler_interval_ms,
     network: c?.network?.public_only ? 'public addresses only, unthrottled' : 'unthrottled',
-    release: r.target?.commit ?? r.targets?.[0]?.commit,
+    release: r.experiment?.protocol?.release ?? r.target?.commit ?? r.targets?.[0]?.commit,
+    design: r.experiment?.protocol?.design,
+    runsPerSide: r.experiment?.protocol?.runsPerSide,
+    profilerFeatures: r.experiment?.protocol?.profilerFeatures.join(', '),
   };
 }
 

@@ -28,6 +28,7 @@ import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startFixtureSite } from '../fixtures/site/server.mjs';
+import { validateFinding } from '../../dist/model/records-schema.js';
 
 const failures = [];
 const check = (ok, message) => {
@@ -78,6 +79,9 @@ try {
   check(ticker.x?.likeForLike?.ok === false && /heading/.test(ticker.x.likeForLike.reasons.join(' ')), `removing the ticker took its heading, so a saving would not be like-for-like (${JSON.stringify(ticker.x?.likeForLike)})`);
   check(ticker.html.includes('id="removal-h"') && !/<script/i.test(ticker.html), 'the HTML report shows the removal, without scripts');
   check(ticker.files.some((f) => f.endsWith('.experiment.csv')), 'an experiment CSV was written');
+  check(ticker.result?.finding?.outcome.status === 'not-measured' && validateFinding(ticker.result.finding).length === 0, `the finding says energy was not measured, and validates (${ticker.result?.finding?.outcome.status})`);
+  check(ticker.files.some((f) => f.endsWith('.finding.md')) && ticker.html.includes('id="finding-h"'), 'an issue draft was written, and the report shows the finding');
+  check(ticker.x?.protocol?.design === 'interleaved A/B, seeded order, a fresh browser per run' && ticker.x.protocol.runsPerSide === 2, 'the protocol is recorded');
 
   const spin = await experiment('/spinner', '[data-component-id="spinner"]');
   check(spin.x?.applied.ok === true && spin.x?.removal?.variant.activity?.runningAnimations[1] === 0 && spin.x?.removal?.baseline.activity?.runningAnimations[1] >= 1,
@@ -86,6 +90,7 @@ try {
   const remount = await experiment('/lab/remount', '[data-component-id="promo"]');
   check(remount.status === 2 && remount.x?.applied.ok === false && /put the component back/.test(remount.x.applied.note), `the component the page puts back is not counted as removed (${remount.x?.applied.note})`);
   check(remount.x?.differences.length === 0 && remount.x?.removal?.reinserted === true, 'no difference is reported from it');
+  check(remount.result?.finding?.outcome.status === 'intervention-failed' && remount.result.finding.outcome.steps.length === 0, `its finding is a failed intervention, never "no saving" (${remount.result?.finding?.outcome.status})`);
 
   const broad = await experiment('/big-list', 'li');
   check(broad.status === 2 && /Removal refused/.test(broad.x?.applied.note ?? ''), `a selector matching 2,008 elements is refused (${broad.x?.applied.note})`);
