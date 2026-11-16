@@ -92,9 +92,9 @@ describe('linkSpikes', () => {
     const inline = lead.scripts.find((s) => s.inline)!;
     expect(inline.functions).toEqual([{ name: 'onload', samples: 4 }]);
     expect(lead.unattributed.some((u) => u.what === 'https://example.net/x.js' && /browser process/.test(u.reason))).toBe(true);
-    expect(lead.unattributed.some((u) => /not the page’s: aus5\.mozilla\.org/.test(u.what))).toBe(true);
-    expect(lead.activity[0]).toBe('Firefox itself (parent process): script, 300 markers covering 410 ms (ChromeUtils.importESModule)');
-    expect(lead.caveats.join(' ')).toMatch(/Firefox’s own work ran during this interval \(script in the parent process; requests to aus5\.mozilla\.org\)/);
+    expect(lead.unattributed.some((u) => /not the page’s: aus5\.mozilla\.org\/update\//.test(u.what))).toBe(true);
+    expect(lead.activity[0]).toBe('Firefox’s parent process: script, 300 markers covering 410 ms (ChromeUtils.importESModule)');
+    expect(lead.caveats.join(' ')).toMatch(/Firefox’s own work ran during this interval \(script in the parent process; requests to aus5\.mozilla\.org\/update\//);
     expect(lead.caveats.join(' ')).toMatch(/warm-up run/);
     expect(lead.observed).toMatch(/of the warm-up run/);
   });
@@ -103,7 +103,9 @@ describe('linkSpikes', () => {
     const a = analysis([interval({})]);
     a.processEnergy = { 'spike-1': [{ role: 'browser', energyJ: 0.6, counters: 1 }, { role: 'page', energyJ: 0.15, counters: 2 }] };
     const lead = linkSpikes(r, a, `${SITE}/light`)['spike-1']!;
-    expect(lead.observed).toMatch(/By process \(each has its own counter\): Firefox itself \(parent process\) 600\.0 mJ, the page \(web content\) 150\.0 mJ\.$/);
+    expect(lead.observed).toMatch(/By process \(each has its own counter\): Firefox’s parent process 600\.0 mJ, the page \(web content\) 150\.0 mJ\.$/);
+    // No GPU process: the parent also draws the page's frames, and the lead says so.
+    expect(lead.caveats.join(' ')).toMatch(/parent process also composites the page’s frames/);
   });
 
   it('says a script the page did not record is unattributed, and why', () => {

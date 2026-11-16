@@ -153,6 +153,20 @@ makes the removal not applied.
 Never add a `remove` result to a `remove-before-load` result: they measure different
 things.
 
+## Runs acted on from outside
+
+Firefox opens a window for each run. A click on a link in it, a scroll or a key press
+changes the workload, so the built-in workloads (load and idle, and the removals) watch
+for it: a navigation to another document after the page loaded, or trusted pointer
+presses, wheel turns, key presses or touches reaching the page. Such a run is **not
+used**: the console and the result's warnings say which and why, it is listed in
+`experiment.protocol.runsNotUsed`, and the experiment carries on. The sides may then have
+unequal runs, which makes the finding indicative. A journey acts on the page itself, so a
+journey's runs are not checked.
+
+A page that does not load stops the experiment, and an address that cannot be reached at
+all is reported before the first run.
+
 ## Did the change apply?
 
 After each run, outside the measured windows, the page is probed. It checks:

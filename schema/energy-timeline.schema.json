@@ -497,7 +497,8 @@
                     "includes-lumped-bins",
                     "warmup",
                     "machine-wide-scope",
-                    "during-baseline"
+                    "during-baseline",
+                    "whole-phase"
                   ]
                 }
               }

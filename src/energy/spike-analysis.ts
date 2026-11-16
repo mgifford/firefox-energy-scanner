@@ -127,7 +127,7 @@ const fmtJ = (j: number) => (j >= 1 ? `${j.toFixed(2)} J` : `${(j * 1000).toFixe
 
 export const PROCESS_LABEL: Record<string, string> = {
   page: 'the page (web content)',
-  browser: 'Firefox itself (parent process)',
+  browser: 'Firefox’s parent process',
   gpu: 'GPU process',
   other: 'other Firefox processes',
   unknown: 'an undescribed process',
@@ -135,7 +135,7 @@ export const PROCESS_LABEL: Record<string, string> = {
 
 export function describeInterval(i: SpikeInterval): string {
   return (
-    `${(i.durationMs / 1000).toFixed(2)} s (${i.shape === 'sustained' ? 'sustained' : 'a brief peak'}) from ${(i.startMs / 1000).toFixed(2)} s, ` +
+    `${(i.durationMs / 1000).toFixed(2)} s (${i.flags.includes('whole-phase') ? 'elevated throughout the step: continuous work, not a spike' : i.shape === 'sustained' ? 'sustained' : 'a brief peak'}) from ${(i.startMs / 1000).toFixed(2)} s, ` +
     `during ${i.phases.join(', ')}${i.flags.includes('warmup') ? ' of the warm-up run' : ''}: up to ${fmtW(i.peakPowerW)}${i.peakAtMs !== undefined ? ` (at ${(i.peakAtMs / 1000).toFixed(2)} s)` : ''}, ${fmtW(i.meanPowerW)} on average, against a reference of ${fmtW(i.referenceW)}; ` +
     `${fmtJ(i.energyJ)} measured in it, ${fmtJ(i.excessEnergyJ)} above the reference.`
   );
@@ -227,10 +227,9 @@ export function linkSpikes(result: BenchmarkResult, analysis: TimelineAnalysis, 
         addComp(c, { class: 'profiler-correlation', source: 'same-run-gecko', detail: `A request it makes (${q.url.split('/').pop()}) was on the network during the interval.` });
       }
     }
-    const hostsOf = (urls: string[]) => [...new Set(urls.map((u) => { try { return new URL(u).host; } catch { return u.slice(0, 60); } }))];
     if (notThePage.length) {
       unattributed.push({
-        what: `Requests that are not the page’s: ${hostsOf(notThePage).slice(0, 5).join(', ')}`,
+        what: `Requests that are not the page’s: ${shortUrls(notThePage, pageUrl).slice(0, 5).join(', ')}`,
         reason: 'Not among the resources Firefox recorded for this page: Firefox’s own background requests (updates, remote settings, telemetry), or another document’s.',
       });
     }
@@ -317,12 +316,36 @@ export function linkSpikes(result: BenchmarkResult, analysis: TimelineAnalysis, 
         ...(i.flags.includes('outside-measured-steps') ? ['Part of the interval falls between measured steps (setup, a checkpoint, settling).'] : []),
         ...(i.flags.includes('warmup') ? ['This interval is in a warm-up run, with a colder cache than the measured run: compare it with the measured run’s intervals before acting on it.'] : []),
         ...(browserWork.length || notThePage.length
-          ? [`Firefox’s own work ran during this interval (${[...browserWork.map((a) => `${a.kind.replace(/-/g, ' ')} in the parent process`), ...(notThePage.length ? [`requests to ${hostsOf(notThePage).slice(0, 3).join(', ')}`] : [])].join('; ')}): part of its energy may be the browser’s, not the page’s.`]
+          ? [`Firefox’s own work ran during this interval (${[...browserWork.map((a) => `${a.kind.replace(/-/g, ' ')} in the parent process`), ...(notThePage.length ? [`requests to ${shortUrls(notThePage, pageUrl).slice(0, 3).join(', ')}`] : [])].join('; ')}): part of its energy may be the browser’s, not the page’s.`]
           : []),
+        ...(split?.some((p) => p.role === 'browser') && !split.some((p) => p.role === 'gpu')
+          ? ['Without a separate GPU process (as on macOS here), Firefox’s parent process also composites the page’s frames: its energy is partly the page’s drawing, not only the browser’s own work.']
+          : []),
+        ...(i.flags.includes('whole-phase') ? ['Power stayed above the reference for the whole step: continuous work (a loop, an animation, a timer), not a spike. A removal or pause experiment shows whether a component causes it.'] : []),
       ],
     };
   }
   return out;
+}
+
+/** Host and path for another host, path alone for the page's own: "aus5.mozilla.org/update/…", "/favicon.ico". */
+function shortUrls(urls: string[], pageUrl: string): string[] {
+  let own = '';
+  try {
+    own = new URL(pageUrl).host;
+  } catch {
+    own = '';
+  }
+  const out = urls.map((u) => {
+    try {
+      const x = new URL(u);
+      const path = x.pathname.length > 32 ? `${x.pathname.slice(0, 30)}…` : x.pathname;
+      return x.host === own ? path : `${x.host}${path === '/' ? '' : path}`;
+    } catch {
+      return u.slice(0, 60);
+    }
+  });
+  return [...new Set(out)];
 }
 
 const rankOf = (classes: LeadClass[]) => (classes.length ? LEAD_CLASS_ORDER.indexOf(classes[0]!) : LEAD_CLASS_ORDER.length);

@@ -104,6 +104,29 @@ does not exist on example.org). `--evidence` is now read before anything runs, a
 removal ends the run at its first checkpoint, and `diagnose` prints a runnable command with
 its real result file.
 
+### Second run on hardware (the same M2, the fixture site)
+
+`timeline --describe` on the saved example.org profile confirmed how processes are read:
+the root as the parent process (`Parent Process`, `default`), `Web Content` (`tab`) as
+the page, `WebExtensions` (also `tab`) as other. It also showed the real script-location
+formats (`fn (url:line:col)[source id]`). `diagnose` on `/articles/d` measured energy by
+process: the parent process drew 75–80% of each interval's energy (no GPU process, so it
+composites the page's frames).
+
+It also showed three more defects, now fixed:
+
+- something clicked links in the headed Firefox window during the run, and the page
+  visited `/compute`, `/table`, `/big-list`, `/embed` and `/`; the intervals and the
+  captured structure were of those pages. Navigation away and outside input are now
+  detected: `diagnose` says so and draws nothing from them, and experiments do not use
+  such runs;
+- label frames that name a URL (document loads) were read as scripts;
+- an interval covering the whole idle window was described like a spike; it is now
+  flagged `whole-phase`, continuous work.
+
+The fixture site was stopped while the experiments ran (`ECONNREFUSED`): both commands
+now check the address before the first run.
+
 Still to do on a physical machine that measures energy (an Apple Silicon Mac is simplest):
 
 1. `npm run energy-check`, to confirm the machine measures energy.

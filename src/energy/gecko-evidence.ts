@@ -113,16 +113,25 @@ export function activityKind(name: string, type?: string, category?: string): Ac
 }
 
 /**
- * A JS frame's location: "fn (https://host/a.js:12:3)", or a bare URL with
- * line and column. A trailing bracketed tag, as Firefox appends to some
- * frames ("https://host/s.js[10]"), is not part of the URL.
+ * A JavaScript frame's location, in the two forms Firefox writes (seen in a
+ * Firefox 153 profile on an Apple M2):
+ *
+ *   "observe (https://host/a.js:13:10)[175]"   a function, with line and column
+ *   "https://host/a.js[1]"                       a script's top level
+ *
+ * The bracketed number is the script's source id, not part of the URL. A
+ * label frame names a URL too, but after a label and without parentheses
+ * ("ChromeUtils::ImportESModule resource://…", or a document load); it is
+ * not script, and is not read as one.
  */
 export function parseJsLocation(location: string): { url: string; functionName?: string; line?: number } | undefined {
   const text = location.trim().replace(/(\[[^\]]*\])+$/, '').trim();
-  const m = /^(?:(.*?) )?\(?((?:https?|file|moz-extension):\/\/[^\s)[\]]+?)(?::(\d+))?(?::(\d+))?\)?$/.exec(text);
-  if (!m) return undefined;
-  const fn = m[1]?.trim();
-  return { url: m[2]!, ...(fn ? { functionName: fn } : {}), ...(m[3] ? { line: Number(m[3]) } : {}) };
+  const URL_RE = '((?:https?|file|moz-extension):\\/\\/[^\\s()[\\]]+?)(?::(\\d+))?(?::(\\d+))?';
+  const fn = new RegExp(`^(.+?) \\(${URL_RE}\\)$`).exec(text);
+  if (fn) return { url: fn[2]!, functionName: fn[1]!.trim(), ...(fn[3] ? { line: Number(fn[3]) } : {}) };
+  const bare = new RegExp(`^${URL_RE}$`).exec(text);
+  if (bare) return { url: bare[1]!, ...(bare[2] ? { line: Number(bare[2]) } : {}) };
+  return undefined;
 }
 
 function strings(thread: Thread, root: Node): string[] {

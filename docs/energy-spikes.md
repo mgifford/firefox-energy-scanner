@@ -105,7 +105,10 @@ Method `robust-threshold-v1` (`src/energy/spikes.ts`), recorded with every resul
    within one part of the workload (load, idle, one interaction), since the evidence for
    each differs. Intervals shorter than two bins are dropped (`--spike-min-ms`).
 5. **Shape and rank.** An interval of a second or more is **sustained**; shorter, a **brief
-   peak**. Intervals are ranked by **energy above the reference**, so a long moderate
+   peak**. One that covers (nearly) all of its step is flagged `whole-phase`: power was
+   up for the whole idle window, say, which is **continuous work** (an animation loop, a
+   timer), not a spike in it. Against an `about:blank` baseline of a few milliwatts, a
+   page with a running animation is elevated throughout its idle window. Intervals are ranked by **energy above the reference**, so a long moderate
    workload can outrank a short tall peak: it costs more. Intervals in the measured run
    come before those in warm-up runs (whose caches are colder), which are labelled. The
    five highest single bins are listed separately.
@@ -140,7 +143,7 @@ script is labelled with the kind of process that recorded it:
 | Process | What runs there |
 | --- | --- |
 | **the page (web content)** | the page's scripts, style, layout and painting (`Web Content`, `Isolated Web Content`) |
-| **Firefox itself (parent process)** | the browser's own interface and services: update checks, remote settings, its own modules; on macOS also compositing |
+| **Firefox's parent process** | the browser's own interface and services (update checks, remote settings, its own modules), and, when Firefox has no separate GPU process (as on the M2 tested), the compositing of the page's frames |
 | **GPU process** | compositing, where Firefox uses one |
 | **other Firefox processes** | network sockets, utilities, media decoding, extensions, preallocated processes |
 
@@ -153,9 +156,17 @@ become leads. A script whose URL is the page itself is the page's **inline** scr
 an event-handler attribute): no component owns it.
 
 On Apple Silicon each process has its own power counter, so each interval also gives the
-energy **by process**: how much the page's content process drew, and how much Firefox
-itself did. That is a measurement per process, not an apportionment. It does not exist on
-RAPL machines, whose counters are the whole processor's.
+energy **by process**: how much the page's content process drew, and how much the parent
+process did. That is a measurement per process, not an apportionment. It does not exist on
+RAPL machines, whose counters are the whole processor's. Read the parent's share with
+care: without a GPU process it includes drawing the page's frames, so it is not all the
+browser's own overhead. On the M2, the parent drew most of the energy even in intervals
+where the page was clearly the cause.
+
+Only true script frames are read as scripts. Firefox writes them as `fn (url:line:col)` or
+as a bare `url`, each followed by a source id in brackets. Label frames such as
+`ChromeUtils::ImportESModule resource://…` or a document load name a URL too, but are
+not script. (The first version misread document loads as scripts.)
 
 Marker time is the time **covered** within the interval: overlapping and nested markers,
 and the same work on several threads, are counted once, so it never exceeds the interval.
@@ -187,6 +198,28 @@ Add `--trace` to `diagnose` for Chromium corroboration: which script requested a
 frames, which timers fired, which elements were laid out and painted. It is diagnosis in
 another browser, under tracing overhead ([tracing.md](tracing.md)), and never Firefox
 energy.
+
+## Leave the Firefox window alone
+
+Firefox runs headed by default, and a run can be spoiled from outside. On the M2, a
+diagnose run of `/articles/d` visited five other pages during its idle window (something
+clicked links in the window), and its intervals and structure described those pages.
+
+So every run watches for it. After the page loads, a navigation to any other document, or
+a click, scroll-wheel turn, key press or touch reaching the page, means the run was acted
+on. (The built-in workloads send no input; pointer movement is not counted, since Firefox
+synthesises it when content moves under a resting pointer.) `diagnose` then says so at the
+top of its output and in the result, draws no leads, and captures no structure or
+screenshot from a page it navigated to. An experiment does not use that run, says which
+and why (`experiment.protocol.runsNotUsed`), and carries on; a page that does not load at
+all stops it. A page that navigates itself is reported as such.
+
+Before any run, `diagnose` and `experiment` check the address can be reached at all: a
+refused connection or a name that does not resolve is said at once, not after a run.
+
+While a measurement runs, do not click, scroll or type in the Firefox windows that open,
+or use `--headless`. Headless is a different rendering path, so compare headless runs only
+with headless runs.
 
 ## The report
 

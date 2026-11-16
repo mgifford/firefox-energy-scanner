@@ -31,7 +31,7 @@
  */
 
 import { median } from '../core/stats.js';
-import type { EnergyTimeline, TimelineBin } from './timeline.js';
+import type { EnergyTimeline, TimelineBin, TimelinePhase } from './timeline.js';
 
 export const SPIKE_METHOD = 'robust-threshold-v1';
 
@@ -86,7 +86,7 @@ export interface SpikeInterval {
   /** Phase kinds and steps the interval overlaps. */
   phases: string[];
   steps: string[];
-  flags: ('outside-measured-steps' | 'crosses-phase-boundary' | 'includes-lumped-bins' | 'warmup' | 'machine-wide-scope' | 'during-baseline')[];
+  flags: ('outside-measured-steps' | 'crosses-phase-boundary' | 'includes-lumped-bins' | 'warmup' | 'machine-wide-scope' | 'during-baseline' | 'whole-phase')[];
 }
 
 export interface SpikeReport {
@@ -196,12 +196,8 @@ export function detectSpikes(t: EnergyTimeline, overrides: Partial<SpikeSettings
   // settling), idle, one interaction, or the time between steps. Evidence
   // differs between them, so an elevation that runs from load into idle is
   // two intervals.
-  const part = (b: TimelineBin) => {
-    const p = phaseName(t, b);
-    if (!p) return 'unmeasured';
-    const kind = p.kind === 'loading' || p.kind === 'stabilizing' ? 'load' : p.kind;
-    return `${kind}|${p.label}`;
-  };
+  const partOf = (p: TimelinePhase | undefined) => (p ? `${p.kind === 'loading' || p.kind === 'stabilizing' ? 'load' : p.kind}|${p.label}` : 'unmeasured');
+  const part = (b: TimelineBin) => partOf(phaseName(t, b));
   const groups: TimelineBin[][] = [];
   let current: TimelineBin[] = [];
   let gap = 0;
@@ -245,6 +241,13 @@ export function detectSpikes(t: EnergyTimeline, overrides: Partial<SpikeSettings
     if (phases.every((p) => p?.warmup)) flags.push('warmup');
     if (phases.some((p) => p?.kind === 'baseline')) flags.push('during-baseline');
     if (t.scope !== 'process') flags.push('machine-wide-scope');
+    // Elevated for (nearly) all of its step: continuous work, such as an
+    // animation loop through the whole idle window, rather than a spike in it.
+    const key = part(g[0]!);
+    if (key !== 'unmeasured') {
+      const span = t.phases.filter((p) => partOf(p) === key).reduce((a, p) => a + (p.endMs - p.startMs), 0);
+      if (span > 0 && durationMs >= 0.9 * span - binMs) flags.push('whole-phase');
+    }
     intervals.push({
       startMs,
       endMs,

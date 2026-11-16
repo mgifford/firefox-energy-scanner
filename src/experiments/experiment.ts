@@ -47,6 +47,9 @@ import {
   type SubtreeIdentity,
 } from './dom-removal.js';
 import { installPreloadRemoval } from './preload-removal.js';
+import { RunInterrupted, duringRun, inputWatchInit, interference, readInput, watchNavigation } from '../collect/interference.js';
+
+export { RunInterrupted };
 
 /** A semantic check that must hold on both sides: the change must not break the page. */
 export interface Assertion {
@@ -167,10 +170,49 @@ async function checkAssertions(page: Page, assertions: Assertion[]): Promise<str
  */
 export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | undefined, apply: boolean, state: SideState): JourneyDefinition {
   const variant = variantOf(spec);
+  // The built-in workloads send no input and navigate once, so anything else
+  // is from outside the test (a click in the headed window) and the run is not
+  // used. A journey acts on the page itself, so it is not checked.
+  const builtIn = !inner || isRemoval(variant.kind);
+
+  /** The load step; a page that did not load ends the experiment, since it will not load next time either. */
+  async function load(args: Parameters<JourneyDefinition['run']>[0]) {
+    let failed: Error | undefined;
+    const nav = watchNavigation(args.page);
+    await args.measure('load', async () => {
+      try {
+        await args.page.goto(spec.url, { waitUntil: 'load' });
+        nav.arm();
+      } catch (e) {
+        failed = e as Error;
+        throw e;
+      }
+    });
+    if (failed) {
+      nav.stop();
+      throw new RunInterrupted('load-failed', `The page did not load: ${failed.message.split('\n')[0]}`);
+    }
+    // Left already, while the load step waited for it to settle: nothing after this is of the page.
+    if (nav.visited().length) {
+      const why = interference(nav.visited(), await readInput(args.page));
+      nav.stop();
+      throw new RunInterrupted('navigated', why ?? 'The page navigated away during the load step.');
+    }
+    return nav;
+  }
+
+  /** After the measured windows: was the page left alone? */
+  async function clean(args: Parameters<JourneyDefinition['run']>[0], nav: ReturnType<typeof watchNavigation>) {
+    nav.stop();
+    const why = interference(nav.visited(), await readInput(args.page));
+    if (why) throw new RunInterrupted(nav.visited().length ? 'navigated' : 'input', why);
+  }
+
   return defineJourney({
     name: `${inner?.name ?? 'load-and-idle'} (${apply ? 'variant' : 'baseline'})`,
     async setup(args) {
       await inner?.setup?.(args);
+      if (builtIn) await args.context.addInitScript(inputWatchInit);
       await installVariant(args.context, args.page, variant, apply, state.counts);
       if (variant.kind === 'remove-before-load') {
         // Outside every measured window: fetch, parse, check and (variant) strip; both sides get the snapshot.
@@ -183,14 +225,12 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
     async run(args) {
       if (variant.kind === 'remove') {
         // Load, as on any experiment: the component is on both sides here.
-        await args.measure('load', async () => {
-          await args.page.goto(spec.url, { waitUntil: 'load' });
-        });
+        const nav = await load(args);
         // The checkpoint, outside every measured window: find the selector's
         // matches on both sides, remove them on the variant only.
         const before = await readActivity(args.page);
         const at = Date.now();
-        const cp = await checkpoint(args.page, variant.selector!, apply, variant.maxMatches ?? DEFAULT_MAX_MATCHES);
+        const cp = await duringRun(() => checkpoint(args.page, variant.selector!, apply, variant.maxMatches ?? DEFAULT_MAX_MATCHES));
         (state.removals ??= []).push(cp);
         // Refused here means refused on every run: end this one now rather than measure an unchanged page.
         if (cp.refused) throw new RemovalRefused(cp.refusedDetail ?? cp.refused);
@@ -200,13 +240,12 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
           // Intentional idle window: the page left open, with or without the component.
           await args.page.waitForTimeout(spec.idle_ms);
         });
-        (state.removalProbes ??= []).push(await removalProbe(args.page, variant.selector!));
+        await clean(args, nav);
+        (state.removalProbes ??= []).push(await duringRun(() => removalProbe(args.page, variant.selector!)));
         const activity = activityBetween(before, await readActivity(args.page), Date.now() - at);
         if (activity) (state.activity ??= []).push(activity);
       } else if (variant.kind === 'remove-before-load') {
-        await args.measure('load', async () => {
-          await args.page.goto(spec.url, { waitUntil: 'load' });
-        });
+        const nav = await load(args);
         const before = await readActivity(args.page);
         const at = Date.now();
         if (spec.idle_ms > 0) {
@@ -215,25 +254,25 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
             await args.page.waitForTimeout(spec.idle_ms);
           });
         }
-        (state.removalProbes ??= []).push(await removalProbe(args.page, variant.selector!));
+        await clean(args, nav);
+        (state.removalProbes ??= []).push(await duringRun(() => removalProbe(args.page, variant.selector!)));
         const activity = activityBetween(before, await readActivity(args.page), Date.now() - at);
         if (activity) (state.activity ??= []).push(activity);
       } else if (inner) {
         await inner.run(args);
       } else {
-        await args.measure('load', async () => {
-          await args.page.goto(spec.url, { waitUntil: 'load' });
-        });
+        const nav = await load(args);
         if (spec.idle_ms > 0) {
           await args.measure('idle', async () => {
             // Intentional idle window: the workload under test is the page left open.
             await args.page.waitForTimeout(spec.idle_ms);
           });
         }
+        await clean(args, nav);
       }
       // After the workload, outside every measured window.
       state.runs++;
-      state.probes.push(await probeVariant(args.page, variant));
+      state.probes.push(await duringRun(() => probeVariant(args.page, variant)));
       state.assertionFailures.push(...(await checkAssertions(args.page, spec.assertions)));
     },
     async teardown(args) {
@@ -364,6 +403,8 @@ export interface ExperimentProtocol {
   profilerIntervalMs: number;
   /** A label for the build measured, when given (--release). */
   release?: string;
+  /** Runs that were not used because something outside the test acted on the page, and why. */
+  runsNotUsed?: { run: number; side: string; reason: string }[];
   /** Seeds and order are in the report itself. */
 }
 

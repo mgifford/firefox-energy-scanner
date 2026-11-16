@@ -33,6 +33,7 @@ import { attributeEnergy } from '../energy/attribution.js';
 import { buildFindings } from '../report/findings.js';
 import { collectTwigTemplates, templatesForInstances } from '../drupal/twig-debug.js';
 import { waitForStablePage } from '../collect/session.js';
+import { inputWatchInit, interference, readInput, unreachable, watchNavigation } from '../collect/interference.js';
 import { readFile } from 'node:fs/promises';
 import { parseScanRequest } from './issue-parser.js';
 import { buildIndex } from '../report/index-builder.js';
@@ -52,7 +53,7 @@ import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
-import { RemovalRefused, buildReport, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
+import { RemovalRefused, RunInterrupted, buildReport, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
 import { specFromQueue } from '../experiments/from-queue.js';
 import { checkJourneySource } from '../experiments/journey-lint.js';
 import { experimentCsv } from '../report/experiment-csv.js';
@@ -1177,7 +1178,17 @@ async function cmdExperiment(args: Args): Promise<number> {
   }
 
   const config = await buildConfig(args);
+  // A site that cannot be reached fails every run: say so before the first one.
+  // (Skipped with --public-only, whose guard decides what may be reached.)
+  if (!config.network.public_only) {
+    const why = await unreachable(spec.url);
+    if (why) {
+      console.error(`Cannot run the experiment: ${why}`);
+      return 1;
+    }
+  }
   await announceEnergy(config);
+  if (config.browser.headed) console.log('Firefox windows will open for each run. Do not click, scroll or type in them (or use --headless): a run acted on from outside is not used.');
   if (spec.runs !== undefined) config.benchmark.runs = spec.runs;
   if (spec.warmups !== undefined) config.benchmark.warmups = spec.warmups;
   const inner = spec.journey ? await loadJourney(resolve(spec.journey)) : undefined;
@@ -1187,6 +1198,8 @@ async function cmdExperiment(args: Args): Promise<number> {
   const steps: { a: StepResult[]; b: StepResult[] } = { a: [], b: [] };
   const timelines: TimelineAnalysis[] = [];
   const seen = { a: false, b: false };
+  const outcomeSeen = { a: false, b: false };
+  const notUsed: { run: number; side: string; reason: string }[] = [];
   const runIndex = { a: 0, b: 0 };
   let firefoxVersion = 'unknown';
   const warnings: string[] = [];
@@ -1208,10 +1221,29 @@ async function cmdExperiment(args: Args): Promise<number> {
     });
     } catch (e) {
       // A refused removal ends the run at its first checkpoint (often a warm-up): stop, and report it.
-      if (!(e instanceof RemovalRefused)) throw e;
-      warnings.push(`Stopped at run ${i + 1} of ${order.length}: the removal was refused (${e.message}).`);
-      break;
+      if (e instanceof RemovalRefused) {
+        warnings.push(`Stopped at run ${i + 1} of ${order.length}: the removal was refused (${e.message}).`);
+        break;
+      }
+      if (e instanceof RunInterrupted) {
+        const sideName = side === 'a' ? 'baseline' : 'variant';
+        process.stderr.write('\n');
+        if (e.reason === 'load-failed') {
+          warnings.push(`Stopped at run ${i + 1} of ${order.length} (${sideName}): ${e.message}`);
+          console.error(`Run ${i + 1} (${sideName}): ${e.message} Stopping.`);
+          break;
+        }
+        // Acted on from outside: this run is not used; the others stand.
+        notUsed.push({ run: i + 1, side: sideName, reason: e.message });
+        warnings.push(`Run ${i + 1} of ${order.length} (${sideName}) was not used: ${e.message}`);
+        console.error(`Run ${i + 1} (${sideName}) not used: ${e.message}`);
+        // Its warm-ups did not count either: the side's next run warms up again.
+        if (!outcomeSeen[side]) seen[side] = false;
+        continue;
+      }
+      throw e;
     }
+    outcomeSeen[side] = true;
     runIndex[side]++;
     if (outcome.timeline) timelines.push({ ...outcome.timeline, page: spec.url });
     firefoxVersion = outcome.firefoxVersion;
@@ -1240,6 +1272,7 @@ async function cmdExperiment(args: Args): Promise<number> {
     profilerFeatures: config.energy.adapter === 'noop' ? [] : ['power'],
     profilerIntervalMs: config.energy.profiler_interval_ms,
     ...(one(args, 'release') ? { release: one(args, 'release') } : {}),
+    ...(notUsed.length ? { runsNotUsed: notUsed } : {}),
   };
   const energyAvailable = [...steps.a, ...steps.b].some((s) => s.energy?.raw.sampleCount);
   const result: BenchmarkResult = {
@@ -2325,7 +2358,15 @@ async function cmdDiagnose(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
+  if (!config.network.public_only) {
+    const why = await unreachable(url);
+    if (why) {
+      console.error(`Cannot diagnose: ${why}`);
+      return 1;
+    }
+  }
   await announceEnergy(config);
+  if (config.browser.headed) console.log('A Firefox window will open. Do not click, scroll or type in it while the run is going (or use --headless).');
   const idleMs = one(args, 'idle') ? parseIntegerFlag('--idle', one(args, 'idle')!) : 10_000;
   const binMs = one(args, 'bin') ? parseIntegerFlag('--bin', one(args, 'bin')!) : 250;
   const lowOverhead = has(args, 'low-overhead');
@@ -2356,20 +2397,34 @@ async function cmdDiagnose(args: Args): Promise<number> {
   let runsDone = 0;
   const totalRuns = diagnosticConfig.benchmark.warmups + diagnosticConfig.benchmark.runs;
 
+  // Something acting on the headed window (a click on a link, a scroll) makes
+  // the run describe other pages: it is detected, said, and nothing is
+  // captured from a page the run navigated to.
+  let acted: string | undefined;
   const journey = defineJourney({
     name: 'diagnose',
+    async setup({ context }) {
+      await context.addInitScript(inputWatchInit);
+    },
     async run({ page, measure }) {
+      const nav = watchNavigation(page);
       await measure('load', async () => {
         await page.goto(url, { waitUntil: 'domcontentloaded' });
+        nav.arm();
       });
       if (idleMs > 0) {
         await measure('idle', async () => {
           // Intentional idle window: what the page does when left open.
           await page.waitForTimeout(idleMs);
+          if (nav.visited().length) throw new Error(`The page navigated away during the idle window, to ${nav.visited().slice(0, 3).join(', ')}: this window is not of the page.`);
         });
       }
-      // After the workload, outside every measured window, on the measured run.
-      if (++runsDone < totalRuns) return;
+      nav.stop();
+      const why = interference(nav.visited(), await readInput(page));
+      const measured = ++runsDone >= totalRuns;
+      if (why) acted = `${measured ? 'Measured run' : 'Warm-up run'}: ${why}`;
+      // After the workload, outside every measured window, on the measured run, and only of the page itself.
+      if (!measured || nav.visited().length) return;
       anatomy = await collectPageAnatomy(page);
       lcp = await readLcp(page);
       if (anatomy && lcp) anatomy.lcpElement = lcp;
@@ -2426,6 +2481,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
     capture: { page: url, capturedAt: new Date().toISOString(), selectorMatches },
     warnings: [
+      ...(acted ? [`${acted} Intervals after that point are not of this page, and no lead was drawn from this run.`] : []),
       ...(lowOverhead || config.energy.adapter === 'noop' ? [] : ['Diagnostic run: the profiler sampled stacks (js, stackwalk, cpu), which adds work to what was measured. Use its energy to find where to look; compare variants with experiment.']),
       ...outcome.warnings,
     ],
@@ -2435,7 +2491,8 @@ async function cmdDiagnose(args: Args): Promise<number> {
   attachInvestigation(result);
   if (outcome.timeline) {
     const analysis = { ...outcome.timeline, page: url, selectorMatches };
-    analysis.leads = linkSpikes(result, analysis, url);
+    if (acted) analysis.timeline.warnings.unshift(`${acted} Leads were not drawn from this run.`);
+    else analysis.leads = linkSpikes(result, analysis, url);
     result.timelines = [analysis];
   }
 
@@ -2468,6 +2525,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
     console.log('');
   }
 
+  if (acted) console.log(`WARNING: ${acted}\nRun diagnose again without touching the Firefox window (or with --headless).\n`);
   const t = result.timelines?.[0];
   if (t) {
     console.log(`Energy timeline: ${t.timeline.bins.length} bins of ${t.timeline.binMs} ms (${t.timeline.basis})`);
@@ -2824,6 +2882,8 @@ async function main(): Promise<number> {
     }
   } catch (err) {
     const e = err as Error;
+    // A progress line may be open without a newline.
+    process.stderr.write('\n');
     if (e.name === 'ZodError') {
       console.error('Configuration is invalid:\n' + formatConfigError(err));
     } else {

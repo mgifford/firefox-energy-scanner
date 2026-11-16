@@ -21,6 +21,7 @@ import {
 import { activityFindings } from '../../src/experiments/experiment.js';
 import { installPreloadRemoval } from '../../src/experiments/preload-removal.js';
 import { emptyCounts } from '../../src/experiments/variants.js';
+import { inputWatchInit, interference, readInput, watchNavigation } from '../../src/collect/interference.js';
 
 const run = ENGINE ? describe : describe.skip;
 
@@ -289,6 +290,58 @@ run(`pre-load removal in ${ENGINE ?? 'no browser'}`, () => {
     expect(snap.checkpoint.refused).toBe('no-match');
     expect(snap.checkpoint.refusedDetail).toMatch(/created by script/);
     expect(snap.bytes).toBe(snap.originalBytes); // refused: served as fetched
+    await context.close();
+  });
+});
+
+run(`interference in ${ENGINE ?? 'no browser'}`, () => {
+  let browser: Browser;
+  let site: { url: string; port: number; close: () => Promise<void> };
+
+  beforeAll(async () => {
+    site = await startFixtureSite({ port: 21_000 + Math.floor(Math.random() * 1_000) });
+    site.url = `http://127.0.0.1:${site.port}`;
+    browser = await launchTestBrowser();
+  }, 60_000);
+  afterAll(async () => {
+    await browser?.close();
+    await site?.close();
+  });
+
+  it('counts clicks, wheel turns and key presses that reach the page, and sees it leave', async () => {
+    const context = await browser.newContext();
+    await context.addInitScript(inputWatchInit);
+    const page = await context.newPage();
+    const nav = watchNavigation(page);
+    await page.goto(`${site.url}/lab/static`, { waitUntil: 'load' });
+    nav.arm();
+    expect(await readInput(page)).toEqual({ available: true, pointer: 0, wheel: 0, key: 0, touch: 0 });
+    await page.mouse.click(600, 500);
+    await page.mouse.wheel(0, 200);
+    await page.keyboard.press('Shift');
+    const input = await readInput(page);
+    expect(input.pointer).toBeGreaterThanOrEqual(1);
+    expect(input.wheel).toBeGreaterThanOrEqual(1);
+    expect(input.key).toBeGreaterThanOrEqual(1);
+    expect(nav.visited()).toEqual([]);
+    await page.getByRole('link', { name: 'light' }).click();
+    await page.waitForURL(/\/light$/);
+    expect(nav.visited()).toEqual([`${site.url}/light`]);
+    nav.stop();
+    await context.close();
+  });
+
+  it('sees a page that navigates itself, with no input', async () => {
+    const context = await browser.newContext();
+    await context.addInitScript(inputWatchInit);
+    const page = await context.newPage();
+    const nav = watchNavigation(page);
+    await page.goto(`${site.url}/lab/wanderer`, { waitUntil: 'load' });
+    nav.arm();
+    await page.waitForURL(/\/light$/, { timeout: 5_000 });
+    const why = interference(nav.visited(), await readInput(page));
+    expect(why).toMatch(/navigated away, to http:\/\/127\.0\.0\.1:\d+\/light \(no input reached it/);
+    nav.stop();
     await context.close();
   });
 });

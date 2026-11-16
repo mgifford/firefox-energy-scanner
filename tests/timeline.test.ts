@@ -218,6 +218,15 @@ describe('detectSpikes', () => {
     expect(r.intervals.map((i) => [i.steps[0], i.flags.includes('warmup')])).toEqual([['run:0:load', false], ['warmup:0:load', true]]);
   });
 
+  it('says when power stayed up for a whole step: continuous work, not a spike', () => {
+    const r = detectSpikes(timeline((t) => (t > 5_500 ? 2 : 1 + wobble(t))));
+    const idle = r.intervals.find((i) => i.phases.includes('idle'))!;
+    expect(idle.flags).toContain('whole-phase');
+    expect(r.intervals.find((i) => i.startMs === 6_000 && !i.flags.includes('whole-phase'))).toBeUndefined();
+    const brief = detectSpikes(timeline());
+    expect(brief.intervals.every((i) => !i.flags.includes('whole-phase'))).toBe(true);
+  });
+
   it('flags intervals outside measured steps', () => {
     const r = detectSpikes(timeline((t) => (t > 4_000 && t <= 4_500 ? 4 : 1 + wobble(t))));
     expect(r.intervals[0]).toMatchObject({ startMs: 4_000, flags: ['outside-measured-steps'], phases: ['unmeasured'] });
@@ -310,6 +319,11 @@ describe('geckoEvidence', () => {
 
   it('parses script locations and classifies markers', () => {
     expect(parseJsLocation('https://example.org/s.js[10]')).toEqual({ url: 'https://example.org/s.js' });
+    // Label frames name a URL too (as in a Firefox 153 profile): they are not script.
+    for (const label of ['ChromeUtils::ImportESModule resource://gre/modules/CustomElementsListener.sys.mjs', 'nsDocShell::LoadURI http://127.0.0.1:8086/big-list', 'imgRequest http://127.0.0.1:8086/img/huge.svg', 'Load 16: https://aus5.mozilla.org/update.xml']) {
+      expect(parseJsLocation(label), label).toBeUndefined();
+    }
+    expect(parseJsLocation('observe (resource://gre/modules/MainProcessSingleton.sys.mjs:13:10)[175]')).toBeUndefined();
     expect(parseJsLocation('f (https://example.org/s.js:4:2)[10]')).toEqual({ url: 'https://example.org/s.js', functionName: 'f', line: 4 });
     expect(parseJsLocation('draw (https://a.org/js/chart.js:12:4)')).toEqual({ url: 'https://a.org/js/chart.js', functionName: 'draw', line: 12 });
     expect(parseJsLocation('https://a.org/js/x.js:5:1')).toEqual({ url: 'https://a.org/js/x.js', line: 5 });

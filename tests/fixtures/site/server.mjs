@@ -26,6 +26,7 @@
  *  /lab/static      a large static subtree beside a small animated badge
  *  /lab/ensure      a script that creates the component when the markup lacks it
  *  /lab/moved       a redirect to /lab/static
+ *  /lab/wanderer    a page that navigates itself to /light after a second
  *
  * And /articles/d (requestAnimationFrame), /spinner (CSS animation), /embed
  * (an iframe), /articles/a (nested cards sharing cards.js) and /table (a
@@ -123,6 +124,11 @@ const LAB = {
     'Ensure',
     '<aside aria-label="Notice" data-component-id="notice"><p>Notice.</p></aside><p>Main text.</p>',
     { bodyEnd: '<script src="/js/ensure.js"></script>' },
+  ),
+  '/lab/wanderer': page(
+    'Wanderer',
+    '<section aria-label="Notice" data-component-id="wander-notice"><p>Leaving soon.</p></section>',
+    { bodyEnd: '<script>setTimeout(() => { location.href = "/light"; }, 1000);</script>' },
   ),
   '/lab/static': page(
     'Static subtree',

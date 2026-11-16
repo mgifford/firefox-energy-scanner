@@ -108,9 +108,26 @@ try {
   check(pre.x?.removal?.snapshot && pre.x.removal.snapshot.servedBytes[1] < pre.x.removal.snapshot.servedBytes[0], `the variant was served less markup (${JSON.stringify(pre.x?.removal?.snapshot)})`);
   const ensured = await experiment('/lab/ensure', '[data-component-id="notice"]', [], 'remove-before-load');
   check(ensured.status === 2 && /created the component themselves/.test(ensured.x?.applied.note ?? ''), `a component the page's script recreates is not counted as removed (${ensured.x?.applied.note})`);
+
+  // A page that leaves itself: every run is noticed, and none is used.
+  const wander = await experiment('/lab/wanderer', '[data-component-id="wander-notice"]', ['--idle', '2500']);
+  check((wander.result?.warnings ?? []).filter((w) => /was not used: The page navigated away/.test(w)).length >= 2, `runs where the page navigated away are not used (${(wander.result?.warnings ?? []).filter((w) => /not used/.test(w)).length})`);
+  check((wander.x?.protocol?.runsNotUsed ?? []).length >= 2 && (wander.x?.differences ?? []).every((d) => d.runs[0] === 0 || d.runs[1] === 0 || d.verdict === 'not-measured'), 'the protocol lists them, and no comparison is made from them');
+
+  // diagnose on the same page: it says so, draws no lead, and captures nothing from the page it went to.
+  const dOut = mkdtempSync(join(tmpdir(), 'diagnose-'));
+  const d = await exec(['dist/cli/index.js', 'diagnose', `${base}/lab/wanderer`, '--idle', '2500', '--headless', '--no-energy', '--out', dOut]);
+  const dJson = readdirSync(dOut).find((f) => f.endsWith('.json'));
+  const dRes = dJson ? JSON.parse(readFileSync(join(dOut, dJson), 'utf8')) : undefined;
+  check(/navigated away/.test(d.out) && (dRes?.warnings ?? []).some((w) => /navigated away/.test(w)), 'diagnose says the page navigated away');
+  check(!readdirSync(dOut).some((f) => f.endsWith('.screenshot.png')) && Object.keys(dRes?.capture?.selectorMatches ?? {}).length === 0, 'and captures nothing from the page it went to');
 } finally {
   await site.close();
 }
+
+// Nothing listening: said before any run starts.
+const down = await exec(['dist/cli/index.js', 'experiment', 'http://127.0.0.1:8099/articles/d', '--kind', 'remove', '--selector', '.x', '--no-energy', '--headless']);
+check(down.status === 1 && /refused the connection\. Is the site running\?/.test(down.out) && !/Run 1\//.test(down.out), `an unreachable site stops the experiment before its first run (${down.out.trim().split('\n').pop()})`);
 
 if (failures.length) {
   console.log(`\n${failures.length} check(s) failed.`);

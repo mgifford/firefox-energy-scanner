@@ -92,7 +92,7 @@ const intervalSchema = z
     shape: z.enum(['brief-peak', 'sustained']),
     phases: z.array(z.string()),
     steps: z.array(z.string()),
-    flags: z.array(z.enum(['outside-measured-steps', 'crosses-phase-boundary', 'includes-lumped-bins', 'warmup', 'machine-wide-scope', 'during-baseline'])),
+    flags: z.array(z.enum(['outside-measured-steps', 'crosses-phase-boundary', 'includes-lumped-bins', 'warmup', 'machine-wide-scope', 'during-baseline', 'whole-phase'])),
   })
   .strict();
 
