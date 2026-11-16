@@ -46,6 +46,7 @@ import {
   type SubtreeContent,
   type SubtreeIdentity,
 } from './dom-removal.js';
+import { installPreloadRemoval } from './preload-removal.js';
 
 /** A semantic check that must hold on both sides: the change must not break the page. */
 export interface Assertion {
@@ -111,7 +112,7 @@ export function parseSpec(input: unknown): ExperimentSpec {
     if (parsed.data.journey) {
       errors.push(`A ${parsed.data.kind} experiment runs its own workload (load, then the removal, then idle); a journey has no point at which to remove the element yet.`);
     }
-    if (parsed.data.idle_ms < 1_000) errors.push(`A ${parsed.data.kind} experiment measures its effect in the idle window, so idle_ms must be at least 1000.`);
+    if (parsed.data.kind === 'remove' && parsed.data.idle_ms < 1_000) errors.push('A remove experiment measures its effect in the idle window, so idle_ms must be at least 1000.');
   }
   if (errors.length) throw new Error(`Invalid experiment: ${errors.join(' ')}`);
   return parsed.data;
@@ -131,6 +132,8 @@ export interface SideState {
   removals?: RemovalCheckpoint[];
   removalProbes?: RemovalProbe[];
   activity?: ActivityWindow[];
+  /** remove-before-load: the document's bytes as fetched and as served, per run. */
+  snapshots?: { originalBytes: number; servedBytes: number }[];
 }
 
 export const emptySide = (): SideState => ({ counts: emptyCounts(), probes: [], assertionFailures: [], runs: 0, removals: [], removalProbes: [], activity: [] });
@@ -164,6 +167,12 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
     async setup(args) {
       await inner?.setup?.(args);
       await installVariant(args.context, args.page, variant, apply, state.counts);
+      if (variant.kind === 'remove-before-load') {
+        // Outside every measured window: fetch, parse, check and (variant) strip; both sides get the snapshot.
+        const snap = await installPreloadRemoval(args.context, args.page, spec.url, variant.selector!, apply, variant.maxMatches ?? DEFAULT_MAX_MATCHES, state.counts);
+        (state.removals ??= []).push(snap.checkpoint);
+        (state.snapshots ??= []).push({ originalBytes: snap.originalBytes, servedBytes: snap.bytes });
+      }
     },
     async run(args) {
       if (variant.kind === 'remove') {
@@ -183,6 +192,21 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
           // Intentional idle window: the page left open, with or without the component.
           await args.page.waitForTimeout(spec.idle_ms);
         });
+        (state.removalProbes ??= []).push(await removalProbe(args.page, variant.selector!));
+        const activity = activityBetween(before, await readActivity(args.page), Date.now() - at);
+        if (activity) (state.activity ??= []).push(activity);
+      } else if (variant.kind === 'remove-before-load') {
+        await args.measure('load', async () => {
+          await args.page.goto(spec.url, { waitUntil: 'load' });
+        });
+        const before = await readActivity(args.page);
+        const at = Date.now();
+        if (spec.idle_ms > 0) {
+          await args.measure('idle', async () => {
+            // Intentional idle window: the page left open, with or without the component.
+            await args.page.waitForTimeout(spec.idle_ms);
+          });
+        }
         (state.removalProbes ??= []).push(await removalProbe(args.page, variant.selector!));
         const activity = activityBetween(before, await readActivity(args.page), Date.now() - at);
         if (activity) (state.activity ??= []).push(activity);
@@ -334,7 +358,10 @@ export interface RemovalSideSummary {
 }
 
 export interface RemovalSummary {
-  mode: 'post-load';
+  /** post-load: detached after the load step. pre-load: removed from the markup before parsing. */
+  mode: 'post-load' | 'pre-load';
+  /** pre-load: the snapshot both sides were served (bytes as fetched, and as served per side). */
+  snapshot?: { originalBytes: number; servedBytes: [number, number] };
   selector: string;
   maxMatches: number;
   /** When the removal happens, in words. */
@@ -418,7 +445,7 @@ export function buildReport(
   );
   const changed = accessibilityChanges(pa, pb);
   const removalKind = isRemoval(variant.kind);
-  const roles: Record<string, StepRole> = removalKind ? { load: 'negative-control', idle: 'attributable' } : {};
+  const roles: Record<string, StepRole> = variant.kind === 'remove' ? { load: 'negative-control', idle: 'attributable' } : {};
   const differences = applied.ok ? summarizeExperiment(steps.a, steps.b, roles) : [];
   const failedA = [...new Set(state.a.assertionFailures)];
   const failedB = [...new Set(state.b.assertionFailures)];
@@ -434,7 +461,7 @@ export function buildReport(
     ],
   };
   const controlMoved = differences.find((d) => d.role === 'negative-control' && (d.verdict === 'lower' || d.verdict === 'higher'));
-  const workload: ExperimentReport['workload'] = removalKind
+  const workload: ExperimentReport['workload'] = variant.kind === 'remove'
     ? { kind: 'load-checkpoint-idle', steps: [{ name: 'load', role: 'negative-control' }, { name: 'idle', role: 'attributable' }], idleMs: spec.idle_ms, settleMs: spec.settle_ms }
     : spec.journey
       ? { kind: 'journey', steps: [] }
@@ -460,7 +487,7 @@ export function buildReport(
     order,
     ...(from ? { from } : {}),
     limitations: [
-      ...(removalKind ? REMOVAL_LIMITATIONS : []),
+      ...(variant.kind === 'remove' ? REMOVAL_LIMITATIONS : variant.kind === 'remove-before-load' ? PRELOAD_LIMITATIONS : []),
       ...(removal?.variant.content?.iframes ? ['Removing an iframe element unloads its document, which stops that document’s scripts; removing any other element does not stop the scripts that drive it.'] : []),
       ...(controlMoved ? [`The negative control differed (${controlMoved.step}: ${controlMoved.verdict}): the sides were not alike before the removal, so read the idle difference with caution and repeat the experiment.`] : []),
       'A difference here is a measured difference between two scenarios on this machine, not an energy figure for the component. It holds for this page, workload, browser and machine.',
@@ -482,6 +509,14 @@ const REMOVAL_LIMITATIONS = [
   'Only the idle window can show an effect of a post-load removal: the component was on both sides while the page loaded. The load step is a negative control, never a saving.',
   'The selector is matched in the top document only: elements in other frames and inside shadow roots are not matched.',
   'A removal is a diagnostic stand-in. It shows what the component costs while the page sits idle on this machine; it does not show the component should be removed.',
+];
+
+const PRELOAD_LIMITATIONS = [
+  'The component was removed from the markup before the browser parsed it, so its parsing, resources, inline scripts, layout and paint did not happen on the variant. Both load and idle can show its effect. This is a different experiment from a post-load removal, and the two are never combined.',
+  'Both sides were served a snapshot of the document, fetched once per run before measurement and parsed and re-serialised by the browser on both sides. The server’s response time is part of neither side, and anything the server varies per request (tokens, nonces) is frozen for the run.',
+  'Scripts loaded from elsewhere in the page (the head, a bundle) still run on the variant and find no component: a script that fails, or keeps working without it, is part of what is measured.',
+  'The selector is matched in the top document only, as the parser builds it with scripting off: content inside <noscript> can match, elements created later by script cannot.',
+  'A removal is a diagnostic stand-in. It shows what the component costs on this machine; it does not show the component should be removed.',
 ];
 
 const med = (xs: number[]) => (xs.length ? median(xs) : 0);
@@ -554,12 +589,18 @@ function sideSummary(s: SideState): RemovalSideSummary {
 export function summarizeRemoval(spec: ExperimentSpec, variant: VariantSpec, state: { a: SideState; b: SideState }, verified: boolean): RemovalSummary {
   const baseline = sideSummary(state.a);
   const v = sideSummary(state.b);
+  const pre = variant.kind === 'remove-before-load';
+  const sa = state.a.snapshots?.[0];
+  const sb = state.b.snapshots?.[0];
   return {
-    mode: 'post-load',
+    mode: pre ? 'pre-load' : 'post-load',
+    ...(pre && sa && sb ? { snapshot: { originalBytes: sa.originalBytes, servedBytes: [sa.servedBytes, sb.servedBytes] as [number, number] } } : {}),
     selector: variant.selector ?? '',
     maxMatches: variant.maxMatches ?? DEFAULT_MAX_MATCHES,
-    checkpoint: `After the load step and the page settling, outside every measured window; then ${spec.settle_ms} ms for both sides to settle before the ${spec.idle_ms} ms idle window.`,
-    settleMs: spec.settle_ms,
+    checkpoint: pre
+      ? 'Before the page is parsed: in each run’s setup, outside every measured window, the document is fetched, parsed by the browser’s own HTML parser, stripped of the matches on the variant, and serialised again on both sides. Both sides are served that snapshot.'
+      : `After the load step and the page settling, outside every measured window; then ${spec.settle_ms} ms for both sides to settle before the ${spec.idle_ms} ms idle window.`,
+    settleMs: pre ? 0 : spec.settle_ms,
     idleMs: spec.idle_ms,
     baseline,
     variant: v,

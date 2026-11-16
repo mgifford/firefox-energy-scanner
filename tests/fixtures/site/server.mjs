@@ -24,6 +24,8 @@
  *  /lab/polite      a timer that stops itself once its element is gone
  *  /lab/remount     a component the page puts back after it is removed
  *  /lab/static      a large static subtree beside a small animated badge
+ *  /lab/ensure      a script that creates the component when the markup lacks it
+ *  /lab/moved       a redirect to /lab/static
  *
  * And /articles/d (requestAnimationFrame), /spinner (CSS animation), /embed
  * (an iframe), /articles/a (nested cards sharing cards.js) and /table (a
@@ -117,6 +119,11 @@ const LAB = {
     '<aside aria-label="Promotion" data-component-id="promo"><p>A promotion that will not go away.</p></aside><p>Main text.</p>',
     { bodyEnd: '<script src="/js/remount.js"></script>' },
   ),
+  '/lab/ensure': page(
+    'Ensure',
+    '<aside aria-label="Notice" data-component-id="notice"><p>Notice.</p></aside><p>Main text.</p>',
+    { bodyEnd: '<script src="/js/ensure.js"></script>' },
+  ),
   '/lab/static': page(
     'Static subtree',
     `<section aria-label="Archive" data-component-id="archive"><ul>${Array.from({ length: 1500 }, (_, i) => `<li>Entry ${i + 1}</li>`).join('')}</ul></section>
@@ -142,6 +149,7 @@ document.getElementById('sort').addEventListener('click', () => { for (let k = 0
   '/js/ticker.js': 'let n = 0; setInterval(() => { n++; const el = document.getElementById("tick"); if (el) el.textContent = String(n); window.tickerCount = n; }, 100);',
   '/js/polite.js': 'const el = document.getElementById("polite"); let n = 0; const id = setInterval(() => { if (!el.isConnected) { clearInterval(id); window.politeStopped = true; return; } n++; el.textContent = String(n); }, 100);',
   '/js/remount.js': 'const keep = document.querySelector("[data-component-id=promo]"); setInterval(() => { if (!keep.isConnected) document.getElementById("main").append(keep); }, 200);',
+  '/js/ensure.js': 'if (!document.querySelector("[data-component-id=notice]")) { const a = document.createElement("aside"); a.setAttribute("data-component-id", "notice"); a.textContent = "Notice, recreated."; document.getElementById("main").append(a); }',
   '/js/chart.js': `const c = document.getElementById('chart'); const g = c.getContext('2d'); let t = 0;
 function frame() { t++; g.clearRect(0, 0, c.width, c.height); g.beginPath(); for (let x = 0; x < c.width; x++) g.lineTo(x, 100 + 80 * Math.sin((x + t) / 30)); g.stroke(); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);`,
@@ -162,6 +170,10 @@ export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {})
       if (path === '/widget') return send(200, 'text/html; charset=utf-8', '<!doctype html><html lang="en"><head><title>Widget</title><script src="/widget.js"></script></head><body><p>Third-party widget</p></body></html>');
       if (path === '/widget.js') return send(200, 'text/javascript', 'setInterval(() => { document.body.dataset.tick = String(Date.now()); }, 500);');
       return send(404, 'text/plain', 'not found');
+    }
+    if (path === '/lab/moved') {
+      res.writeHead(301, { Location: '/lab/static', 'Cache-Control': 'no-store' });
+      return res.end();
     }
     if (path === '/robots.txt') return send(200, 'text/plain', `User-agent: *\nAllow: /\nSitemap: ${site}/sitemap.xml\n`);
     if (path === '/sitemap.xml') {

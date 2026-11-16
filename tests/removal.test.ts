@@ -186,7 +186,7 @@ describe('remove: the report', () => {
   it('renders the removal without scripts, and the CSV carries the roles', () => {
     const r = buildReport(spec, { a: side(false, 10, { activity: act(120, 0) }), b: side(true, 10, { activity: act(118, 0) }) }, steps, 's', ['a', 'b']);
     const html = experimentSection(r);
-    expect(html).toContain('<h3 id="removal-h">The removal</h3>');
+    expect(html).toContain('<h3 id="removal-h">The removal (after the page loaded)</h3>');
     expect(html).toContain('(negative control)');
     expect(html).toContain('<caption>Script work from the checkpoint to the end of idle');
     expect(html).not.toMatch(/<script|<canvas/i);
@@ -225,5 +225,33 @@ describe('remove: from the investigation queue', () => {
   it('scopes a named kind to the item’s selector', () => {
     expect(specFromQueue(result, 1, 'remove').spec).toMatchObject({ kind: 'remove', selector: 'div.carousel', url: 'https://a.org/' });
     expect(() => specFromQueue(result, 1, 'block')).toThrow(/takes remove, hide, pause-animations/);
+  });
+});
+
+describe('remove-before-load', () => {
+  const pre = parseSpec({ name: 'hero-pre', url: 'https://a.org/', kind: 'remove-before-load', selector: '.hero' });
+  const steps = { a: series('baseline', around(0.5, 10), around(0.1, 10)), b: series('variant', around(0.3, 10), around(0.06, 10)) };
+  const withSnap = (s: SideState, bytes: number): SideState => ({ ...s, snapshots: [{ originalBytes: 50_000, servedBytes: bytes }] });
+
+  it('is its own kind: both load and idle can show its effect', () => {
+    expect(pre).toMatchObject({ kind: 'remove-before-load' });
+    expect(parseSpec({ name: 'x', url: 'https://a.org/', kind: 'remove-before-load', selector: '.x', idle_ms: 0 }).idle_ms).toBe(0);
+    expect(() => parseSpec({ name: 'x', url: 'https://a.org/', kind: 'remove-before-load', selector: 'head' })).toThrow(/names the document itself/);
+    const r = buildReport(pre, { a: withSnap(side(false, 10), 49_000), b: withSnap(side(true, 10), 30_000) }, steps, 's', ['a', 'b']);
+    expect(r.applied.ok).toBe(true);
+    expect(r.applied.note).toMatch(/from the markup before parsing/);
+    expect(r.differences.map((d) => [d.step, d.role, d.verdict])).toEqual([['load', 'attributable', 'lower'], ['idle', 'attributable', 'lower']]);
+    expect(r.removal).toMatchObject({ mode: 'pre-load', snapshot: { originalBytes: 50_000, servedBytes: [49_000, 30_000] }, settleMs: 0 });
+    expect(r.limitations.join(' ')).toMatch(/never combined/);
+    expect(r.limitations.join(' ')).toMatch(/snapshot of the document/);
+    expect(r.limitations.join(' ')).not.toMatch(/negative control/);
+    expect(experimentSection(r)).toContain('The removal (before the page is parsed)');
+  });
+
+  it('a component the page’s scripts create anyway is not removed', () => {
+    const created = side(true, 3, { probe: { matchesNow: 1, reinsertions: 1, firstReinsertionMs: 40 } });
+    const r = removalApplied({ kind: 'remove-before-load', selector: '.hero' }, { counts: emptySide().counts, removals: side(false, 3).removals, removalProbes: side(false, 3).removalProbes }, { counts: created.counts, removals: created.removals, removalProbes: created.removalProbes });
+    expect(r.ok).toBe(false);
+    expect(r.note).toMatch(/scripts created the component themselves in 3 variant runs of 3, 40 ms after the document started/);
   });
 });

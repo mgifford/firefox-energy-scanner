@@ -138,11 +138,19 @@ export function namesDocumentStructure(selector: string): boolean {
 /**
  * Runs in the page. Finds the selector's matches, checks them, and on the
  * variant detaches the outermost ones. Every check runs before anything is
- * removed, so a refused removal leaves the page as it was. A watcher for
- * re-inserted matches is installed on both sides, so the sides stay alike.
+ * removed, so a refused removal leaves the page as it was.
+ *
+ * Live (no `html`): in the loaded page. A watcher for re-inserted matches is
+ * installed on both sides, so the sides stay alike.
+ *
+ * Before load (`html` given): in a document the browser's own HTML parser
+ * builds from that markup (DOMParser), which is then serialised back. Both
+ * sides are parsed and serialised, so the round trip is the same on both.
  */
-export function checkpointInPage(args: { selector: string; apply: boolean; maxMatches: number }): RemovalCheckpoint {
+export function checkpointInPage(args: { selector: string; apply: boolean; maxMatches: number; html?: string }): RemovalCheckpoint & { html?: string } {
   const { selector, apply, maxMatches } = args;
+  const live = args.html === undefined;
+  const document = live ? window.document : new DOMParser().parseFromString(args.html!, 'text/html');
   const empty = { elements: 0, headings: 0, landmarks: 0, interactive: 0, formControls: 0, images: 0, media: 0, iframes: 0, canvases: 0, liveRegions: 0, textChars: 0 };
   const refuse = (refused: RemovalRefusal, matched: number, refusedDetail: string): RemovalCheckpoint => ({
     matched, roots: 0, nested: 0, removed: 0, remaining: matched, refused, refusedDetail, identities: [], content: { ...empty },
@@ -153,7 +161,11 @@ export function checkpointInPage(args: { selector: string; apply: boolean; maxMa
   } catch (e) {
     return refuse('invalid-selector', 0, `The browser could not parse the selector: ${(e as Error).message}`);
   }
-  if (matches.length === 0) return refuse('no-match', 0, 'The selector matches no element on this page.');
+  if (matches.length === 0) {
+    return refuse('no-match', 0, live
+      ? 'The selector matches no element on this page.'
+      : 'The selector matches nothing in the page’s markup: the element may be created by script after the page loads. A post-load removal (remove) can remove it.');
+  }
   const structural = matches.filter((el) => el === document.documentElement || el === document.head || el === document.body);
   if (structural.length) {
     return refuse('document-structure', matches.length, `The selector matches the document's own ${structural.map((el) => `<${el.tagName.toLowerCase()}>`).join(', ')}; removing it would remove the page.`);
@@ -184,7 +196,8 @@ export function checkpointInPage(args: { selector: string; apply: boolean; maxMa
     content.iframes += count(root, 'iframe, frame, embed, object');
     content.canvases += count(root, 'canvas');
     content.liveRegions += count(root, '[aria-live]:not([aria-live="off"]), [role="status"], [role="alert"], [role="log"], [role="marquee"], [role="timer"], output');
-    content.textChars += ((root as HTMLElement).innerText ?? root.textContent ?? '').replace(/\s+/g, ' ').trim().length;
+    // innerText needs layout, which a parsed-only document does not have.
+    content.textChars += ((live ? (root as HTMLElement).innerText : undefined) ?? root.textContent ?? '').replace(/\s+/g, ' ').trim().length;
     if (identities.length < 10) {
       const label = root.getAttribute('aria-label') ?? undefined;
       identities.push({
@@ -196,6 +209,30 @@ export function checkpointInPage(args: { selector: string; apply: boolean; maxMa
         nodes: 1 + root.querySelectorAll('*').length,
       });
     }
+  }
+
+  if (!live) {
+    let removed = 0;
+    if (apply) {
+      for (const root of roots) {
+        root.remove();
+        removed++;
+      }
+    }
+    const dt = document.doctype;
+    const doctype = dt
+      ? `<!DOCTYPE ${dt.name}${dt.publicId ? ` PUBLIC "${dt.publicId}"` : ''}${dt.systemId ? `${dt.publicId ? '' : ' SYSTEM'} "${dt.systemId}"` : ''}>`
+      : '';
+    return {
+      matched: matches.length,
+      roots: roots.length,
+      nested: matches.length - roots.length,
+      removed,
+      remaining: document.querySelectorAll(selector).length,
+      identities,
+      content,
+      html: doctype + document.documentElement.outerHTML,
+    };
   }
 
   // A watcher for re-inserted matches, on both sides. WeakRefs so that holding
@@ -285,6 +322,41 @@ export function activityCountersInit(): void {
     w.requestAnimationFrame = function (this: unknown, fn: FrameRequestCallback) {
       return raf.call(this, wrap(fn, 'animationFrames') as FrameRequestCallback);
     };
+  }
+}
+
+/**
+ * An init script for pre-load removal, on both sides: counts matching
+ * elements inserted into the document from the start, the parser's own
+ * insertions included. On the variant the markup no longer holds them, so any
+ * insertion there was made by the page's scripts.
+ */
+export function preloadWatchInit(selector: string): void {
+  const w = window as unknown as Record<string, unknown> & Window;
+  if (w.top !== w || Object.prototype.hasOwnProperty.call(w, '__webEnergyRemoval')) return;
+  const started = performance.now();
+  const state = { reinsertions: 0, firstMs: undefined as number | undefined, roots: [] as WeakRef<Element>[], selector };
+  Object.defineProperty(w, '__webEnergyRemoval', { value: state, configurable: true, enumerable: false });
+  try {
+    new MutationObserver((records) => {
+      for (const r of records) {
+        for (const n of Array.from(r.addedNodes)) {
+          if (!(n instanceof Element)) continue;
+          let hit = false;
+          try {
+            hit = n.matches(selector) || !!n.querySelector(selector);
+          } catch {
+            hit = false;
+          }
+          if (hit) {
+            state.reinsertions++;
+            if (state.firstMs === undefined) state.firstMs = Math.round(performance.now() - started);
+          }
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  } catch {
+    /* no observer: the probe's match count still shows the element */
   }
 }
 

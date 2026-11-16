@@ -115,7 +115,7 @@ Usage:
                          | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
                          [--journey <file>] [--idle <ms>] [--settle <ms>] [--max-matches <n>] [--assert-role <role>] [--assert-text <text>]
                          [--dry-run] [--save-spec <file.yaml>]
-                         kinds: pause-animations, reduced-motion, lazy-images, no-autoplay, block, hide, remove
+                         kinds: pause-animations, reduced-motion, lazy-images, no-autoplay, block, hide, remove, remove-before-load
   web-energy journey-check <file...>
   web-energy profile --journey <file>
   web-energy triage --a <url> --b <url> [--path <path>]

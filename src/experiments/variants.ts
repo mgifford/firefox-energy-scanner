@@ -21,12 +21,16 @@ import {
   type RemovalProbe,
 } from './dom-removal.js';
 
-export type VariantKind = 'reduced-motion' | 'pause-animations' | 'lazy-images' | 'no-autoplay' | 'block' | 'hide' | 'remove';
+export type VariantKind = 'reduced-motion' | 'pause-animations' | 'lazy-images' | 'no-autoplay' | 'block' | 'hide' | 'remove' | 'remove-before-load';
 
-export const VARIANT_KINDS: VariantKind[] = ['reduced-motion', 'pause-animations', 'lazy-images', 'no-autoplay', 'block', 'hide', 'remove'];
+export const VARIANT_KINDS: VariantKind[] = ['reduced-motion', 'pause-animations', 'lazy-images', 'no-autoplay', 'block', 'hide', 'remove', 'remove-before-load'];
 
-/** Kinds that take an element out of the live DOM. */
-export const REMOVAL_KINDS: VariantKind[] = ['remove'];
+/**
+ * Kinds that take an element out of the DOM: after load (remove), or out of
+ * the markup before the page is parsed (remove-before-load). They are
+ * different experiments, measuring different things, and are never combined.
+ */
+export const REMOVAL_KINDS: VariantKind[] = ['remove', 'remove-before-load'];
 export const isRemoval = (kind: string): boolean => (REMOVAL_KINDS as string[]).includes(kind);
 
 export interface VariantSpec {
@@ -87,6 +91,8 @@ export function describeVariant(v: VariantSpec): string {
       return `${v.selector} not rendered (display: none)`;
     case 'remove':
       return `${v.selector} removed from the DOM after the page loaded (detached, with its descendants)`;
+    case 'remove-before-load':
+      return `${v.selector} removed from the page's markup before it is parsed`;
   }
 }
 
@@ -199,10 +205,11 @@ export async function installVariant(context: BrowserContext, page: Page, v: Var
     await page.emulateMedia({ reducedMotion: apply ? 'reduce' : 'no-preference' });
     return;
   }
-  if (v.kind === 'remove') {
-    // The removal itself happens at the checkpoint, after the load step. Here,
-    // on both sides alike, only the callback counters that show whether the
-    // component's scripts carried on.
+  if (isRemoval(v.kind)) {
+    // The removal itself happens at the checkpoint after the load step
+    // (remove), or in the snapshot the experiment prepares (remove-before-load).
+    // Here, on both sides alike, only the callback counters that show whether
+    // script work carried on.
     await installActivityCounters(context);
     return;
   }
@@ -331,6 +338,7 @@ export function variantApplied(v: VariantSpec, a: AppliedSide, b: AppliedSide): 
         ? { ok: true, note: `${pb.matched} element${pb.matched === 1 ? '' : 's'} not rendered.` }
         : { ok: false, note: 'The elements were still rendered.' };
     case 'remove':
+    case 'remove-before-load':
       return removalApplied(v, a, b);
   }
 }
@@ -362,8 +370,11 @@ export function removalApplied(v: VariantSpec, a: AppliedSide, b: AppliedSide): 
     return {
       ok: false,
       note:
-        `The page put the component back in ${plural(back.length, 'variant run')} of ${probes.length}` +
-        `${first !== undefined ? `, the first time ${first} ms after it was removed` : ''}: the intervention did not hold, so the idle window did not measure the page without it.`,
+        v.kind === 'remove-before-load'
+          ? `The page's scripts created the component themselves in ${plural(back.length, 'variant run')} of ${probes.length}` +
+            `${first !== undefined ? `, ${first} ms after the document started` : ''}: removing it from the markup did not keep it out of the page.`
+          : `The page put the component back in ${plural(back.length, 'variant run')} of ${probes.length}` +
+            `${first !== undefined ? `, the first time ${first} ms after it was removed` : ''}: the intervention did not hold, so the idle window did not measure the page without it.`,
     };
   }
   const roots = cb[0]!.roots;
@@ -374,7 +385,9 @@ export function removalApplied(v: VariantSpec, a: AppliedSide, b: AppliedSide): 
     note:
       `Removed ${plural(roots, 'subtree')} (${describeContent(cb[0]!.content)})` +
       `${nested ? `; ${plural(nested, 'further match', 'further matches')} sat inside them and went with them, counted once` : ''}` +
-      ` in each of ${plural(cb.length, 'variant run')}; none came back during the settle and idle windows.` +
+      (v.kind === 'remove-before-load'
+        ? ` from the markup before parsing, in each of ${plural(cb.length, 'variant run')}; the page did not create it during load or idle.`
+        : ` in each of ${plural(cb.length, 'variant run')}; none came back during the settle and idle windows.`) +
       (differs ? ` The selector matched ${ca.map((c) => c.matched).join('/')} on the baseline and ${cb.map((c) => c.matched).join('/')} on the variant at the checkpoint: the pages were not in the same state.` : ''),
   };
 }

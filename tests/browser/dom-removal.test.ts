@@ -19,6 +19,8 @@ import {
   removalProbe,
 } from '../../src/experiments/dom-removal.js';
 import { activityFindings } from '../../src/experiments/experiment.js';
+import { installPreloadRemoval } from '../../src/experiments/preload-removal.js';
+import { emptyCounts } from '../../src/experiments/variants.js';
 
 const run = ENGINE ? describe : describe.skip;
 
@@ -206,6 +208,87 @@ run(`DOM removal in ${ENGINE ?? 'no browser'}`, () => {
     const act = await readActivity(page);
     expect(act.available).toBe(true);
     expect(act.intervals).toBeGreaterThanOrEqual(ticks);
+    await context.close();
+  });
+});
+
+run(`pre-load removal in ${ENGINE ?? 'no browser'}`, () => {
+  let browser: Browser;
+  // The document is fetched from Node, which does not share the browser's host mapping.
+  let site: { url: string; port: number; close: () => Promise<void> };
+
+  beforeAll(async () => {
+    site = await startFixtureSite({ port: 19_000 + Math.floor(Math.random() * 1_000) });
+    site.url = `http://127.0.0.1:${site.port}`;
+    browser = await launchTestBrowser();
+  }, 60_000);
+  afterAll(async () => {
+    await browser?.close();
+    await site?.close();
+  });
+
+  async function side(path: string, selector: string, apply: boolean) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const counts = emptyCounts();
+    const snap = await installPreloadRemoval(context, page, `${site.url}${path}`, selector, apply, 24, counts);
+    await page.goto(`${site.url}${path}`, { waitUntil: 'load' });
+    return { context, page, counts, snap };
+  }
+  const count = (page: Page, sel: string) => page.evaluate((s) => document.querySelectorAll(s).length, sel);
+
+  it('serves the page without the component, parsed and serialised by the browser', async () => {
+    const v = await side('/lab/static', '[data-component-id="archive"]', true);
+    expect(v.snap.checkpoint).toMatchObject({ matched: 1, roots: 1, removed: 1, remaining: 0 });
+    expect(v.snap.checkpoint.content.elements).toBe(1502);
+    expect(await count(v.page, '[data-component-id="archive"]')).toBe(0);
+    expect(await count(v.page, '[data-component-id="badge"]')).toBe(1);
+    expect(await count(v.page, '[data-component-id="site-nav"]')).toBe(1);
+    expect(v.counts).toMatchObject({ documentsRewritten: 1, changes: 1 });
+    expect(await v.page.evaluate(() => document.compatMode)).toBe('CSS1Compat'); // the doctype survived
+    expect(v.snap.bytes).toBeLessThan(v.snap.originalBytes);
+    await v.context.close();
+  });
+
+  it('on the baseline, the round trip changes nothing the browser sees', async () => {
+    const b = await side('/lab/static', '[data-component-id="archive"]', false);
+    expect(b.snap.checkpoint).toMatchObject({ matched: 1, removed: 0 });
+    const plain = await browser.newContext();
+    const p = await plain.newPage();
+    await p.goto(`${site.url}/lab/static`, { waitUntil: 'load' });
+    const shape = (page: Page) => page.evaluate(() => Array.from(document.querySelectorAll('*')).map((e) => e.tagName).join(','));
+    expect(await shape(b.page)).toBe(await shape(p));
+    expect(await b.page.title()).toBe(await p.title());
+    expect(b.counts).toMatchObject({ documentsRewritten: 1, changes: 0 });
+    await b.context.close();
+    await plain.close();
+  });
+
+  it('removes a component’s inline script before it can run', async () => {
+    const v = await side('/articles/a', '[data-component-id="card-list"]', true);
+    expect(await count(v.page, 'script[src="/js/cards.js"]')).toBe(0);
+    expect(await v.page.evaluate(() => (window as unknown as { cardsReady?: boolean }).cardsReady ?? false)).toBe(false);
+    await v.context.close();
+  });
+
+  it('sees a component the page’s script creates when the markup lacks it', async () => {
+    const v = await side('/lab/ensure', '[data-component-id="notice"]', true);
+    expect(v.snap.checkpoint.removed).toBe(1);
+    const probe = await removalProbe(v.page, '[data-component-id="notice"]');
+    expect(probe.matchesNow).toBe(1);
+    expect(probe.reinsertions).toBeGreaterThanOrEqual(1);
+    await v.context.close();
+  });
+
+  it('refuses a redirect, a file, and a selector the markup does not hold', async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await expect(installPreloadRemoval(context, page, `${site.url}/lab/moved`, 'p', true, 24, emptyCounts())).rejects.toThrow(/redirects \(HTTP 301 to .*\/lab\/static\)/);
+    await expect(installPreloadRemoval(context, page, `${site.url}/files/data.csv`, 'p', true, 24, emptyCounts())).rejects.toThrow(/not an HTML page/);
+    const snap = await installPreloadRemoval(context, page, `${site.url}/lab/static`, '.made-by-script', true, 24, emptyCounts());
+    expect(snap.checkpoint.refused).toBe('no-match');
+    expect(snap.checkpoint.refusedDetail).toMatch(/created by script/);
+    expect(snap.bytes).toBe(snap.originalBytes); // refused: served as fetched
     await context.close();
   });
 });

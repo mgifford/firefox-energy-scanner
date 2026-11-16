@@ -30,12 +30,14 @@ function removalBlock(r: RemovalSummary): string {
       ? `<td>${perSecond(s.activity.timeouts + s.activity.intervals, s.activity.ms)}</td><td>${perSecond(s.activity.animationFrames, s.activity.ms)}</td><td>${s.activity.runningAnimations[0]} → ${s.activity.runningAnimations[1]}</td>`
       : '<td>—</td><td>—</td><td>—</td>';
   const ids = b.identities.length ? b.identities : a.identities;
-  return `<h3 id="removal-h">The removal</h3>
+  const pre = r.mode === 'pre-load';
+  return `<h3 id="removal-h">The removal (${pre ? 'before the page is parsed' : 'after the page loaded'})</h3>
   <p><strong>Selector:</strong> <code>${esc(r.selector)}</code> (at most ${r.maxMatches} matches). <strong>When:</strong> ${esc(r.checkpoint)}</p>
+  ${r.snapshot ? `<p class="note">The document as fetched: ${kb(r.snapshot.originalBytes)}; as served, after the browser’s parser and serialiser: ${kb(r.snapshot.servedBytes[0])} on the baseline, ${kb(r.snapshot.servedBytes[1])} with the change.</p>` : ''}
   ${b.refused ? `<p class="warning"><strong>Refused:</strong> ${esc(b.refused)} Nothing was removed, and no difference is reported.</p>` : ''}
   <div class="scroll"><table>
     <caption>What the selector found, and what happened to it, per side</caption>
-    <thead><tr><th scope="col">Side</th><th scope="col">Matched at checkpoint</th><th scope="col">Subtrees removed</th><th scope="col">Left right after</th><th scope="col">Matching after idle</th><th scope="col">Re-insertions seen</th></tr></thead>
+    <thead><tr><th scope="col">Side</th><th scope="col">${pre ? 'Matched in the markup' : 'Matched at checkpoint'}</th><th scope="col">Subtrees removed</th><th scope="col">Left right after</th><th scope="col">Matching after idle</th><th scope="col">${pre ? 'Insertions seen (the parser’s, on the baseline)' : 'Re-insertions seen'}</th></tr></thead>
     <tbody>
       <tr><th scope="row">Baseline</th><td>${perRun(a.matched)}</td><td>${perRun(a.removed)}</td><td>${perRun(a.remaining)}</td><td>${perRun(a.matchesAfterIdle)}</td><td>${perRun(a.reinsertions)}</td></tr>
       <tr><th scope="row">Variant</th><td>${perRun(b.matched)}</td><td>${perRun(b.removed)}</td><td>${perRun(b.remaining)}</td><td>${perRun(b.matchesAfterIdle)}</td><td>${perRun(b.reinsertions)}</td></tr>
@@ -45,7 +47,7 @@ function removalBlock(r: RemovalSummary): string {
   ${ids.length ? `<ul>${ids.map((i) => `<li><code>&lt;${esc(i.tag)}&gt;</code>${i.componentId ? ` data-component-id <code>${esc(i.componentId)}</code>` : ''}${i.id ? ` id <code>${esc(i.id)}</code>` : ''}${i.role ? ` role ${esc(i.role)}` : ''}${i.label ? `, “${esc(i.label)}”` : ''}: ${i.nodes} element${i.nodes === 1 ? '' : 's'}</li>`).join('')}</ul>` : ''}
   ${r.removedEssential.length ? `<p class="warning"><strong>It took away content people use:</strong> ${esc(r.removedEssential.join(', '))}. A saving from this removal is diagnostic, not like-for-like.</p>` : ''}
   <div class="scroll"><table>
-    <caption>Script work from the checkpoint to the end of idle (median over runs; evidence of work, not energy)</caption>
+    <caption>Script work from ${pre ? 'the end of load' : 'the checkpoint'} to the end of idle (median over runs; evidence of work, not energy)</caption>
     <thead><tr><th scope="col">Side</th><th scope="col">Timer callbacks a second</th><th scope="col">Animation-frame callbacks a second</th><th scope="col">Running animations, checkpoint → after idle</th></tr></thead>
     <tbody><tr><th scope="row">Baseline</th>${act(a)}</tr><tr><th scope="row">Variant</th>${act(b)}</tr></tbody></table></div>
   <p class="${r.activity.continued.length ? 'warning' : 'note'}">${esc(r.activity.note)}</p>
