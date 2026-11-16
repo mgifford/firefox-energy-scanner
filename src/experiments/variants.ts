@@ -11,15 +11,30 @@
  */
 
 import type { BrowserContext, Page, Route } from 'playwright';
+import {
+  DEFAULT_MAX_MATCHES,
+  MAX_MATCHES_LIMIT,
+  describeContent,
+  installActivityCounters,
+  namesDocumentStructure,
+  type RemovalCheckpoint,
+  type RemovalProbe,
+} from './dom-removal.js';
 
-export type VariantKind = 'reduced-motion' | 'pause-animations' | 'lazy-images' | 'no-autoplay' | 'block' | 'hide';
+export type VariantKind = 'reduced-motion' | 'pause-animations' | 'lazy-images' | 'no-autoplay' | 'block' | 'hide' | 'remove';
 
-export const VARIANT_KINDS: VariantKind[] = ['reduced-motion', 'pause-animations', 'lazy-images', 'no-autoplay', 'block', 'hide'];
+export const VARIANT_KINDS: VariantKind[] = ['reduced-motion', 'pause-animations', 'lazy-images', 'no-autoplay', 'block', 'hide', 'remove'];
+
+/** Kinds that take an element out of the live DOM. */
+export const REMOVAL_KINDS: VariantKind[] = ['remove'];
+export const isRemoval = (kind: string): boolean => (REMOVAL_KINDS as string[]).includes(kind);
 
 export interface VariantSpec {
   kind: VariantKind;
-  /** CSS selector the change is scoped to (pause-animations, hide). */
+  /** CSS selector the change is scoped to (pause-animations, hide, remove). */
   selector?: string;
+  /** remove: refuse a selector matching more elements than this (default 24). */
+  maxMatches?: number;
   /** Hosts whose requests are refused (block); subdomains included. */
   hosts?: string[];
   /** URLs refused (block), compared without query strings. */
@@ -50,6 +65,10 @@ export interface VariantProbe {
   headings: number;
   imagesWithoutAlt: number;
   focusable: number;
+  /** Links, buttons and form controls. Absent in results made before it was recorded. */
+  interactive?: number;
+  formControls?: number;
+  liveRegions?: number;
 }
 
 export function describeVariant(v: VariantSpec): string {
@@ -66,6 +85,8 @@ export function describeVariant(v: VariantSpec): string {
       return `requests refused to ${[...(v.hosts ?? []), ...(v.urls ?? [])].join(', ')}`;
     case 'hide':
       return `${v.selector} not rendered (display: none)`;
+    case 'remove':
+      return `${v.selector} removed from the DOM after the page loaded (detached, with its descendants)`;
   }
 }
 
@@ -84,6 +105,13 @@ export function validateVariant(v: VariantSpec): string[] {
   const errors: string[] = [];
   if (!VARIANT_KINDS.includes(v.kind)) errors.push(`Unknown experiment kind "${v.kind}". Use one of: ${VARIANT_KINDS.join(', ')}.`);
   if (v.kind === 'hide' && !v.selector) errors.push('A hide experiment needs a selector.');
+  if (isRemoval(v.kind) && !v.selector) errors.push(`A ${v.kind} experiment needs a selector.`);
+  if (isRemoval(v.kind) && v.selector && namesDocumentStructure(v.selector)) {
+    errors.push(`The selector "${v.selector}" names the document itself (html, head, body or *): removing it would remove the page.`);
+  }
+  if (v.maxMatches !== undefined && (!Number.isInteger(v.maxMatches) || v.maxMatches < 1 || v.maxMatches > MAX_MATCHES_LIMIT)) {
+    errors.push(`max_matches must be a whole number from 1 to ${MAX_MATCHES_LIMIT}.`);
+  }
   if (v.selector !== undefined && !safeSelector(v.selector)) errors.push(`The selector "${v.selector}" cannot be used: it must not contain < { } ; \\ or /*.`);
   if (v.kind === 'block' && !(v.hosts?.length || v.urls?.length)) errors.push('A block experiment needs at least one host or URL.');
   if (v.keepEager !== undefined && (!Number.isInteger(v.keepEager) || v.keepEager < 0)) errors.push('keepEager must be a whole number, 0 or more.');
@@ -171,6 +199,13 @@ export async function installVariant(context: BrowserContext, page: Page, v: Var
     await page.emulateMedia({ reducedMotion: apply ? 'reduce' : 'no-preference' });
     return;
   }
+  if (v.kind === 'remove') {
+    // The removal itself happens at the checkpoint, after the load step. Here,
+    // on both sides alike, only the callback counters that show whether the
+    // component's scripts carried on.
+    await installActivityCounters(context);
+    return;
+  }
   if (REWRITES.includes(v.kind)) {
     await context.route('**/*', async (route: Route) => {
       const req = route.request();
@@ -233,6 +268,9 @@ export async function probeVariant(page: Page, v: VariantSpec): Promise<VariantP
       headings: document.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]').length,
       imagesWithoutAlt: document.querySelectorAll('img:not([alt])').length,
       focusable: document.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])').length,
+      interactive: document.querySelectorAll('a[href], button, input:not([type="hidden"]), select, textarea, summary, [role="button"], [role="link"], [role="checkbox"], [role="tab"], [role="menuitem"], [role="switch"], [role="slider"]').length,
+      formControls: document.querySelectorAll('input:not([type="hidden"]), select, textarea, button').length,
+      liveRegions: document.querySelectorAll('[aria-live]:not([aria-live="off"]), [role="status"], [role="alert"], [role="log"], [role="marquee"], [role="timer"], output').length,
     };
   }, selector);
 }
@@ -241,11 +279,16 @@ export async function probeVariant(page: Page, v: VariantSpec): Promise<VariantP
  * Did the variant take effect? From both sides' probes and counts. A variant
  * that changed nothing cannot show a difference, so the experiment says so.
  */
-export function variantApplied(
-  v: VariantSpec,
-  a: { probe?: VariantProbe; counts: VariantCounts },
-  b: { probe?: VariantProbe; counts: VariantCounts },
-): { ok: boolean; note: string } {
+export interface AppliedSide {
+  probe?: VariantProbe;
+  counts: VariantCounts;
+  /** Removal kinds: each run's checkpoint and the probe after its idle window. */
+  removals?: RemovalCheckpoint[];
+  removalProbes?: RemovalProbe[];
+}
+
+export function variantApplied(v: VariantSpec, a: AppliedSide, b: AppliedSide): { ok: boolean; note: string } {
+  if (isRemoval(v.kind)) return removalApplied(v, a, b);
   const pa = a.probe;
   const pb = b.probe;
   if (!pa || !pb) return { ok: false, note: 'The page could not be probed, so whether the change applied is unknown.' };
@@ -287,5 +330,53 @@ export function variantApplied(
       return pb.hidden >= pb.matched && pb.matched > 0
         ? { ok: true, note: `${pb.matched} element${pb.matched === 1 ? '' : 's'} not rendered.` }
         : { ok: false, note: 'The elements were still rendered.' };
+    case 'remove':
+      return removalApplied(v, a, b);
   }
 }
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Did the removal take, and hold? Every variant run must have removed the
+ * matches at its checkpoint, left none behind, and seen none come back
+ * through the settle and idle windows. A refused removal, or a component
+ * the page put back, is an experiment that did not happen: no difference is
+ * reported from it, and it is never read as "no saving".
+ */
+export function removalApplied(v: VariantSpec, a: AppliedSide, b: AppliedSide): { ok: boolean; note: string } {
+  const cb = b.removals ?? [];
+  const ca = a.removals ?? [];
+  // A refusal first: the experiment stops at the first refused checkpoint, on either side.
+  const refused = cb.find((c) => c.refused) ?? ca.find((c) => c.refused);
+  if (refused) return { ok: false, note: `Removal refused, nothing was removed: ${refused.refusedDetail ?? refused.refused}` };
+  if (!cb.length || !ca.length) return { ok: false, note: 'No checkpoint was reached on one side, so whether the element was removed is unknown.' };
+  if (cb.some((c) => c.removed === 0)) return { ok: false, note: `In ${plural(cb.filter((c) => c.removed === 0).length, 'variant run')}, nothing was removed.` };
+  const left = cb.find((c) => c.remaining > 0);
+  if (left) return { ok: false, note: `${plural(left.remaining, 'element')} still matched ${v.selector} right after removal.` };
+  const probes = b.removalProbes ?? [];
+  if (probes.length < cb.length) return { ok: false, note: 'The page could not be checked after the idle window, so whether the element stayed removed is unknown.' };
+  const back = probes.filter((p) => p.matchesNow > 0 || p.reinsertions > 0 || p.rootsReconnected > 0);
+  if (back.length) {
+    const first = back.find((p) => p.firstReinsertionMs !== undefined)?.firstReinsertionMs;
+    return {
+      ok: false,
+      note:
+        `The page put the component back in ${plural(back.length, 'variant run')} of ${probes.length}` +
+        `${first !== undefined ? `, the first time ${first} ms after it was removed` : ''}: the intervention did not hold, so the idle window did not measure the page without it.`,
+    };
+  }
+  const roots = cb[0]!.roots;
+  const nested = cb[0]!.nested;
+  const differs = ca.some((c) => c.matched !== cb[0]!.matched);
+  return {
+    ok: true,
+    note:
+      `Removed ${plural(roots, 'subtree')} (${describeContent(cb[0]!.content)})` +
+      `${nested ? `; ${plural(nested, 'further match', 'further matches')} sat inside them and went with them, counted once` : ''}` +
+      ` in each of ${plural(cb.length, 'variant run')}; none came back during the settle and idle windows.` +
+      (differs ? ` The selector matched ${ca.map((c) => c.matched).join('/')} on the baseline and ${cb.map((c) => c.matched).join('/')} on the variant at the checkpoint: the pages were not in the same state.` : ''),
+  };
+}
+
+export { DEFAULT_MAX_MATCHES };

@@ -1,4 +1,5 @@
-import type { ExperimentReport, StepDifference } from '../experiments/experiment.js';
+import type { ExperimentReport, RemovalSummary, StepDifference } from '../experiments/experiment.js';
+import { describeContent } from '../experiments/dom-removal.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -17,6 +18,40 @@ const VERDICT: Record<StepDifference['verdict'], string> = {
 
 const kb = (b: number) => (b < 1024 ? `${Math.round(b)} B` : `${Math.round(b / 1024)} KB`);
 
+const perRun = (xs: number[]) => (xs.length ? (new Set(xs).size === 1 ? `${xs[0]} in each run` : xs.join(', ')) : '—');
+const perSecond = (n: number, ms: number) => (ms > 0 ? ((n / ms) * 1000).toFixed(1) : '—');
+
+/** The removal: what was found and removed, whether it stayed removed, and script work after it. */
+function removalBlock(r: RemovalSummary): string {
+  const a = r.baseline;
+  const b = r.variant;
+  const act = (s: RemovalSummary['baseline']) =>
+    s.activity
+      ? `<td>${perSecond(s.activity.timeouts + s.activity.intervals, s.activity.ms)}</td><td>${perSecond(s.activity.animationFrames, s.activity.ms)}</td><td>${s.activity.runningAnimations[0]} → ${s.activity.runningAnimations[1]}</td>`
+      : '<td>—</td><td>—</td><td>—</td>';
+  const ids = b.identities.length ? b.identities : a.identities;
+  return `<h3 id="removal-h">The removal</h3>
+  <p><strong>Selector:</strong> <code>${esc(r.selector)}</code> (at most ${r.maxMatches} matches). <strong>When:</strong> ${esc(r.checkpoint)}</p>
+  ${b.refused ? `<p class="warning"><strong>Refused:</strong> ${esc(b.refused)} Nothing was removed, and no difference is reported.</p>` : ''}
+  <div class="scroll"><table>
+    <caption>What the selector found, and what happened to it, per side</caption>
+    <thead><tr><th scope="col">Side</th><th scope="col">Matched at checkpoint</th><th scope="col">Subtrees removed</th><th scope="col">Left right after</th><th scope="col">Matching after idle</th><th scope="col">Re-insertions seen</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Baseline</th><td>${perRun(a.matched)}</td><td>${perRun(a.removed)}</td><td>${perRun(a.remaining)}</td><td>${perRun(a.matchesAfterIdle)}</td><td>${perRun(a.reinsertions)}</td></tr>
+      <tr><th scope="row">Variant</th><td>${perRun(b.matched)}</td><td>${perRun(b.removed)}</td><td>${perRun(b.remaining)}</td><td>${perRun(b.matchesAfterIdle)}</td><td>${perRun(b.reinsertions)}</td></tr>
+    </tbody></table></div>
+  ${b.nested ? `<p class="note">${b.nested} match${b.nested === 1 ? '' : 'es'} sat inside another match: removed with it, counted once.</p>` : ''}
+  ${b.content ? `<p><strong>The removed subtrees held:</strong> ${esc(describeContent(b.content))}.</p>` : a.content ? `<p><strong>The matched subtrees hold:</strong> ${esc(describeContent(a.content))}.</p>` : ''}
+  ${ids.length ? `<ul>${ids.map((i) => `<li><code>&lt;${esc(i.tag)}&gt;</code>${i.componentId ? ` data-component-id <code>${esc(i.componentId)}</code>` : ''}${i.id ? ` id <code>${esc(i.id)}</code>` : ''}${i.role ? ` role ${esc(i.role)}` : ''}${i.label ? `, “${esc(i.label)}”` : ''}: ${i.nodes} element${i.nodes === 1 ? '' : 's'}</li>`).join('')}</ul>` : ''}
+  ${r.removedEssential.length ? `<p class="warning"><strong>It took away content people use:</strong> ${esc(r.removedEssential.join(', '))}. A saving from this removal is diagnostic, not like-for-like.</p>` : ''}
+  <div class="scroll"><table>
+    <caption>Script work from the checkpoint to the end of idle (median over runs; evidence of work, not energy)</caption>
+    <thead><tr><th scope="col">Side</th><th scope="col">Timer callbacks a second</th><th scope="col">Animation-frame callbacks a second</th><th scope="col">Running animations, checkpoint → after idle</th></tr></thead>
+    <tbody><tr><th scope="row">Baseline</th>${act(a)}</tr><tr><th scope="row">Variant</th>${act(b)}</tr></tbody></table></div>
+  <p class="${r.activity.continued.length ? 'warning' : 'note'}">${esc(r.activity.note)}</p>
+  ${r.activity.continued.length || r.activity.fell.length ? `<ul>${[...r.activity.continued, ...r.activity.fell].map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}`;
+}
+
 /**
  * The experiment section: what changed, whether it applied, whether the
  * page still worked, and the measured difference per step. The difference
@@ -27,7 +62,7 @@ export function experimentSection(x: ExperimentReport | undefined): string {
   const rows = x.differences
     .map((d) => {
       const e = d.energy;
-      return `<tr><th scope="row">${esc(d.step)}</th><td>${d.runs[0]} / ${d.runs[1]}</td>
+      return `<tr><th scope="row">${esc(d.step)}${d.role === 'negative-control' ? ' <span class="note">(negative control)</span>' : ''}</th><td>${d.runs[0]} / ${d.runs[1]}</td>
         <td>${e ? `${e.medianMwh[0].toFixed(3)} (IQR ${e.iqrMwh[0].toFixed(3)})` : '—'}</td>
         <td>${e ? `${e.medianMwh[1].toFixed(3)} (IQR ${e.iqrMwh[1].toFixed(3)})` : '—'}</td>
         <td>${e ? `${e.differenceMwh >= 0 ? '+' : ''}${e.differenceMwh.toFixed(3)}${e.percent !== undefined ? ` (${e.percent >= 0 ? '+' : ''}${e.percent}%)` : ''}` : '—'}</td>
@@ -49,8 +84,11 @@ export function experimentSection(x: ExperimentReport | undefined): string {
     ${x.from ? `<dt>From</dt><dd>item ${x.from.rank} of the investigation queue in <code>${esc(x.from.file)}</code>: <code>${esc(x.from.title)}</code></dd>` : ''}
     <dt>Order</dt><dd>interleaved, seed <code>${esc(x.seed)}</code>: <code>${esc(x.order.join(' '))}</code></dd>
   </dl>
-  <p class="${x.applied.ok ? '' : 'warning'}"><strong>Applied: ${x.applied.ok ? 'yes' : 'no'}.</strong> ${esc(x.applied.note)}${x.applied.ok ? '' : ' No difference is reported, because there was none to measure.'}</p>
+  <p class="${x.applied.ok ? '' : 'warning'}"><strong>Applied: ${x.applied.ok ? 'yes' : 'no'}.</strong> ${esc(x.applied.note)}${x.applied.ok ? '' : ' No difference is reported, because there was none to measure. This is not a finding of “no saving”.'}</p>
+  ${x.workload?.kind === 'load-checkpoint-idle' ? `<p><strong>Workload:</strong> the page loads (<code>load</code>, a negative control: the component is on both sides), then the change is made outside every measured window, both sides wait ${x.workload.settleMs ?? 0} ms, and the idle window (<code>idle</code>, ${x.workload.idleMs ?? 0} ms) is measured. Only the idle window can show the change’s effect.</p>` : ''}
+  ${x.removal ? removalBlock(x.removal) : ''}
   ${checks}
+  ${x.likeForLike && !x.likeForLike.ok ? `<p class="warning"><strong>Not like-for-like:</strong> ${x.likeForLike.reasons.map(esc).join(' ')}</p>` : ''}
   ${x.accessibility.changed.length ? `<p class="warning"><strong>Accessibility structure changed:</strong> ${x.accessibility.changed.map(esc).join('; ')}. Check the change keeps the page usable.</p>` : ''}
   ${
     rows

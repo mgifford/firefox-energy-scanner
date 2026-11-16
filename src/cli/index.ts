@@ -44,8 +44,7 @@ import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
-import { buildReport, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
-import { emptyCounts } from '../experiments/variants.js';
+import { buildReport, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
 import { specFromQueue } from '../experiments/from-queue.js';
 import { checkJourneySource } from '../experiments/journey-lint.js';
 import { experimentCsv } from '../report/experiment-csv.js';
@@ -112,8 +111,11 @@ Usage:
   web-energy components <result.json>  [--json] [--write]
   web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
   web-energy graph <result.json>       [--json] [--write]
-  web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
-                         [--journey <file>] [--idle <ms>] [--dry-run] [--save-spec <file.yaml>]
+  web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> [--kind remove|hide|pause-animations]
+                         | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
+                         [--journey <file>] [--idle <ms>] [--settle <ms>] [--max-matches <n>] [--assert-role <role>] [--assert-text <text>]
+                         [--dry-run] [--save-spec <file.yaml>]
+                         kinds: pause-animations, reduced-motion, lazy-images, no-autoplay, block, hide, remove
   web-energy journey-check <file...>
   web-energy profile --journey <file>
   web-energy triage --a <url> --b <url> [--path <path>]
@@ -1090,7 +1092,7 @@ async function cmdExperiment(args: Args): Promise<number> {
     const rank = Number.parseInt(one(args, 'item') ?? '1', 10);
     const source = JSON.parse(await readFile(resolve(fromFile), 'utf8')) as BenchmarkResult;
     if (!source.investigation) attachInvestigation(source);
-    const built = specFromQueue(source, rank);
+    const built = specFromQueue(source, rank, one(args, 'kind'));
     spec = built.spec;
     const item = source.investigation!.items.find((i) => i.rank === rank)!;
     from = { file: fromFile.split('/').pop() ?? fromFile, rank, id: item.id, title: item.title };
@@ -1110,7 +1112,12 @@ async function cmdExperiment(args: Args): Promise<number> {
       ...(args.flags.get('block-url') ? { urls: args.flags.get('block-url') } : {}),
       ...(one(args, 'keep-eager') ? { keep_eager: Number.parseInt(one(args, 'keep-eager')!, 10) } : {}),
       ...(one(args, 'idle') ? { idle_ms: Number.parseInt(one(args, 'idle')!, 10) } : {}),
+      ...(one(args, 'settle') ? { settle_ms: Number.parseInt(one(args, 'settle')!, 10) } : {}),
+      ...(one(args, 'max-matches') ? { max_matches: Number.parseInt(one(args, 'max-matches')!, 10) } : {}),
       ...(one(args, 'journey') ? { journey: one(args, 'journey') } : {}),
+      ...(args.flags.get('assert-role') || args.flags.get('assert-text')
+        ? { assertions: [...(args.flags.get('assert-role') ?? []).map((role) => ({ role })), ...(args.flags.get('assert-text') ?? []).map((text) => ({ text }))] }
+        : {}),
     });
   }
 
@@ -1131,10 +1138,7 @@ async function cmdExperiment(args: Args): Promise<number> {
   const inner = spec.journey ? await loadJourney(resolve(spec.journey)) : undefined;
   const seed = one(args, 'seed') ?? spec.seed ?? newSessionId();
   const order = interleavedOrder(config.benchmark.runs, seed);
-  const state: { a: SideState; b: SideState } = {
-    a: { counts: emptyCounts(), probes: [], assertionFailures: [], runs: 0 },
-    b: { counts: emptyCounts(), probes: [], assertionFailures: [], runs: 0 },
-  };
+  const state: { a: SideState; b: SideState } = { a: emptySide(), b: emptySide() };
   const steps: { a: StepResult[]; b: StepResult[] } = { a: [], b: [] };
   const seen = { a: false, b: false };
   let firefoxVersion = 'unknown';
@@ -1154,6 +1158,13 @@ async function cmdExperiment(args: Args): Promise<number> {
     firefoxVersion = outcome.firefoxVersion;
     warnings.push(...outcome.warnings);
     steps[side].push(...outcome.steps);
+    // A refused removal will be refused on every run: stop, rather than
+    // measure a page nothing was done to, and say so.
+    const refused = state[side].removals?.find((c) => c.refused);
+    if (refused) {
+      warnings.push(`Stopped after run ${i + 1} of ${order.length}: the removal was refused (${refused.refusedDetail ?? refused.refused}).`);
+      break;
+    }
   }
   process.stderr.write('\n');
 
@@ -1188,9 +1199,17 @@ async function cmdExperiment(args: Args): Promise<number> {
     console.log(`Checks: baseline ${report.assertions.baseline.length ? `failed ${report.assertions.baseline.join('; ')}` : 'passed'}; variant ${report.assertions.variant.length ? `failed ${report.assertions.variant.join('; ')}` : 'passed'}.`);
   }
   if (report.accessibility.changed.length) console.log(`Accessibility structure changed: ${report.accessibility.changed.join(', ')}`);
+  if (report.removal) {
+    const r = report.removal;
+    console.log(`Removal: ${r.variant.removed.join('/')} subtree(s) removed per variant run; matched ${r.baseline.matched.join('/')} (baseline) and ${r.variant.matched.join('/')} (variant) at the checkpoint; ${r.reinserted ? 'the page PUT IT BACK' : 'it stayed removed'}.`);
+    if (r.removedEssential.length) console.log(`  It took away ${r.removedEssential.join(', ')}: a saving from it is not like-for-like.`);
+    console.log(`  Script activity: ${r.activity.note}`);
+    for (const c of [...r.activity.continued, ...r.activity.fell]) console.log(`    ${c}`);
+  }
+  if (report.likeForLike && !report.likeForLike.ok) console.log(`Not like-for-like: ${report.likeForLike.reasons.join(' ')}`);
   for (const d of report.differences) {
     const e = d.energy;
-    console.log(`\n  ${d.step}: ${e ? `${e.medianMwh[0].toFixed(3)} -> ${e.medianMwh[1].toFixed(3)} mWh (IQR ${e.iqrMwh[0].toFixed(3)} / ${e.iqrMwh[1].toFixed(3)})` : 'energy not measured'}`);
+    console.log(`\n  ${d.step}${d.role === 'negative-control' ? ' (negative control)' : ''}: ${e ? `${e.medianMwh[0].toFixed(3)} -> ${e.medianMwh[1].toFixed(3)} mWh (IQR ${e.iqrMwh[0].toFixed(3)} / ${e.iqrMwh[1].toFixed(3)})` : 'energy not measured'}`);
     console.log(`    ${d.reading}`);
   }
   console.log(`\nWrote ${base}.{json,csv,html} and ${base}.experiment.csv`);

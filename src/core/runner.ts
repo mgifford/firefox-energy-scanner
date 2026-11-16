@@ -7,7 +7,7 @@ import type {
   NetworkSummary,
   TimingResult,
 } from './types.js';
-import { BrowserSession, waitForStablePage, readTimings } from '../collect/session.js';
+import { BrowserSession, waitForStablePage, readTimings, testEngine, TEST_ENGINE_WARNING } from '../collect/session.js';
 import { estimateCo2, estimateCo2ByDomain, lookupGreenHosting } from './co2.js';
 import { localHostReason } from './addresses.js';
 import { applyBaseline, deriveBaseline, type Baseline } from './baseline.js';
@@ -186,6 +186,7 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
 
   const session = await BrowserSession.create(config, useEnergy);
   const firefoxVersion = await session.version();
+  if (testEngine()) warnings.push(TEST_ENGINE_WARNING);
   let baseline: Baseline | undefined;
   let energyAvailable = false;
   let closed = false;

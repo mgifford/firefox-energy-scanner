@@ -1,4 +1,4 @@
-import { firefox, type Browser, type BrowserContext, type Page, type Request } from 'playwright';
+import { chromium, firefox, type Browser, type BrowserContext, type Page, type Request } from 'playwright';
 import type { Config } from '../core/config.js';
 import type { NetworkSummary, ResourceEntry, TimingResult } from '../core/types.js';
 import { isThirdParty, hostOf } from './urls.js';
@@ -24,6 +24,15 @@ export interface SessionOptions {
   /** Extra profiler features, e.g. stack sampling for diagnostic runs. */
   extraFeatures?: string[];
 }
+
+/** The test-only engine override, when set. */
+export function testEngine(): 'chromium' | undefined {
+  return process.env.WEB_ENERGY_TEST_ENGINE === 'chromium' ? 'chromium' : undefined;
+}
+
+/** Said in every result made with the test engine, so it is never read as a Firefox measurement. */
+export const TEST_ENGINE_WARNING =
+  'WEB_ENERGY_TEST_ENGINE=chromium: this run used Chromium, for structural testing only. It is not a Firefox measurement, and no energy was measured.';
 
 /** Owns the Firefox process and per-step network collection. */
 export class BrowserSession {
@@ -101,6 +110,19 @@ export class BrowserSession {
       : undefined;
 
     if (config.network.public_only) this.guard = await startNetworkGuard();
+
+    // Test seam: structural end-to-end tests may run in Chromium where
+    // Playwright's Firefox cannot be installed. Never with energy, never with
+    // the public-only guard, and every result says so (testEngineWarning).
+    if (testEngine() === 'chromium') {
+      if (profilePath || this.guard) throw new Error('WEB_ENERGY_TEST_ENGINE=chromium is for structural tests: run with --no-energy and without --public-only.');
+      const { findChromium } = await import('../trace/run.js');
+      this.browser = await chromium.launch({ headless: !config.browser.headed, executablePath: await findChromium() });
+      this.context = await this.browser.newContext({ viewport: config.browser.viewport });
+      this.page = await this.context.newPage();
+      this.attachNetworkListeners(this.context);
+      return;
+    }
 
     this.browser = await firefox.launch({
       headless: !config.browser.headed,
