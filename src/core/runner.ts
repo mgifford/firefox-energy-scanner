@@ -182,6 +182,13 @@ export interface RunOptions {
    * for each interval (the parsed profile is kept in memory until then).
    */
   timeline?: { binMs?: number; spikes?: Partial<SpikeSettings>; gecko?: boolean; run?: number };
+  /**
+   * Added to a measured run's label index. An experiment calls this once per
+   * run with `runs: 1`, so without it every run would be `run:0`; the caller
+   * passes the side's run number so stored scenarios and the per-run CSV keep
+   * it. Warm-up labels are unaffected.
+   */
+  labelRunOffset?: number;
   /** Called with the parsed profile and the step records, after the browser has closed. */
   onProfile?: (profile: unknown, records: StepRecord[]) => void | Promise<void>;
 }
@@ -276,7 +283,7 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
       // Structure is identical across runs of the same page, so collect it once
       // on the final run rather than repeating a full DOM walk every time.
       if (i === totalRuns - 1) runner.enableAnatomy();
-      const label = (name: string) => `${warmup ? 'warmup' : 'run'}:${runIndex}:${name}`;
+      const label = (name: string) => stepLabel(warmup, runIndex, name, options.labelRunOffset);
 
       if (options.journey) {
         const page = session.getPage();
@@ -491,6 +498,16 @@ export function buildStepResults(
   }
 
   return results;
+}
+
+/**
+ * A step label: `warmup|run:<index>:<name>`. `runOffset` moves a measured run's
+ * index, so an experiment that calls the runner once per run (always with
+ * `runs: 1`) keeps each side's run number instead of storing `run:0` for every
+ * run. Warm-up labels are never offset: their indices count within the call.
+ */
+export function stepLabel(warmup: boolean, runIndex: number, name: string, runOffset = 0): string {
+  return `${warmup ? 'warmup' : 'run'}:${runIndex + (warmup ? 0 : runOffset)}:${name}`;
 }
 
 /** Labels are `warmup|run:<index>:<name>`; name may itself contain colons. */

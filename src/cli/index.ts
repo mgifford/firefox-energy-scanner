@@ -1218,6 +1218,8 @@ async function cmdExperiment(args: Args): Promise<number> {
       scenarioName: side === 'a' ? 'baseline' : 'variant',
       // Power samples only: the timeline adds no profiler overhead to the comparison.
       ...(has(args, 'timeline') ? { timeline: { binMs: one(args, 'bin') ? parseIntegerFlag('--bin', one(args, 'bin')!) : 250, spikes: spikeSettingsFromArgs(args), run: runIndex[side] } } : {}),
+      // Each call is one run; label it with the side's run number, not always 0.
+      labelRunOffset: runIndex[side],
     });
     } catch (e) {
       // A refused removal ends the run at its first checkpoint (often a warm-up): stop, and report it.

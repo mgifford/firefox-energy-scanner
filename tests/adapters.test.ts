@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { NoopAdapter } from '../src/energy/noop.js';
 import { parsePowermetrics, PowermetricsAdapter } from '../src/energy/powermetrics.js';
 import { FirefoxProfilerAdapter, profilerLaunchEnv } from '../src/energy/firefox-profiler.js';
-import { parseLabel } from '../src/core/runner.js';
+import { parseLabel, stepLabel } from '../src/core/runner.js';
 
 describe('NoopAdapter', () => {
   it('is always available', async () => {
@@ -114,6 +114,13 @@ describe('parseLabel', () => {
 
   it('preserves names containing colons, such as URLs', () => {
     expect(parseLabel('run:0:https://e.com/a')?.name).toBe('https://e.com/a');
+  });
+
+  it('offsets a measured run\u2019s label, so an experiment keeps the side\u2019s run number', () => {
+    expect(stepLabel(false, 0, 'idle', 7)).toBe('run:7:idle');
+    expect(stepLabel(false, 0, 'idle')).toBe('run:0:idle');
+    // Warm-ups are not offset: their index counts within the call.
+    expect(stepLabel(true, 1, 'load', 7)).toBe('warmup:1:load');
   });
 
   it('returns undefined for internal labels', () => {
