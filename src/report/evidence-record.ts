@@ -45,6 +45,8 @@ export interface FindingStep {
   basis?: 'incremental' | 'window';
   /** The idle baseline subtracted, mW, median per side. */
   baselineMw?: [number, number];
+  /** How the baseline was found. Absent in results made before it was recorded: mean. */
+  baselineMethod?: 'median-of-bins' | 'mean';
   /** Median and IQR per side, mWh; absent when energy was not measured. */
   baseline?: { medianMwh: number; iqrMwh: number };
   variant?: { medianMwh: number; iqrMwh: number };
@@ -144,6 +146,7 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
     ...(d.samples ? { samples: d.samples } : {}),
     ...(d.energy?.basis ? { basis: d.energy.basis } : {}),
     ...(d.energy?.baselineMw ? { baselineMw: d.energy.baselineMw } : {}),
+    ...(d.energy?.baselineMethod ? { baselineMethod: d.energy.baselineMethod } : {}),
     ...(d.energy ? { baseline: { medianMwh: d.energy.medianMwh[0], iqrMwh: d.energy.iqrMwh[0] }, variant: { medianMwh: d.energy.medianMwh[1], iqrMwh: d.energy.iqrMwh[1] }, differenceMwh: d.energy.differenceMwh, ...(d.energy.percent !== undefined ? { percent: d.energy.percent } : {}) } : {}),
     durationMs: d.durationMs,
     ...(d.transferBytes ? { transferBytes: d.transferBytes } : {}),
@@ -154,18 +157,25 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
   }
   const attributable = x.differences.filter((d) => (d.role ?? 'attributable') === 'attributable');
   const control = x.differences.find((d) => d.role === 'negative-control' && (d.verdict === 'lower' || d.verdict === 'higher'));
+  const hasControl = x.differences.some((d) => d.role === 'negative-control');
   // Not equivalent: a side lost runs, or the page was in a different state at the checkpoint.
   const unequal = attributable.filter((d) => d.runs[0] !== d.runs[1]);
   const incomparable = x.removal && x.removal.comparable === false;
   const caveat = [
     ...(control ? ['The negative control moved too, so treat this as indicative.'] : []),
+    // TDR-023: confirmatory needs a negative control that did not move. A kind
+    // with no such step (a pre-load removal, say) cannot check for drift.
+    ...(hasControl ? [] : ['This experiment has no negative-control step, so it cannot show that the sides were alike before the change.']),
     ...(unequal.length ? [`The sides had unequal valid runs (${unequal.map((d) => `${d.step}: ${d.runs[0]} and ${d.runs[1]}`).join('; ')}).`] : []),
     ...(incomparable ? ['The selector matched different numbers of elements on the two sides at the checkpoint: the page states were not the same.'] : []),
   ].join(' ');
   const lower = attributable.filter((d) => d.verdict === 'lower');
   const higher = attributable.filter((d) => d.verdict === 'higher');
   const confidence = (ds: StepDifference[]): EvidenceRecord['outcome']['confidence'] => (ds.some((d) => d.indicative) || caveat ? 'indicative' : 'confirmatory');
-  const where = (ds: StepDifference[]) => ds.map((d) => `${d.step}: ${d.reading}`).join(' ');
+  const where = (ds: StepDifference[]) =>
+    ds.map((d, i) => `${i === 0 ? d.step[0]!.toUpperCase() + d.step.slice(1) : d.step}: ${d.reading}`).join(' ');
+  const names = (ds: StepDifference[]) => ds.map((d) => d.step).join(' and ');
+  const stepsWord = (ds: StepDifference[]) => `${names(ds)} step${ds.length > 1 ? 's' : ''}`;
   if (attributable.length && attributable.every((d) => d.verdict === 'not-measured')) {
     return { status: 'not-measured', confidence: 'none', steps, statement: 'Energy was not measured on this machine. The change applied; timing and transfer are shown, and the energy comparison needs hardware that measures it.' };
   }
@@ -175,14 +185,23 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
       status: lfl ? 'reduction-shown' : 'reduction-not-like-for-like',
       confidence: confidence(lower),
       steps,
-      statement: `With the change, this page used less energy on this machine, by more than either side’s run-to-run spread. ${where(lower)}${lfl ? '' : ` But the change also took away function or content: ${x.likeForLike!.reasons.join(' ')}`}${caveat ? ` ${caveat}` : ''}`,
+      statement: `With the change, the ${stepsWord(lower)} used less energy on this machine, by more than either side’s run-to-run spread. ${where(lower)}${lfl ? '' : ` But the change also took away function or content: ${x.likeForLike!.reasons.join(' ')}`}${caveat ? ` ${caveat}` : ''}`,
     };
   }
   if (higher.length && !lower.length) {
-    return { status: 'increase-shown', confidence: confidence(higher), steps, statement: `With the change, this page used more energy on this machine. ${where(higher)}${caveat ? ` ${caveat}` : ''}` };
+    return { status: 'increase-shown', confidence: confidence(higher), steps, statement: `With the change, the ${stepsWord(higher)} used more energy on this machine. ${where(higher)}${caveat ? ` ${caveat}` : ''}` };
   }
   if (attributable.some((d) => d.verdict === 'within-spread') || (lower.length && higher.length)) {
-    return { status: 'no-difference-shown', confidence: 'none', steps, statement: 'No difference was shown: the measured difference is within the run-to-run spread. That is not proof of no effect; a smaller effect than this setup resolves may remain.' };
+    const within = attributable.filter((d) => d.verdict === 'within-spread');
+    const below = attributable.filter((d) => d.verdict === 'below-resolution');
+    const controlBelow = x.differences.filter((d) => d.role === 'negative-control' && d.verdict === 'below-resolution');
+    const statement = [
+      within.length ? `No difference was shown in the ${stepsWord(within)}: the measured difference is within the run-to-run spread.` : '',
+      below.length ? `The ${stepsWord(below)} was below the resolution of this setup, so no difference could be read there.` : '',
+      controlBelow.length ? `The negative-control ${stepsWord(controlBelow)} was below resolution, so it cannot show the sides were alike.` : '',
+      'That is not proof of no effect; a smaller effect than this setup resolves may remain.',
+    ].filter(Boolean).join(' ');
+    return { status: 'no-difference-shown', confidence: 'none', steps, statement };
   }
   return { status: 'below-resolution', confidence: 'none', steps, statement: 'At least one side is below the resolution of this setup, so no difference can be read. Longer idle windows or more runs may resolve it.' };
 }
@@ -374,10 +393,15 @@ export function findingMarkdown(r: EvidenceRecord): string {
   if (r.outcome.steps.length) {
     lines.push('| Step | Role | Runs | Basis | Baseline median mWh (IQR) | With the change (IQR) | Difference mWh | Reading |', '| --- | --- | --- | --- | --- | --- | --- | --- |');
     for (const s of r.outcome.steps) {
-      lines.push(`| ${md(s.step)} | ${s.role} | ${s.runs[0]} / ${s.runs[1]} | ${s.basis === 'window' ? 'window (no baseline)' : s.baseline ? 'incremental' : '—'} | ${s.baseline ? `${mwh(s.baseline.medianMwh)} (${mwh(s.baseline.iqrMwh)})` : 'not measured'} | ${s.variant ? `${mwh(s.variant.medianMwh)} (${mwh(s.variant.iqrMwh)})` : 'not measured'} | ${s.differenceMwh !== undefined ? `${s.differenceMwh >= 0 ? '+' : ''}${mwh(s.differenceMwh)}${s.percent !== undefined ? ` (${s.percent}%)` : ''}` : '—'} | ${s.verdict} |`);
+      const method = s.baselineMethod === 'median-of-bins' ? 'median' : 'mean';
+      const basis = s.basis === 'window' ? 'window (no baseline)' : s.baseline ? `incremental (${method} baseline)` : '—';
+      lines.push(`| ${md(s.step)} | ${s.role} | ${s.runs[0]} / ${s.runs[1]} | ${basis} | ${s.baseline ? `${mwh(s.baseline.medianMwh)} (${mwh(s.baseline.iqrMwh)})` : 'not measured'} | ${s.variant ? `${mwh(s.variant.medianMwh)} (${mwh(s.variant.iqrMwh)})` : 'not measured'} | ${s.differenceMwh !== undefined ? `${s.differenceMwh >= 0 ? '+' : ''}${mwh(s.differenceMwh)}${s.percent !== undefined ? ` (${s.percent}%)` : ''}` : '—'} | ${s.verdict} |`);
     }
     lines.push('');
-    for (const s of r.outcome.steps) lines.push(`- ${md(s.step)}: ${md(s.reading)}${s.baselineMw ? ` Idle baseline subtracted: ${s.baselineMw[0].toFixed(1)} / ${s.baselineMw[1].toFixed(1)} mW.` : ''}`);
+    for (const s of r.outcome.steps) {
+      const method = s.baselineMethod === 'median-of-bins' ? 'median of the idle window’s bins' : 'the idle window’s mean power';
+      lines.push(`- ${md(s.step)}: ${md(s.reading)}${s.baselineMw ? ` Idle baseline subtracted: ${s.baselineMw[0].toFixed(1)} / ${s.baselineMw[1].toFixed(1)} mW (${method}).` : ''}`);
+    }
     lines.push('');
   }
   lines.push('## 4. Recommended production change', '', md(r.recommendation.statement), '', `> ${md(r.recommendation.caution)}`, '');

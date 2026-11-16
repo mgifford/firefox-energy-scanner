@@ -63,9 +63,12 @@ Docs: `docs/energy-spikes.md`, `docs/experiments.md`, `docs/evidence-records.md`
    node dist/cli/index.js finding results/compare-2026-11-16T22-25-00-360Z.json --write | sed -n '/## 3/,/## 4/p'
    ```
 
-   Expect the subtracted baseline near 100 mW (confirms TDR-024's diagnosis) and a
-   window-energy verdict for idle. Both showed the variant about 0.025 mWh lower; whether
-   that exceeds the spread is the open question.
+   These runs were recorded before `b6f5132`, so they hold the old **mean** baseline
+   (about 93 mW) and their incremental energy cannot be recomputed: the stored runs carry
+   the baseline's power, not its bins. Expect that figure to be labelled `mean`, and a
+   window-energy verdict for idle. Both showed the variant about 0.025 mWh lower on window
+   energy; whether that exceeds the spread is the open question. Only the re-run in step 2
+   records the median.
 2. **Re-run both experiments** with the median baseline (fixture site running in a second
    terminal, Mac untouched, about 16 minutes each), and check incremental energy now
    resolves on its own:

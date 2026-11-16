@@ -225,6 +225,7 @@ const findingStep = z
     samples: z.tuple([z.number(), z.number()]).optional(),
     basis: z.enum(['incremental', 'window']).optional(),
     baselineMw: z.tuple([z.number(), z.number()]).optional(),
+    baselineMethod: z.enum(['median-of-bins', 'mean']).optional(),
     baseline: mwhPair.optional(),
     variant: mwhPair.optional(),
     differenceMwh: z.number().optional(),

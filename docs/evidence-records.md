@@ -33,6 +33,8 @@ everything needed to repeat it. It is written three ways:
 **Confidence** is `confirmatory` only with at least 10 runs per side, a negative control
 that did not move, equal valid runs on both sides, and (for removals) the same page state
 at every checkpoint. Otherwise it is `indicative`, and the statement says why, or `none`.
+An experiment with no negative-control step (a pre-load removal, for example) cannot show
+that the sides were alike before the change, so it is `indicative` too.
 
 A negative-control step (the load step of a post-load removal) is reported, but it never
 counts as a saving.

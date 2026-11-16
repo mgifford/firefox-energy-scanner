@@ -139,7 +139,9 @@ The energy could not be read: every idle step's incremental energy was negative 
 (TDR-024). Both experiments showed the variant's idle about 0.025 mWh lower, but as stored
 they read "below resolution" and "no difference shown". Now fixed: the baseline is the
 median of its window, and steps carry window energy as a cross-check. `web-energy finding
-<result.json> --write` re-reads the stored runs with these rules.
+<result.json> --write` re-reads the stored runs' verdicts and basis, but not their
+baseline: these runs were measured with the mean and keep it, labelled `mean`. Only a
+re-run records the median.
 
 Also fixed from this run: removal summaries counted warm-ups as variant runs; scrolling
 in a warm-up stopped leads from the measured run; and a load shorter than a bin was

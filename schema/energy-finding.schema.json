@@ -240,6 +240,13 @@
                 "minItems": 2,
                 "maxItems": 2
               },
+              "baselineMethod": {
+                "type": "string",
+                "enum": [
+                  "median-of-bins",
+                  "mean"
+                ]
+              },
               "baseline": {
                 "type": "object",
                 "properties": {

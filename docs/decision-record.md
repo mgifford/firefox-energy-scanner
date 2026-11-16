@@ -911,4 +911,8 @@ be read because the baseline exceeded what the step drew, the verdict uses windo
 and says so (`energy.basis: window`). On machine-wide counters (RAPL), a load step that
 takes longer on one side carries more idle floor in its window energy, and the reading
 says that too. Stored results are re-read with the current rules by `finding` and
-`report`, from their own runs; no measurement is changed.
+`report`: each step's verdict and basis are recomputed from the stored runs, and no
+measured value is changed. The baseline power and the incremental energy were derived at
+measurement time and are **not** recomputed, because a stored run holds the baseline's
+power, not the bins it was derived from. A result recorded before this decision therefore
+keeps the mean baseline, and its record says `mean`; a re-run records `median-of-bins`.

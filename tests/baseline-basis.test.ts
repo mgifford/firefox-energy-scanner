@@ -72,6 +72,17 @@ describe('the basis of a comparison', () => {
     expect(d!.reading).toMatch(/was more than this step drew/);
   });
 
+  it('says which baseline the window verdict used, so an old mean is not read as a median', () => {
+    const [mean] = summarizeExperiment(a, b);
+    expect(mean!.energy!.baselineMethod).toBe('mean');
+    expect(mean!.reading).toMatch(/idle window’s mean power/);
+    expect(mean!.reading).not.toMatch(/median of the idle window’s bins/);
+    const median = (r: StepResult): StepResult => ({ ...r, energy: { ...r.energy!, baselineMethod: 'median-of-bins' as const } });
+    const [med] = summarizeExperiment(a.map(median), b.map(median));
+    expect(med!.energy!.baselineMethod).toBe('median-of-bins');
+    expect(med!.reading).toMatch(/median of the idle window’s bins/);
+  });
+
   it('keeps incremental energy when it can be read, with window energy beside it', () => {
     const a2 = a.map((r) => ({ ...r, energy: { ...r.energy!, baselineWatts: 0.001, baselineMethod: 'median-of-bins' as const, incrementalJoules: r.energy!.raw.totalJoules! - 0.01 } }));
     const b2 = b.map((r) => ({ ...r, energy: { ...r.energy!, baselineWatts: 0.001, baselineMethod: 'median-of-bins' as const, incrementalJoules: r.energy!.raw.totalJoules! - 0.01 } }));

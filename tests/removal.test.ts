@@ -191,7 +191,7 @@ describe('remove: the report', () => {
     expect(html).toContain('<caption>Script work from the checkpoint to the end of idle');
     expect(html).not.toMatch(/<script|<canvas/i);
     const csv = experimentCsv({ experiment: r } as unknown as BenchmarkResult).trim().split('\n');
-    expect(csv[0]).toMatch(/,step_role,like_for_like,removal_verified,removal_reinserted,energy_basis,baseline_mw_baseline,baseline_mw_variant,window_median_mwh_baseline,window_median_mwh_variant,window_verdict$/);
+    expect(csv[0]).toMatch(/,step_role,like_for_like,removal_verified,removal_reinserted,energy_basis,baseline_mw_baseline,baseline_mw_variant,baseline_method,window_median_mwh_baseline,window_median_mwh_variant,window_verdict$/);
     expect(csv[1]).toMatch(/,negative-control,true,true,false,incremental,/);
     expect(csv[2]).toMatch(/,attributable,true,true,false,incremental,/);
   });

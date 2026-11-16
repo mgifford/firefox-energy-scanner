@@ -89,6 +89,27 @@ describe('the evidence record', () => {
     expect(buildEvidenceRecord(few)!.outcome.confidence).toBe('indicative');
   });
 
+  it('a reduction with no negative-control step is indicative, and says why', () => {
+    const r = result(side(false, 10), side(true, 10));
+    r.experiment!.workload = { kind: 'load-and-idle', steps: [{ name: 'load', role: 'attributable' }, { name: 'idle', role: 'attributable' }], idleMs: 10_000 };
+    for (const d of r.experiment!.differences) d.role = 'attributable';
+    const rec = buildEvidenceRecord(r)!;
+    expect(rec.outcome).toMatchObject({ status: 'reduction-shown', confidence: 'indicative' });
+    expect(rec.outcome.statement).toMatch(/^With the change, the idle step used less energy/);
+    expect(rec.outcome.statement).toMatch(/no negative-control step/);
+  });
+
+  it('says which baseline a stored result used', () => {
+    const r = result(side(false, 10), side(true, 10));
+    const idle = r.experiment!.differences.find((d) => d.step === 'idle')!;
+    idle.energy = { ...idle.energy!, basis: 'window', baselineMw: [93, 92], baselineMethod: 'mean' };
+    const rec = buildEvidenceRecord(r)!;
+    expect(rec.outcome.steps.find((s) => s.step === 'idle')!.baselineMethod).toBe('mean');
+    const md = findingMarkdown(rec);
+    expect(md).toContain('(mean baseline)');
+    expect(md).toContain('idle window’s mean power');
+  });
+
   it('a reduction from non-equivalent sides is indicative, and says why', () => {
     const differs = side(false, 10);
     differs.removals = differs.removals!.map((c) => ({ ...c, matched: 2, roots: 2 }));

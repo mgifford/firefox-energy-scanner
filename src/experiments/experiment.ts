@@ -409,9 +409,12 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     const unequal = Math.abs(durationMs[0] - durationMs[1]) > 0.05 * Math.max(durationMs[0], durationMs[1]);
     let reading = READING(r.verdict, r.diff, r.pct);
     if (useWindow) {
+      // Say how the baseline was found: a stored result measured before the
+      // median rule keeps its mean, and the reader must not take it for a median.
+      const baselineName = method === 'median-of-bins' ? 'the median of the idle window’s bins' : 'the idle window’s mean power';
       reading =
         `On window energy, with no baseline subtracted: ${reading} ` +
-        `(The idle baseline subtracted${baselineMw ? `, ${baselineMw[0].toFixed(1)} mW on the baseline side` : ''}, was more than this step drew, so incremental energy could not be read.)` +
+        `(The idle baseline subtracted${baselineMw ? `, ${baselineMw[0].toFixed(1)} mW on the baseline side` : ''}, was ${baselineName}; it was more than this step drew, so incremental energy could not be read.)` +
         (machineWide && unequal ? ' These counters cover the whole machine and the sides took different times, so part of this difference is the idle floor over that time.' : '');
     }
     out.push({

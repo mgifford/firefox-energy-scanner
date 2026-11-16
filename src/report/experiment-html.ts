@@ -109,7 +109,7 @@ export function experimentSection(x: ExperimentReport | undefined): string {
     .map((d) => {
       const e = d.energy;
       const cross = e?.window && e.basis !== 'window' ? ` Window energy (no baseline subtracted): ${e.window.medianMwh[0].toFixed(3)} → ${e.window.medianMwh[1].toFixed(3)} mWh (IQR ${e.window.iqrMwh[0].toFixed(3)} / ${e.window.iqrMwh[1].toFixed(3)}), ${VERDICT[e.window.verdict]}.` : '';
-      const base = e?.baselineMw ? ` Idle baseline subtracted: ${e.baselineMw[0].toFixed(1)} / ${e.baselineMw[1].toFixed(1)} mW per run (median; ${e.baselineMethod === 'median-of-bins' ? 'the median power of the idle window' : 'the idle window’s mean power'}).` : '';
+      const base = e?.baselineMw ? ` Idle baseline subtracted: ${e.baselineMw[0].toFixed(1)} / ${e.baselineMw[1].toFixed(1)} mW per run (${e.baselineMethod === 'median-of-bins' ? 'median; the median power of the idle window' : 'mean; the idle window’s mean power'}).` : '';
       return `<li><strong>${esc(d.step)}:</strong> ${esc(d.reading)}<span class="note">${esc(cross)}${esc(base)}</span></li>`;
     })
     .join('')}</ul>`
