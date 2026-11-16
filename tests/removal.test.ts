@@ -255,3 +255,12 @@ describe('remove-before-load', () => {
     expect(r.note).toMatch(/scripts created the component themselves in 3 variant runs of 3, 40 ms after the document started/);
   });
 });
+
+describe('the example removal specs', () => {
+  it('parse as written', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { parse } = await import('yaml');
+    expect(parseSpec(parse(readFileSync('examples/experiments/ticker-remove.yaml', 'utf8')))).toMatchObject({ kind: 'remove', idle_ms: 5_000, settle_ms: 1_000, seed: 'fixture-ticker' });
+    expect(parseSpec(parse(readFileSync('examples/experiments/hero-carousel-remove.yaml', 'utf8')))).toMatchObject({ kind: 'remove', max_matches: 4 });
+  });
+});

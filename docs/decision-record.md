@@ -784,3 +784,99 @@ representative, and only in samples of six or more.
 Ideas adapted from [mgifford/purple-a11y-fork, sitemap-tools](https://github.com/mgifford/purple-a11y-fork/tree/main/sitemap-tools):
 the hash filter, the required-pages CSV, and URL verification before a scan.
 
+
+## TDR-021: Removing a component is its own experiment, after load or before parsing, never combined
+
+**Decision:** Two experiment kinds take an element out of the page. `remove` detaches the
+selector's outermost matches from the live DOM at a checkpoint after the load step, outside
+every measured window, on the variant only; only the idle window that follows is
+attributable, and the load step is reported as a negative control. `remove-before-load`
+removes them from the markup before the browser parses it; load and idle are both
+attributable. `hide` keeps its meaning (`display: none`). The kinds are never added
+together.
+
+**Why not hide.** Hiding keeps the markup, its scripts and its listeners; it stops layout
+and paint. Detaching the element also drops it from style and the accessibility tree, and
+releases what only the element held. Neither stops scripts that keep a reference to the
+element or run on their own timers, and the fixture site shows both cases (`/lab/ticker`
+keeps firing; `/lab/polite` stops). So every removal counts the page's timer and
+animation-frame callbacks on both sides (an init script that wraps callbacks, on both sides
+alike) and reports whether the work carried on. An iframe is the exception: detaching it
+unloads its document.
+
+**Refuse before removing.** Every check runs before anything is removed: invalid CSS, no
+match, the document's own `html`, `head` or `body` (compared by element, so `:is(body)` is
+caught), or more matches than `max_matches` (24 by default). Nested matches go with their
+outermost match and are counted once. A refusal stops the experiment.
+
+**Verify, then watch.** Right after the removal the selector must match nothing. A
+MutationObserver, installed on both sides, and WeakRefs to the removed roots (so holding
+them never keeps them alive) show whether the page put the component back. A removal that
+was refused or did not hold is not applied: no difference is reported, and the finding is
+`intervention-failed`, never "no saving".
+
+**Before parsing, with the browser's parser.** The pre-load kind fetches the document once
+per run in setup, parses it with `DOMParser` in the run's own browser, applies the same
+checks, and serialises it again on both sides; both sides are then served that snapshot
+through one route handler. The browser's parser is spec-compliant and is the one that
+renders the page, so no regular expression edits markup and no parser dependency is added.
+A browser test shows the baseline's round trip leaves every element unchanged. Redirects
+are refused, because the snapshot would be served at the wrong address. The snapshot freezes
+the server's response for the run, on both sides alike, and the report says so.
+
+**Like-for-like.** What the removed subtrees held is recorded (headings, landmarks,
+interactive controls, form controls, live regions, media, iframes, text). Taking away any
+of the first five, or failing a check the baseline passed, makes a saving not like-for-like.
+
+**Custom journeys** are refused for now: a journey has no defined point at which to remove
+the element, and one has not been designed and tested.
+
+## TDR-022: An energy timeline, with intervals found against the idle baseline
+
+**Decision:** The power samples that make the step totals are also summed into fixed bins,
+with the measured steps as phases. Intervals of elevated power are found with a stated,
+configurable robust threshold, and tied to components only through evidence classes.
+
+**Same samples, same rules.** The timeline uses `collectPowerUnits` and `selectPowerUnits`,
+each process on its own clock, so its bins add up to the step totals and nested RAPL
+domains are never added. A bin with no sample is null. The narrowest bin is twice the
+interval at which the counters actually move, measured from the samples: a counter read
+every 10 ms that moves every 100 ms supports 250 ms bins, not 100 ms ones. A sample that
+carries the energy of a gap keeps it, but gives its bin no power, so a gap cannot become a
+spike.
+
+**Robust threshold, no universal watts.** The reference is the run's idle baseline, or the
+page's quietest half without one; the spread is 1.4826 × MAD; a bin is elevated above
+reference + 3.5 × spread (a modified z-score cut-off). There is no fixed "high" power: it
+depends on the machine and the scope. Intervals stay within one part of the workload, are
+classed brief or sustained, and are ranked by energy above the reference, so a long
+moderate workload can outrank a short peak. Every setting is recorded with the result.
+
+**Evidence, not attribution.** For each interval the same run's Gecko markers, stacks and
+CPU categories are read for that time; Chromium trace findings are matched by page and
+phase, never by time, because they come from another run in another browser. Leads carry
+their evidence class, and DOM proximity is never one. The prototype in the brief (a
+script reading a saved profile, with a hard-coded 0.1 W floor) became `web-energy
+timeline`, without the floor.
+
+**Overhead.** `diagnose` samples stacks so it can name scripts, and says so; `--timeline` on
+`measure`, `journey` and `experiment`, and `diagnose --low-overhead`, use power samples
+only.
+
+## TDR-023: Findings are records with four separate parts
+
+**Decision:** Every experiment writes an evidence record (`energy-finding/1`) and a
+Markdown issue draft: observed activity, suspected cause, experimentally supported outcome,
+recommended production change, each under its own heading, with the command (seed
+included), protocol, environment, accessibility and functionality, limitations and
+artifacts.
+
+**Why.** A finding that merges "it was busy when power was high" with "removing it saved
+energy" with "remove it" invites the wrong change. The record's schema refuses the usual
+slips: an energy figure for an unmeasured step, steps from a failed intervention, removal as
+the only recommendation. Confidence is confirmatory only with enough runs, a still negative
+control, equal valid runs and equivalent page states.
+
+**WSG.** The record carries plain topic tags for mapping to the W3C Web Sustainability
+Guidelines and asserts no guideline number (`wsg.mapping: not-asserted`). That mapping is a
+judgement for the system that imports the record.

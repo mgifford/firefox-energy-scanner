@@ -93,6 +93,28 @@ The tool tells you *that* energy changed, not *why*. Use `web-energy profile` fo
 diagnostic Gecko profile, which is deliberately kept separate from benchmark results
 because stack sampling changes the workload.
 
+### A timeline shows when, not what
+
+An energy timeline ([energy-spikes.md](energy-spikes.md)) shows the measurement scope's
+power over time: Firefox's processes on Apple Silicon, the whole CPU package or platform
+elsewhere. An interval of elevated power is a time worth investigating, not a defect and
+not a cause. Leads tie it to components through evidence classes; even the strongest, the
+same run's profile showing a script on the stack, is correlation. Bins are never finer
+than the counters move, and a bin without a sample has no energy, not zero. Intervals from
+`diagnose` come from a profile with stack sampling, which adds work: they show where to
+look, and an experiment measures the difference.
+
+### Removing an element does not remove its work
+
+A `remove` experiment detaches an element and its descendants; it does not stop the
+timers, animation-frame loops, workers, event listeners or requests its scripts started
+(an iframe is the exception: its document unloads). The experiment counts the page's
+timer and animation-frame callbacks on both sides, so it can say whether work carried on,
+but it cannot say whose work it was. Only the idle window can show the effect of a
+post-load removal. A removal that takes away content people use is not a like-for-like
+saving, and no removal shows that a component should be removed from production. See
+[experiments.md](experiments.md).
+
 ## Confounders
 
 Each of these can move results independently of the thing being tested.

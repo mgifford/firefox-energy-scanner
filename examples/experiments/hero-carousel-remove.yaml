@@ -1,0 +1,19 @@
+# Does a hero carousel cost energy while the page sits idle?
+#
+# Run: node dist/cli/index.js experiment --spec examples/experiments/hero-carousel-remove.yaml
+# Detaches the carousel after load, on the variant only, outside every
+# measured window; only the idle window can show an effect. Its scripts may
+# keep running without it: the report says whether they did.
+name: hero-carousel-remove
+url: https://example.org/
+kind: remove
+selector: '[data-component-id="hero-carousel"]'
+idle_ms: 10000
+settle_ms: 2000
+# Refuse the selector if it matches more than this many elements.
+max_matches: 4
+assertions:
+  - role: main
+  - role: navigation
+runs: 10
+warmups: 2

@@ -194,6 +194,10 @@ web-energy report results/<file>.json
 web-energy profile --journey <file>
 web-energy lighthouse <url...>
 web-energy trace <url...>
+web-energy diagnose <url>                 # energy timeline, intervals and leads (diagnostic)
+web-energy timeline <profile.json>        # the same, from a saved Gecko profile
+web-energy experiment <url> --kind remove --selector <css>
+web-energy finding <experiment.json>      # evidence record and issue draft
 web-energy crux <url>
 web-energy webnrg <url...>
 ```
@@ -384,6 +388,22 @@ applied and the page still passed its checks, and reports the measured differenc
 both sides' spread. `--from <result.json> --item <n>` builds the experiment for an item of
 the queue. See [docs/experiments.md](docs/experiments.md).
 
+To **remove a component** rather than hide it, `--kind remove` detaches it from the DOM
+after the page loads, outside every measured window, verifies it stayed removed, and
+reports whether its scripts kept working without it; only the idle window can show its
+effect. `--kind remove-before-load` takes it out of the markup before the browser parses
+it, so load and idle both can. Removal is a diagnostic stand-in, never a recommendation.
+
+To find **when** a page draws more power, `web-energy diagnose <url>` records an **energy
+timeline**: Firefox's power samples in bins, intervals of elevated power found against the
+idle baseline, the same run's profiler evidence for each, and leads to the components and
+scripts worth testing, each with its evidence class. Intervals are where to look, never a
+component's energy. See [docs/energy-spikes.md](docs/energy-spikes.md).
+
+Every experiment writes an **evidence record** and a Markdown issue draft that keep
+observed activity, suspected cause, the experimentally supported outcome and the
+recommended change apart. See [docs/evidence-records.md](docs/evidence-records.md).
+
 Journeys can be drafted with Playwright MCP and checked with `web-energy journey-check`;
 they always run without a model. See [docs/journeys-with-mcp.md](docs/journeys-with-mcp.md).
 
@@ -439,7 +459,10 @@ canvas charts) are generated alongside.
 - [docs/component-attribution-plan.md](docs/component-attribution-plan.md) — the review and plan for component-level attribution
 - [docs/component-inventory.md](docs/component-inventory.md) — recurring components and the Lighthouse evidence tied to them
 - [docs/investigation-report.md](docs/investigation-report.md) — the investigation queue, remedies, page maps and history
-- [docs/experiments.md](docs/experiments.md) — measuring whether a change reduces client energy
+- [docs/experiments.md](docs/experiments.md) — measuring whether a change reduces client energy, removal experiments included
+- [docs/energy-spikes.md](docs/energy-spikes.md) — energy timelines, intervals of elevated power, and leads to components
+- [docs/evidence-records.md](docs/evidence-records.md) — findings for development issues, and their schemas
+- [docs/spike-isolation-audit.md](docs/spike-isolation-audit.md) — the audit and plan behind the timeline and removal work, and what is still to validate
 - [docs/journeys-with-mcp.md](docs/journeys-with-mcp.md) — writing journeys with Playwright MCP, and the rules they follow
 
 ## Licence

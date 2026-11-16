@@ -1,0 +1,19 @@
+# Does removing the fixture site's ticker save idle energy, while its timer keeps running?
+#
+# Start the fixture site, then:
+#   node dist/cli/index.js experiment --spec examples/experiments/ticker-remove.yaml
+# Needs a machine that measures energy (see docs/local-energy.md) for the
+# difference; anywhere, it shows the removal applied and the timer carried on.
+name: ticker-remove
+url: http://127.0.0.1:8086/lab/ticker
+kind: remove
+selector: '[data-component-id="ticker"]'
+# Measured: the page load (a negative control), then this idle window.
+idle_ms: 5000
+# Not measured: both sides wait this long after the removal.
+settle_ms: 1000
+assertions:
+  - role: main
+runs: 10
+warmups: 2
+seed: fixture-ticker

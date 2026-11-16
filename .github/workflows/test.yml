@@ -62,6 +62,13 @@ jobs:
       # Both trace in Chrome, which GitHub's Ubuntu runners have at /usr/bin/google-chrome.
       - run: node tests/e2e/fixture-e2e.mjs
       - run: node tests/e2e/trace-e2e.mjs
+      # Removal experiments through the CLI, in Firefox, without energy hardware:
+      # removed and verified, put back by the page, refused, and not like-for-like.
+      - run: node tests/e2e/remove-e2e.mjs
+      # The in-page removal code, in Firefox (the unit job runs it in Chromium when one is present).
+      - run: npx vitest run tests/browser
+        env:
+          WEB_ENERGY_TEST_ENGINE: firefox
 
   # The component inventory across two browsers: Firefox records components
   # and their node paths, Lighthouse audits in Chrome, and its element
