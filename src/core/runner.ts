@@ -16,12 +16,18 @@ import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
 import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
 import { buildFindings } from '../report/findings.js';
 import { describeBlocked, describeStepFailure } from './failures.js';
+import { buildTimeline } from '../energy/timeline.js';
+import { detectSpikes, type SpikeSettings } from '../energy/spikes.js';
+import { geckoEvidence } from '../energy/gecko-evidence.js';
+import type { TimelineAnalysis } from '../energy/spike-analysis.js';
 
 export interface StepRecord {
   label: string;
   url?: string;
   startedAt: number;
   endedAt: number;
+  /** When the step's action finished and waiting for the page to settle began. */
+  actionEndedAt?: number;
   timing: TimingResult;
   network: NetworkSummary;
   valid: boolean;
@@ -63,8 +69,10 @@ export class StepRunner {
 
     let valid = true;
     let failure: string | undefined;
+    let actionEndedAt: number | undefined;
     try {
       await fn();
+      actionEndedAt = Date.now();
       await waitForStablePage(page, this.config.stability);
     } catch (err) {
       valid = false;
@@ -138,6 +146,7 @@ export class StepRunner {
       ...(valid ? { url: page.url() } : {}),
       startedAt,
       endedAt,
+      ...(actionEndedAt !== undefined ? { actionEndedAt } : {}),
       timing,
       network,
       valid,
@@ -160,6 +169,20 @@ export interface RunOptions {
   urls?: string[];
   scenarioName: string;
   onProgress?: (message: string) => void;
+  /**
+   * Profiler features beyond power. Stack sampling ('js', 'stackwalk', 'cpu')
+   * adds work to what is measured: for diagnostic runs only.
+   */
+  profilerFeatures?: string[];
+  /**
+   * Build an energy timeline of the session, with intervals of elevated
+   * power. From the same power samples as the step totals, so it adds no
+   * profiler overhead; `gecko` also reads the same run's markers and stacks
+   * for each interval (the parsed profile is kept in memory until then).
+   */
+  timeline?: { binMs?: number; spikes?: Partial<SpikeSettings>; gecko?: boolean; run?: number };
+  /** Called with the parsed profile and the step records, after the browser has closed. */
+  onProfile?: (profile: unknown, records: StepRecord[]) => void | Promise<void>;
 }
 
 export interface RunOutcome {
@@ -170,6 +193,10 @@ export interface RunOutcome {
   notHtml?: PageCheck[];
   firefoxVersion: string;
   energyAvailable: boolean;
+  /** When asked for and energy was measured: the session's energy timeline and its intervals. */
+  timeline?: TimelineAnalysis;
+  /** The raw Gecko profile, when energy.retain_profile kept it. */
+  profilePath?: string;
 }
 
 /**
@@ -184,7 +211,8 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
   const steps: StepResult[] = [];
   const useEnergy = config.energy.adapter !== 'noop';
 
-  const session = await BrowserSession.create(config, useEnergy);
+  const keepParsedProfile = !!(options.onProfile || options.timeline?.gecko);
+  const session = await BrowserSession.create(config, useEnergy, options.profilerFeatures ?? [], { keepParsedProfile });
   const firefoxVersion = await session.version();
   if (testEngine()) warnings.push(TEST_ENGINE_WARNING);
   let baseline: Baseline | undefined;
@@ -192,6 +220,7 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
   let closed = false;
 
   let notHtml: PageCheck[] = [];
+  let timeline: TimelineAnalysis | undefined;
   let urls = options.urls ?? [];
   try {
     await authenticateIfNeeded(session, config, baseUrl, warnings);
@@ -291,6 +320,13 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
     const baselineEnergy = energyByLabel.get('__baseline__');
     if (baselineEnergy) baseline = deriveBaseline(baselineEnergy);
 
+    const profile = session.energy?.parsedProfile();
+    if (options.onProfile && profile) await options.onProfile(profile, records);
+    if (options.timeline && energyAvailable) {
+      timeline = analyseTimeline(session.energy!, records, profile, options, config);
+    }
+    session.energy?.releaseProfile();
+
     const green = await greenHostingFor(records, config, warnings);
     steps.push(
       ...buildStepResults(records, energyByLabel, baseline, config, scenarioName, green),
@@ -299,7 +335,43 @@ export async function runBenchmark(options: RunOptions): Promise<RunOutcome> {
     if (!closed) await session.close().catch(() => {});
   }
 
-  return { steps, baseline, warnings, firefoxVersion, energyAvailable, ...(notHtml.length ? { notHtml } : {}) };
+  const profilePath = config.energy.retain_profile ? session.profilePath() : undefined;
+  return { steps, baseline, warnings, firefoxVersion, energyAvailable, ...(notHtml.length ? { notHtml } : {}), ...(timeline ? { timeline } : {}), ...(profilePath ? { profilePath } : {}) };
+}
+
+/** The session's timeline, its intervals, and (with the parsed profile) same-run evidence for each. */
+function analyseTimeline(
+  adapter: NonNullable<BrowserSession['energy']>,
+  records: StepRecord[],
+  profile: unknown,
+  options: RunOptions,
+  config: Config,
+): TimelineAnalysis | undefined {
+  const selection = adapter.powerSelection();
+  if (!selection) return undefined;
+  const t = buildTimeline(
+    selection,
+    records.map((r) => ({ label: r.label, startedAt: r.startedAt, endedAt: r.endedAt, ...(r.actionEndedAt !== undefined ? { actionEndedAt: r.actionEndedAt } : {}) })),
+    {
+      ...(options.timeline?.binMs ? { binMs: options.timeline.binMs } : {}),
+      profilerFeatures: adapter.features(),
+      samplingIntervalMs: config.energy.profiler_interval_ms,
+      scenario: options.scenarioName,
+      ...(options.timeline?.run !== undefined ? { run: options.timeline.run } : {}),
+    },
+  );
+  if (!t) return undefined;
+  const spikes = detectSpikes(t, options.timeline?.spikes ?? {});
+  const evidence =
+    options.timeline?.gecko && profile
+      ? Object.fromEntries(
+          spikes.intervals.slice(0, 10).map((i) => [
+            i.id,
+            geckoEvidence(profile, t.originEpochMs + i.startMs, t.originEpochMs + i.endMs, { startEpochMs: t.originEpochMs, endEpochMs: t.originEpochMs + t.durationMs }),
+          ]),
+        )
+      : undefined;
+  return { timeline: t, spikes, ...(evidence ? { evidence } : {}) };
 }
 
 /**

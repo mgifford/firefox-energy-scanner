@@ -67,6 +67,7 @@ export class BrowserSession {
     config: Config,
     withEnergy: boolean,
     extraFeatures: string[] = [],
+    profiler: { keepParsedProfile?: boolean } = {},
   ): Promise<BrowserSession> {
     let adapter: FirefoxProfilerAdapter | undefined;
     let profilePath: string | undefined;
@@ -76,6 +77,7 @@ export class BrowserSession {
         intervalMs: config.energy.profiler_interval_ms,
         retainProfile: config.energy.retain_profile,
         features: extraFeatures,
+        ...(profiler.keepParsedProfile ? { keepParsedProfile: true } : {}),
       });
     }
     const session = new BrowserSession({

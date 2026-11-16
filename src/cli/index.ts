@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { firefox } from 'playwright';
 import {
@@ -9,7 +9,14 @@ import {
   type Config,
 } from '../core/config.js';
 import { runBenchmark, newSessionId } from '../core/runner.js';
-import { loadJourney } from '../core/journey.js';
+import { defineJourney, loadJourney } from '../core/journey.js';
+import { detectSpikes, type SpikeSettings } from '../energy/spikes.js';
+import { describeInterval, linkSpikes, type TimelineAnalysis } from '../energy/spike-analysis.js';
+import { buildTimeline } from '../energy/timeline.js';
+import { geckoEvidence } from '../energy/gecko-evidence.js';
+import { collectPowerUnits, selectPowerUnits } from '../energy/gecko-profile.js';
+import { buildEvidenceRecord, findingMarkdown } from '../report/evidence-record.js';
+import { timelineCsv } from '../report/timeline-csv.js';
 import { collectEnvironment, readPowerState, playwrightVersion } from './env.js';
 import {
   FirefoxProfilerAdapter,
@@ -25,7 +32,7 @@ import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page
 import { attributeEnergy } from '../energy/attribution.js';
 import { buildFindings } from '../report/findings.js';
 import { collectTwigTemplates, templatesForInstances } from '../drupal/twig-debug.js';
-import { BrowserSession, waitForStablePage } from '../collect/session.js';
+import { waitForStablePage } from '../collect/session.js';
 import { readFile } from 'node:fs/promises';
 import { parseScanRequest } from './issue-parser.js';
 import { buildIndex } from '../report/index-builder.js';
@@ -114,13 +121,18 @@ Usage:
   web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> [--kind remove|hide|pause-animations]
                          | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
                          [--journey <file>] [--idle <ms>] [--settle <ms>] [--max-matches <n>] [--assert-role <role>] [--assert-text <text>]
-                         [--dry-run] [--save-spec <file.yaml>]
+                         [--dry-run] [--save-spec <file.yaml>] [--timeline] [--bin <ms>]
+                         [--evidence <diagnose result.json>] [--release <label>]
+  web-energy finding <experiment.json> [--evidence <diagnose result.json>] [--json] [--write]
                          kinds: pause-animations, reduced-motion, lazy-images, no-autoplay, block, hide, remove, remove-before-load
   web-energy journey-check <file...>
   web-energy profile --journey <file>
   web-energy triage --a <url> --b <url> [--path <path>]
   web-energy matrix <matrix.yaml> --journey <file> [--triage-only]
-  web-energy diagnose <url> [--runs <n>]
+  web-energy diagnose <url>            [--idle <ms>] [--bin <ms>] [--trace] [--keep-profile] [--low-overhead]
+                                       [--no-screenshot] [--spike-reference auto|baseline|quiet|rolling]
+                                       [--spike-k <n>] [--spike-min-ms <ms>] [--spike-min-rise <W>]
+  web-energy timeline <profile.json>   [--bin <ms>] [--json] [--spike-* options]
   web-energy lighthouse <url...>       [--lighthouse-* options]
   web-energy trace <url...>            [--trace-* options]
   web-energy crux <url>                [--crux-* options]
@@ -161,6 +173,9 @@ Options:
                          after the start page (repeatable).
   --authenticated        Use Drupal auth from environment variables
   --seed <string>        Seed for interleaved A/B ordering
+  --timeline             measure, journey, experiment: also record the energy timeline
+                         (the power samples in --bin ms bins, default 250) and its
+                         intervals of elevated power. Same samples, no extra overhead.
   --no-energy            Disable energy measurement
   --green-hosting        Ask the Green Web Foundation which domains each page
                          loaded from are green-hosted, and model those bytes
@@ -605,11 +620,13 @@ function scopeText(scope: FirefoxProbe['scope']): string {
         : 'Firefox power counters';
 }
 
-async function writeOutputs(result: BenchmarkResult, config: Config): Promise<string> {
+async function writeOutputs(result: BenchmarkResult, config: Config, beforeWrite?: (base: string) => Promise<void>): Promise<string> {
   const dir = resolve(config.output.directory);
   await mkdir(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const base = join(dir, `${result.session.mode}-${stamp}`);
+  // Files named after the result (a screenshot, a timeline CSV), written first so the result can name them.
+  if (beforeWrite) await beforeWrite(base);
 
   // The graph is checked against its schema before it is written. A problem
   // is a warning in the result, not a failed scan: the measurements stand.
@@ -715,6 +732,7 @@ async function cmdMeasure(args: Args): Promise<number> {
     urls,
     scenarioName: 'measure',
     onProgress: progress,
+    ...timelineOption(args),
   });
   process.stderr.write('\n');
 
@@ -742,13 +760,15 @@ async function cmdMeasure(args: Args): Promise<number> {
 
   await attachLighthouse(args, config, result, urls, 'measure');
   await attachTraces(args, config, result, urls, 'measure');
+  if (outcome.timeline) result.timelines = [{ ...outcome.timeline, ...(urls.length === 1 ? { page: urls[0]! } : {}) }];
   await attachCrux(result, crux);
   await attachCruxPages(result, fieldPages);
   await attachWebnrg(args, result, urls, 'measure');
   attachInventory(result);
   attachInvestigation(result);
+  for (const t of result.timelines ?? []) if (t.page) t.leads = linkSpikes(result, t, t.page);
   if (!has(args, 'no-history')) await attachHistory(result, resolve(config.output.directory));
-  const base = await writeOutputs(result, config);
+  const base = await writeOutputs(result, config, timelineFiles(result));
   printSummary(outcome.steps, grid);
   if (result.lighthouse) printLighthouse(result.lighthouse);
   if (result.traces) printTraces(result.traces);
@@ -781,6 +801,7 @@ async function cmdJourney(args: Args): Promise<number> {
     baseUrl,
     journey,
     scenarioName: journey.name,
+    ...timelineOption(args),
     onProgress: progress,
   });
   process.stderr.write('\n');
@@ -801,10 +822,11 @@ async function cmdJourney(args: Args): Promise<number> {
     scenarios: outcome.steps,
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
     ...(grid ? { gridIntensity: grid } : {}),
+    ...(outcome.timeline ? { timelines: [outcome.timeline] } : {}),
     warnings: outcome.warnings,
   };
 
-  const base = await writeOutputs(result, config);
+  const base = await writeOutputs(result, config, timelineFiles(result));
   printSummary(outcome.steps, grid);
   for (const w of outcome.warnings) console.log(`\nwarning: ${w}`);
   console.log(`\nWrote ${base}.{json,csv,html}`);
@@ -1140,7 +1162,9 @@ async function cmdExperiment(args: Args): Promise<number> {
   const order = interleavedOrder(config.benchmark.runs, seed);
   const state: { a: SideState; b: SideState } = { a: emptySide(), b: emptySide() };
   const steps: { a: StepResult[]; b: StepResult[] } = { a: [], b: [] };
+  const timelines: TimelineAnalysis[] = [];
   const seen = { a: false, b: false };
+  const runIndex = { a: 0, b: 0 };
   let firefoxVersion = 'unknown';
   const warnings: string[] = [];
   console.log(`Experiment ${spec.name}: ${spec.url}\nInterleaved order (seed ${seed}): ${order.join(' ')}`);
@@ -1154,7 +1178,11 @@ async function cmdExperiment(args: Args): Promise<number> {
       baseUrl: spec.url,
       journey: sideJourney(spec, inner, side === 'b', state[side]),
       scenarioName: side === 'a' ? 'baseline' : 'variant',
+      // Power samples only: the timeline adds no profiler overhead to the comparison.
+      ...(has(args, 'timeline') ? { timeline: { binMs: one(args, 'bin') ? parseIntegerFlag('--bin', one(args, 'bin')!) : 250, spikes: spikeSettingsFromArgs(args), run: runIndex[side] } } : {}),
     });
+    runIndex[side]++;
+    if (outcome.timeline) timelines.push({ ...outcome.timeline, page: spec.url });
     firefoxVersion = outcome.firefoxVersion;
     warnings.push(...outcome.warnings);
     steps[side].push(...outcome.steps);
@@ -1182,15 +1210,25 @@ async function cmdExperiment(args: Args): Promise<number> {
       collectHostname: config.output.collect_hostname,
     }),
     targets: [
-      { url: spec.url, label: 'baseline' },
-      { url: spec.url, label: 'variant' },
+      { url: spec.url, label: 'baseline', ...(one(args, 'release') ? { commit: one(args, 'release') } : {}) },
+      { url: spec.url, label: 'variant', ...(one(args, 'release') ? { commit: one(args, 'release') } : {}) },
     ],
     configuration: config,
     scenarios: [...steps.a, ...steps.b],
     experiment: report,
+    ...(timelines.length ? { timelines } : {}),
     warnings: [...new Set(warnings)],
   };
-  const base = await writeOutputs(result, config);
+  const evidenceFile = one(args, 'evidence');
+  const evidence = evidenceFile ? (JSON.parse(await readFile(resolve(evidenceFile), 'utf8')) as BenchmarkResult) : undefined;
+  const base = await writeOutputs(result, config, async (stem) => {
+    const name = stem.split(/[\\/]/).pop()!;
+    result.finding = buildEvidenceRecord(result, {
+      artifacts: { json: `${name}.json`, html: `${name}.html`, csv: `${name}.csv`, experimentCsv: `${name}.experiment.csv`, issueDraft: `${name}.finding.md` },
+      ...(evidence ? { evidence, evidenceFile: evidenceFile!.split(/[\\/]/).pop()! } : {}),
+    });
+    if (result.finding) await writeFile(`${stem}.finding.md`, findingMarkdown(result.finding));
+  });
   if (config.output.csv) await writeFile(`${base}.experiment.csv`, experimentCsv(result));
 
   console.log(`\nChange: ${report.description}`);
@@ -1212,7 +1250,8 @@ async function cmdExperiment(args: Args): Promise<number> {
     console.log(`\n  ${d.step}${d.role === 'negative-control' ? ' (negative control)' : ''}: ${e ? `${e.medianMwh[0].toFixed(3)} -> ${e.medianMwh[1].toFixed(3)} mWh (IQR ${e.iqrMwh[0].toFixed(3)} / ${e.iqrMwh[1].toFixed(3)})` : 'energy not measured'}`);
     console.log(`    ${d.reading}`);
   }
-  console.log(`\nWrote ${base}.{json,csv,html} and ${base}.experiment.csv`);
+  if (result.finding) console.log(`\nFinding: ${result.finding.outcome.status.replace(/-/g, ' ')} (confidence: ${result.finding.outcome.confidence}).`);
+  console.log(`\nWrote ${base}.{json,csv,html}, ${base}.experiment.csv and the issue draft ${base}.finding.md`);
   return report.applied.ok ? 0 : 2;
 }
 
@@ -2229,6 +2268,14 @@ async function cmdBuildIndex(args: Args): Promise<number> {
  * reports category CPU shares (apportioning the measured energy) alongside the
  * page structures that drive that work.
  */
+/**
+ * A diagnostic profile of one page: the page loads, then sits idle, in a
+ * Firefox session profiled with stack sampling. The result holds the energy
+ * timeline with intervals of elevated power, the same run's profiler
+ * evidence for each, the component graph, and leads from each interval to
+ * the components and scripts worth testing. Stack sampling changes the
+ * workload, so its energy is never mixed with benchmark results.
+ */
 async function cmdDiagnose(args: Args): Promise<number> {
   const url = args._[1];
   if (!url) {
@@ -2236,93 +2283,164 @@ async function cmdDiagnose(args: Args): Promise<number> {
     return 1;
   }
   const config = await buildConfig(args);
-  // Stack sampling is needed to attribute categories, which adds overhead —
-  // acceptable here because this is a diagnostic run, not a benchmark.
+  await announceEnergy(config);
+  const idleMs = one(args, 'idle') ? parseIntegerFlag('--idle', one(args, 'idle')!) : 10_000;
+  const binMs = one(args, 'bin') ? parseIntegerFlag('--bin', one(args, 'bin')!) : 250;
+  const lowOverhead = has(args, 'low-overhead');
   const diagnosticConfig: Config = {
     ...config,
-    benchmark: { ...config.benchmark, runs: 1, warmups: 1 },
-    energy: { ...config.energy, retain_profile: true },
+    benchmark: { ...config.benchmark, runs: 1, warmups: one(args, 'warmups') ? config.benchmark.warmups : 1 },
+    energy: { ...config.energy, retain_profile: has(args, 'keep-profile') },
   };
 
   console.log(`Diagnosing ${url}\n`);
   console.log(
-    'Note: this is a diagnostic run. Stack sampling changes the workload, so these\n' +
-      'numbers must not be mixed with benchmark results.\n',
+    lowOverhead
+      ? 'Low-overhead run: power counters and markers only, no stack sampling.\n'
+      : 'Note: this is a diagnostic run. Stack sampling changes the workload, so these\n' +
+          'numbers must not be mixed with benchmark results.\n',
   );
 
   // 'cpu' is what populates threadCPUDelta; without it sample rows are
   // truncated and carry no CPU time, so attribution has nothing to weight by.
-  const session = await BrowserSession.create(diagnosticConfig, true, [
-    'js',
-    'stackwalk',
-    'cpu',
-  ]);
-  let anatomy;
-  let lcp;
-  let twig;
-  let energyJoules: number | undefined;
-  let profile: unknown;
-  let windowStart = 0;
-  let windowEnd = 0;
+  const features = lowOverhead ? [] : ['js', 'stackwalk', 'cpu'];
+  let anatomy: Awaited<ReturnType<typeof collectPageAnatomy>>;
+  let lcp: Awaited<ReturnType<typeof readLcp>>;
+  let twig: Awaited<ReturnType<typeof collectTwigTemplates>> | undefined;
+  let shot: { png: Buffer; width: number; height: number } | undefined;
+  let selectorMatches: Record<string, number> = {};
+  const windows = new Map<string, { start: number; end: number }>();
+  let attributionFor: ((label: string) => ReturnType<typeof attributeEnergy> | undefined) | undefined;
+  let runsDone = 0;
+  const totalRuns = diagnosticConfig.benchmark.warmups + diagnosticConfig.benchmark.runs;
 
-  try {
-    const page = session.getPage();
-    await installLcpObserver(page);
+  const journey = defineJourney({
+    name: 'diagnose',
+    async run({ page, measure }) {
+      await measure('load', async () => {
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+      });
+      if (idleMs > 0) {
+        await measure('idle', async () => {
+          // Intentional idle window: what the page does when left open.
+          await page.waitForTimeout(idleMs);
+        });
+      }
+      // After the workload, outside every measured window, on the measured run.
+      if (++runsDone < totalRuns) return;
+      anatomy = await collectPageAnatomy(page);
+      lcp = await readLcp(page);
+      if (anatomy && lcp) anatomy.lcpElement = lcp;
+      // Drupal only: maps rendered markup back to Twig templates when the target
+      // has debug enabled. Silently reports "not enabled" otherwise.
+      twig = await collectTwigTemplates(page);
+      const selectors = [...new Set((anatomy?.structure?.instances ?? []).map((i) => i.selector))].slice(0, 80);
+      selectorMatches = await page
+        .evaluate((sels) => Object.fromEntries(sels.map((s) => { try { return [s, document.querySelectorAll(s).length]; } catch { return [s, -1]; } })), selectors)
+        .catch(() => ({}));
+      if (!has(args, 'no-screenshot')) {
+        const vp = diagnosticConfig.browser.viewport;
+        const height = Math.min(4_000, await page.evaluate(() => document.documentElement.scrollHeight).catch(() => vp.height));
+        const png = await page.screenshot({ type: 'png', fullPage: true, clip: { x: 0, y: 0, width: vp.width, height } }).catch(() => undefined);
+        if (png) shot = { png, width: vp.width, height };
+      }
+    },
+  });
 
-    // Warmup, then the measured pass.
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
-    await waitForStablePage(page, diagnosticConfig.stability);
+  const outcome = await runBenchmark({
+    config: diagnosticConfig,
+    baseUrl: url,
+    journey,
+    scenarioName: 'diagnose',
+    onProgress: progress,
+    profilerFeatures: features,
+    timeline: { binMs, gecko: true, spikes: spikeSettingsFromArgs(args) },
+    onProfile: (profile, records) => {
+      for (const r of records) windows.set(r.label, { start: r.startedAt, end: r.endedAt });
+      attributionFor = (label) => {
+        const w = windows.get(label);
+        return w ? attributeEnergy(profile, w.start, w.end) : undefined;
+      };
+      // Read now: the profile is released once the run returns.
+      attributionCache = { load: attributionFor('run:0:load'), idle: attributionFor('run:0:idle') };
+    },
+  });
+  process.stderr.write('\n');
 
-    const handle = await session.energy?.start({ label: 'diagnose' });
-    windowStart = handle?.startedAt ?? Date.now();
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
-    await waitForStablePage(page, diagnosticConfig.stability);
-    windowEnd = Date.now();
-    if (handle) await session.energy?.stop(handle);
-
-    anatomy = await collectPageAnatomy(page);
-    lcp = await readLcp(page);
-    if (anatomy && lcp) anatomy.lcpElement = lcp;
-    // Drupal only: maps rendered markup back to Twig templates when the target
-    // has debug enabled. Silently reports "not enabled" otherwise.
-    twig = await collectTwigTemplates(page);
-
-    const profilePath = session.profilePath();
-    await session.close();
-
-    // Read the raw profile BEFORE finalize(), which deletes it unless
-    // retain_profile is set. Attribution needs the full profile, not just the
-    // power counters finalize() extracts.
-    if (profilePath) {
-      profile = JSON.parse(await readFile(profilePath, 'utf8').catch(() => 'null'));
-    }
-    const results = (await session.energy?.finalize()) ?? new Map();
-    energyJoules = results.get('diagnose')?.totalJoules;
-  } finally {
-    await session.close().catch(() => {});
+  const result: BenchmarkResult = {
+    schemaVersion: SCHEMA_VERSION,
+    session: { id: newSessionId(), startedAt: new Date().toISOString(), mode: 'diagnose' },
+    capabilities: await capabilitiesFor(outcome.energyAvailable, energyScopeOf(outcome.steps)),
+    environment: await collectEnvironment({
+      energyAdapter: config.energy.adapter,
+      headed: config.browser.headed,
+      viewport: config.browser.viewport,
+      firefoxVersion: outcome.firefoxVersion,
+      collectHostname: config.output.collect_hostname,
+    }),
+    target: { url },
+    configuration: diagnosticConfig,
+    scenarios: outcome.steps,
+    ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
+    capture: { page: url, capturedAt: new Date().toISOString(), selectorMatches },
+    warnings: [
+      ...(lowOverhead || config.energy.adapter === 'noop' ? [] : ['Diagnostic run: the profiler sampled stacks (js, stackwalk, cpu), which adds work to what was measured. Use its energy to find where to look; compare variants with experiment.']),
+      ...outcome.warnings,
+    ],
+  };
+  await attachTraces(args, config, result, [url], 'measure');
+  attachInventory(result);
+  attachInvestigation(result);
+  if (outcome.timeline) {
+    const analysis = { ...outcome.timeline, page: url, selectorMatches };
+    analysis.leads = linkSpikes(result, analysis, url);
+    result.timelines = [analysis];
   }
 
-  const attribution = profile
-    ? attributeEnergy(profile, windowStart, windowEnd, energyJoules)
-    : undefined;
+  const base = await writeOutputs(result, config, async (stem) => {
+    const t = result.timelines?.[0];
+    if (shot && result.capture) {
+      await writeFile(`${stem}.screenshot.png`, shot.png);
+      result.capture.screenshot = { file: `${stem.split(/[\\/]/).pop()}.screenshot.png`, width: shot.width, height: shot.height };
+    }
+    if (t) await writeFile(`${stem}.timeline.csv`, timelineCsv(t));
+  });
+  if (has(args, 'keep-profile') && outcome.profilePath) {
+    await copyFile(outcome.profilePath, `${base}.profile.json`).catch(() => {});
+  }
 
+  // What the browser spent CPU time on, over the measured load and idle windows.
+  const loadStep = outcome.steps.find((s) => !s.warmup && s.step === 'load');
+  const attribution = attributionCache?.load;
   if (attribution && attribution.totalCpuMs > 0) {
-    console.log('Where the browser spent CPU time');
-    console.log('  category          CPU ms     share' + (energyJoules !== undefined ? '   apportioned' : ''));
+    const joules = loadStep?.energy?.raw.totalJoules;
+    console.log('Where the browser spent CPU time while the page loaded');
+    console.log('  category          CPU ms     share' + (joules !== undefined ? '   apportioned' : ''));
     for (const c of attribution.categories) {
-      const line =
-        '  ' + c.category.padEnd(16) +
-        c.cpuMs.toFixed(0).padStart(8) +
-        (c.share * 100).toFixed(1).padStart(9) + '%';
-      console.log(
-        line + (c.apportionedJoules !== undefined ? `${(c.apportionedJoules * 1000).toFixed(1)} mJ`.padStart(14) : ''),
-      );
+      const line = '  ' + c.category.padEnd(16) + c.cpuMs.toFixed(0).padStart(8) + (c.share * 100).toFixed(1).padStart(9) + '%';
+      console.log(line + (joules !== undefined ? `${(joules * c.share * 1000).toFixed(1)} mJ`.padStart(14) : ''));
     }
     console.log(`\n  ${attribution.assumption}`);
-    if (energyJoules === undefined) {
-      console.log('  (No energy measured on this host, so only CPU shares are shown.)');
-    }
+    if (joules === undefined) console.log('  (No energy measured on this host, so only CPU shares are shown.)');
     console.log('');
+  }
+
+  const t = result.timelines?.[0];
+  if (t) {
+    console.log(`Energy timeline: ${t.timeline.bins.length} bins of ${t.timeline.binMs} ms (${t.timeline.basis})`);
+    console.log(`  Reference: ${t.spikes.reference.kind}, ${t.spikes.reference.powerW.toFixed(3)} W, spread ${t.spikes.reference.spreadW.toFixed(3)} W`);
+    if (!t.spikes.intervals.length) console.log('  No interval of elevated power was found.');
+    for (const i of t.spikes.intervals.slice(0, 5)) {
+      console.log(`\n  ${i.id}: ${describeInterval(i)}`);
+      const lead = t.leads?.[i.id];
+      for (const c of lead?.components.slice(0, 3) ?? []) console.log(`    component ${c.signature} (${c.classes.join(', ')}) ${c.selector}`);
+      for (const sc of lead?.scripts.slice(0, 3) ?? []) console.log(`    script ${sc.url}${sc.loadedBy.length ? '' : ' (no component loads it)'}`);
+      for (const a of lead?.activity.slice(0, 4) ?? []) console.log(`    ${a}`);
+    }
+    for (const w of t.spikes.warnings) console.log(`  note: ${w}`);
+    console.log('');
+  } else {
+    console.log('Energy timeline: not measured (no power samples on this machine).\n');
   }
 
   if (anatomy) {
@@ -2334,15 +2452,11 @@ async function cmdDiagnose(args: Args): Promise<number> {
     console.log(`  Iframes          ${anatomy.iframes}`);
     console.log(`  Animated         ${anatomy.animatedElements} elements`);
     if (anatomy.lcpElement) {
-      console.log(
-        `  LCP element      ${anatomy.lcpElement.selector} at ${Math.round(anatomy.lcpElement.renderTimeMs)} ms`,
-      );
+      console.log(`  LCP element      ${anatomy.lcpElement.selector} at ${Math.round(anatomy.lcpElement.renderTimeMs)} ms`);
     }
     if (anatomy.heaviestSubtrees.length > 0) {
       console.log('\n  Heaviest subtrees');
-      for (const s of anatomy.heaviestSubtrees) {
-        console.log(`    ${s.selector.padEnd(40)} ${s.nodes.toLocaleString()} nodes`);
-      }
+      for (const s of anatomy.heaviestSubtrees) console.log(`    ${s.selector.padEnd(40)} ${s.nodes.toLocaleString()} nodes`);
     }
     console.log('');
   }
@@ -2358,7 +2472,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
         i.media?.iframes ? `${i.media.iframes} iframe(s)` : '',
         i.media?.eagerOffscreenImages ? `${i.media.eagerOffscreenImages} eager offscreen image(s)` : '',
       ].filter(Boolean);
-      const template = templates.find((t) => t.nodePath === i.nodePath);
+      const template = templates.find((x) => x.nodePath === i.nodePath);
       console.log(`  ${i.signature.slice(0, 40).padEnd(42)}${String(i.nodes).padStart(6)} nodes  ${i.selector.slice(0, 50)}`);
       if (template) console.log(`      rendered by ${template.template}`);
       if (extras.length) console.log(`      ${extras.join(', ')}`);
@@ -2369,18 +2483,10 @@ async function cmdDiagnose(args: Args): Promise<number> {
   if (twig?.enabled && twig.templates.length > 0) {
     console.log('Twig templates (Drupal)');
     console.log('  template                        renders   owns   within');
-    for (const t of twig.templates.slice(0, 10)) {
-      console.log(
-        '  ' + t.name.slice(0, 30).padEnd(32) +
-          String(t.occurrences).padStart(5) +
-          String(t.nodesExclusive).padStart(8) +
-          String(t.nodesInclusive).padStart(9),
-      );
+    for (const tt of twig.templates.slice(0, 10)) {
+      console.log('  ' + tt.name.slice(0, 30).padEnd(32) + String(tt.occurrences).padStart(5) + String(tt.nodesExclusive).padStart(8) + String(tt.nodesInclusive).padStart(9));
     }
-    console.log(
-      '\n  "owns" excludes markup produced by nested templates, so it points at the\n' +
-        '  template actually responsible. "within" includes everything inside it.',
-    );
+    console.log('\n  "owns" excludes markup produced by nested templates, so it points at the\n' + '  template actually responsible. "within" includes everything inside it.');
     console.log(`  ${twig.note}\n`);
   } else if (twig) {
     console.log(`Twig templates: not available. ${twig.note}\n`);
@@ -2401,8 +2507,121 @@ async function cmdDiagnose(args: Args): Promise<number> {
   console.log(
     '\nWhat this cannot tell you: Firefox has no per-element power counter, and the\n' +
       'profile carries no DOM node references (Mozilla bugs 789712 and 713031 remain open).\n' +
-      'These are the structures that drive browser work, not per-element energy.',
+      'Intervals say when power was high; leads say what to test. Neither is per-element energy.\n' +
+      'Test a lead with: web-energy experiment <url> --kind remove --selector <css>',
   );
+  for (const w of result.warnings) console.log(`\nwarning: ${w}`);
+  console.log(`\nWrote ${base}.{json,csv,html}${t ? `, ${base}.timeline.csv` : ''}${result.capture?.screenshot ? ` and ${base}.screenshot.png` : ''}`);
+  return 0;
+}
+
+/** Spike settings from the command line; the rest keep their documented defaults. */
+function spikeSettingsFromArgs(args: Args): Partial<SpikeSettings> {
+  const ref = one(args, 'spike-reference');
+  if (ref && !['auto', 'baseline', 'quiet', 'rolling'].includes(ref)) throw new Error(`--spike-reference takes auto, baseline, quiet or rolling, not "${ref}".`);
+  return {
+    ...(ref ? { reference: ref as SpikeSettings['reference'] } : {}),
+    ...(one(args, 'spike-k') ? { k: parseNumberFlag('--spike-k', one(args, 'spike-k')!) } : {}),
+    ...(one(args, 'spike-min-ms') ? { minDurationMs: parseIntegerFlag('--spike-min-ms', one(args, 'spike-min-ms')!) } : {}),
+    ...(one(args, 'spike-min-rise') ? { minRiseW: parseNumberFlag('--spike-min-rise', one(args, 'spike-min-rise')!) } : {}),
+  };
+}
+
+let attributionCache: { load?: ReturnType<typeof attributeEnergy>; idle?: ReturnType<typeof attributeEnergy> } | undefined;
+
+/** --timeline: the run's power samples in bins, with intervals of elevated power. No extra profiler overhead. */
+function timelineOption(args: Args): Pick<Parameters<typeof runBenchmark>[0], 'timeline'> {
+  if (!has(args, 'timeline')) return {};
+  return { timeline: { binMs: one(args, 'bin') ? parseIntegerFlag('--bin', one(args, 'bin')!) : 250, spikes: spikeSettingsFromArgs(args) } };
+}
+
+/** The timeline CSV beside the result. */
+function timelineFiles(result: BenchmarkResult): ((base: string) => Promise<void>) | undefined {
+  if (!result.timelines?.length) return undefined;
+  return async (base) => {
+    for (const [i, t] of result.timelines!.entries()) await writeFile(`${base}${i ? `.${i}` : ''}.timeline.csv`, timelineCsv(t));
+  };
+}
+
+/**
+ * A timeline from a Gecko profile on its own (one saved by diagnose
+ * --keep-profile, profile, or Firefox's own profiler): the power counters in
+ * bins, intervals of elevated power, and the profile's evidence for each.
+ * Without the run's step windows there are no phases, and no idle baseline:
+ * the reference is the profile's quietest bins.
+ */
+async function cmdTimeline(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('timeline requires a Gecko profile JSON file');
+    return 1;
+  }
+  const profile = JSON.parse(await readFile(resolve(file), 'utf8')) as unknown;
+  const selection = selectPowerUnits(collectPowerUnits(profile));
+  const t = buildTimeline(selection, [], { ...(one(args, 'bin') ? { binMs: parseIntegerFlag('--bin', one(args, 'bin')!) } : {}) });
+  if (!t) {
+    console.error('No usable power samples in this profile: no timeline, and no claim about energy. (A virtual machine records none; see web-energy doctor.)');
+    return 1;
+  }
+  const spikes = detectSpikes(t, spikeSettingsFromArgs(args));
+  const evidence = Object.fromEntries(
+    spikes.intervals.slice(0, 10).map((i) => [i.id, geckoEvidence(profile, t.originEpochMs + i.startMs, t.originEpochMs + i.endMs, { startEpochMs: t.originEpochMs, endEpochMs: t.originEpochMs + t.durationMs })]),
+  );
+  const analysis: TimelineAnalysis = { timeline: t, spikes, evidence };
+  if (has(args, 'json')) {
+    console.log(JSON.stringify(analysis, null, 2));
+  } else {
+    console.log(`Measurement: ${t.basis}`);
+    console.log(`Bins: ${t.bins.length} of ${t.binMs} ms (supported: ${t.resolution.supportedBinsMs.join(', ') || 'none of 100-1000'} ms); counters move every ${t.resolution.counterUpdateMs ?? '?'} ms`);
+    console.log(`Reference: ${spikes.reference.kind}, ${spikes.reference.powerW.toFixed(3)} W, spread ${spikes.reference.spreadW.toFixed(3)} W`);
+    if (!spikes.intervals.length) console.log('No interval of elevated power was found.');
+    for (const i of spikes.intervals.slice(0, 12)) {
+      console.log(`\n${i.id}: ${describeInterval(i)}`);
+      const e = evidence[i.id];
+      for (const a of e?.activity.filter((x) => x.kind !== 'other').slice(0, 5) ?? []) console.log(`  ${a.kind}: ${a.count} markers, ${a.ms} ms`);
+      for (const sc of e?.scripts.slice(0, 3) ?? []) console.log(`  script ${sc.url}${sc.functionName ? ` ${sc.functionName}` : ''}${sc.line !== undefined ? `:${sc.line}` : ''} (${sc.samples} samples)`);
+    }
+    for (const w of [...t.warnings, ...spikes.warnings]) console.log(`\nnote: ${w}`);
+    console.log('\nThese are intervals of measured power, not evidence that any element, script or component used that energy.');
+  }
+  if (has(args, 'write')) {
+    const stem = resolve(file).replace(/\.json$/, '');
+    await writeFile(`${stem}.timeline.json`, JSON.stringify(analysis, null, 2));
+    await writeFile(`${stem}.timeline.csv`, timelineCsv(analysis));
+    if (!has(args, 'json')) console.log(`Wrote ${stem}.timeline.json and ${stem}.timeline.csv`);
+  }
+  return 0;
+}
+
+/** The evidence record and issue draft for a stored experiment result, older ones included. */
+async function cmdFinding(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('finding requires an experiment result JSON file');
+    return 1;
+  }
+  const result = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  if (!result.experiment) {
+    console.error('This result holds no experiment. Run web-energy experiment first; diagnose results hold leads, not findings.');
+    return 1;
+  }
+  const evidenceFile = one(args, 'evidence');
+  const evidence = evidenceFile ? (JSON.parse(await readFile(resolve(evidenceFile), 'utf8')) as BenchmarkResult) : undefined;
+  const stem = resolve(file).replace(/\.json$/, '');
+  const name = stem.split(/[\\/]/).pop()!;
+  const record = buildEvidenceRecord(result, {
+    artifacts: { json: `${name}.json`, html: `${name}.html`, issueDraft: `${name}.finding.md` },
+    ...(evidence ? { evidence, evidenceFile: evidenceFile!.split(/[\\/]/).pop()! } : {}),
+  })!;
+  if (has(args, 'json')) console.log(JSON.stringify(record, null, 2));
+  else console.log(findingMarkdown(record));
+  if (has(args, 'write')) {
+    result.finding = record;
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+    await writeFile(`${stem}.finding.md`, findingMarkdown(record));
+    await writeFile(`${stem}.html`, toHtml(result));
+    console.error(`Wrote the finding into ${file}, ${stem}.finding.md, and regenerated ${stem}.html`);
+  }
   return 0;
 }
 
@@ -2497,6 +2716,8 @@ async function main(): Promise<number> {
       case 'triage': return await cmdTriage(args);
       case 'matrix': return await cmdMatrix(args);
       case 'diagnose': return await cmdDiagnose(args);
+      case 'timeline': return await cmdTimeline(args);
+      case 'finding': return await cmdFinding(args);
       case 'parse-issue': return await cmdParseIssue(args);
       case 'build-index': return await cmdBuildIndex(args);
       case 'lighthouse': return await cmdLighthouse(args);

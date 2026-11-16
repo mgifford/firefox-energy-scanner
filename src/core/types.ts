@@ -229,7 +229,7 @@ export interface SessionInfo {
   id: string;
   startedAt: string;
   endedAt?: string;
-  mode: 'measure' | 'crawl' | 'journey' | 'baseline' | 'compare' | 'profile';
+  mode: 'measure' | 'crawl' | 'journey' | 'baseline' | 'compare' | 'profile' | 'diagnose';
   /** Seed used for interleaved A/B ordering, retained for reproducibility. */
   seed?: string;
   orderings?: string[];
@@ -430,5 +430,26 @@ export interface BenchmarkResult {
   notHtml?: { url: string; contentType?: string }[];
   /** An energy experiment: baseline against one change, as a measured difference only. */
   experiment?: import('../experiments/experiment.js').ExperimentReport;
+  /**
+   * Energy timelines, when asked for (diagnose, or --timeline): the power
+   * counters in time bins, intervals of elevated power, and the leads for
+   * each. Intervals are where to look; leads are what to test. Neither is an
+   * energy figure for a component.
+   */
+  timelines?: import('../energy/spike-analysis.js').TimelineAnalysis[];
+  /**
+   * diagnose: the page as captured after its measured windows: a screenshot
+   * (a file beside the result) and how many elements each component's
+   * selector matched then. A selector that matched other than one element
+   * is ambiguous, and is not treated as verified.
+   */
+  capture?: {
+    page: string;
+    capturedAt: string;
+    selectorMatches: Record<string, number>;
+    screenshot?: { file: string; width: number; height: number };
+  };
+  /** The evidence record for a development issue, built from the experiment. */
+  finding?: import('../report/evidence-record.js').EvidenceRecord;
   warnings: string[];
 }
