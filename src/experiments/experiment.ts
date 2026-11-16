@@ -318,6 +318,8 @@ export interface StepDifference {
     /** The idle baseline subtracted, mW: median over runs, per side, and how it was found. */
     baselineMw?: [number, number];
     baselineMethod?: 'median-of-bins' | 'mean';
+    /** The idle window's mean power, mW, median over runs, per side: the burst the median ignores. */
+    baselineMeanMw?: [number, number];
   };
   verdict: Verdict;
   /** Plain words for the verdict. */
@@ -398,6 +400,9 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     const ba = runsA.map((r) => r.energy?.baselineWatts).filter((v): v is number => v !== undefined);
     const bb = runsB.map((r) => r.energy?.baselineWatts).filter((v): v is number => v !== undefined);
     const baselineMw: [number, number] | undefined = ba.length && bb.length ? [median(ba) * 1000, median(bb) * 1000] : undefined;
+    const bma = runsA.map((r) => r.energy?.baselineMeanWatts).filter((v): v is number => v !== undefined);
+    const bmb = runsB.map((r) => r.energy?.baselineMeanWatts).filter((v): v is number => v !== undefined);
+    const baselineMeanMw: [number, number] | undefined = bma.length && bmb.length ? [median(bma) * 1000, median(bmb) * 1000] : undefined;
     const method = runsA.find((r) => r.energy?.baselineMethod)?.energy?.baselineMethod ?? (baselineMw ? 'mean' : undefined);
     const inc = ja.length && jb.length ? readSeries(ja, jb) : undefined;
     const win = wa.length && wb.length ? readSeries(wa, wb) : undefined;
@@ -411,7 +416,10 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
     if (useWindow) {
       // Say how the baseline was found: a stored result measured before the
       // median rule keeps its mean, and the reader must not take it for a median.
-      const baselineName = method === 'median-of-bins' ? 'the median of the idle window’s bins' : 'the idle window’s mean power';
+      const baselineName =
+        method === 'median-of-bins'
+          ? `the median of the idle window’s bins${baselineMeanMw ? ` (the window’s mean is ${baselineMeanMw[0].toFixed(1)} mW)` : ''}`
+          : 'the idle window’s mean power';
       reading =
         `On window energy, with no baseline subtracted: ${reading} ` +
         `(The idle baseline subtracted${baselineMw ? `, ${baselineMw[0].toFixed(1)} mW on the baseline side` : ''}, was ${baselineName}; it was more than this step drew, so incremental energy could not be read.)` +
@@ -429,6 +437,7 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
         ...(win ? { window: { medianMwh: [win.sumA.median, win.sumB.median] as [number, number], iqrMwh: [win.sumA.iqr, win.sumB.iqr] as [number, number], differenceMwh: win.diff, verdict: win.verdict } } : {}),
         ...(baselineMw ? { baselineMw } : {}),
         ...(method ? { baselineMethod: method } : {}),
+        ...(baselineMeanMw ? { baselineMeanMw } : {}),
       },
       verdict: r.verdict,
       reading: `${control}${r.cmp.sufficientSamples ? reading : `${reading} Indicative: fewer than 10 runs per side.`}`,

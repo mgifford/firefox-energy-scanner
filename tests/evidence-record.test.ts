@@ -102,12 +102,13 @@ describe('the evidence record', () => {
   it('says which baseline a stored result used', () => {
     const r = result(side(false, 10), side(true, 10));
     const idle = r.experiment!.differences.find((d) => d.step === 'idle')!;
-    idle.energy = { ...idle.energy!, basis: 'window', baselineMw: [93, 92], baselineMethod: 'mean' };
+    idle.energy = { ...idle.energy!, basis: 'incremental', baselineMw: [93, 92], baselineMethod: 'median-of-bins', baselineMeanMw: [120, 118] };
     const rec = buildEvidenceRecord(r)!;
-    expect(rec.outcome.steps.find((s) => s.step === 'idle')!.baselineMethod).toBe('mean');
+    expect(rec.outcome.steps.find((s) => s.step === 'idle')!).toMatchObject({ baselineMethod: 'median-of-bins', baselineMeanMw: [120, 118] });
     const md = findingMarkdown(rec);
-    expect(md).toContain('(mean baseline)');
-    expect(md).toContain('idle window’s mean power');
+    expect(md).toContain('(median baseline)');
+    expect(md).toContain('median of the idle window’s bins');
+    expect(md).toContain('the window’s mean was 120.0 / 118.0 mW');
   });
 
   it('a reduction from non-equivalent sides is indicative, and says why', () => {

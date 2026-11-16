@@ -47,6 +47,8 @@ export interface FindingStep {
   baselineMw?: [number, number];
   /** How the baseline was found. Absent in results made before it was recorded: mean. */
   baselineMethod?: 'median-of-bins' | 'mean';
+  /** The idle window's mean power, mW, median per side: the burst a median ignores. */
+  baselineMeanMw?: [number, number];
   /** Median and IQR per side, mWh; absent when energy was not measured. */
   baseline?: { medianMwh: number; iqrMwh: number };
   variant?: { medianMwh: number; iqrMwh: number };
@@ -147,6 +149,7 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
     ...(d.energy?.basis ? { basis: d.energy.basis } : {}),
     ...(d.energy?.baselineMw ? { baselineMw: d.energy.baselineMw } : {}),
     ...(d.energy?.baselineMethod ? { baselineMethod: d.energy.baselineMethod } : {}),
+    ...(d.energy?.baselineMeanMw ? { baselineMeanMw: d.energy.baselineMeanMw } : {}),
     ...(d.energy ? { baseline: { medianMwh: d.energy.medianMwh[0], iqrMwh: d.energy.iqrMwh[0] }, variant: { medianMwh: d.energy.medianMwh[1], iqrMwh: d.energy.iqrMwh[1] }, differenceMwh: d.energy.differenceMwh, ...(d.energy.percent !== undefined ? { percent: d.energy.percent } : {}) } : {}),
     durationMs: d.durationMs,
     ...(d.transferBytes ? { transferBytes: d.transferBytes } : {}),
@@ -400,7 +403,11 @@ export function findingMarkdown(r: EvidenceRecord): string {
     lines.push('');
     for (const s of r.outcome.steps) {
       const method = s.baselineMethod === 'median-of-bins' ? 'median of the idle window’s bins' : 'the idle window’s mean power';
-      lines.push(`- ${md(s.step)}: ${md(s.reading)}${s.baselineMw ? ` Idle baseline subtracted: ${s.baselineMw[0].toFixed(1)} / ${s.baselineMw[1].toFixed(1)} mW (${method}).` : ''}`);
+      const mean =
+        s.baselineMethod === 'median-of-bins' && s.baselineMeanMw
+          ? `; the window’s mean was ${s.baselineMeanMw[0].toFixed(1)} / ${s.baselineMeanMw[1].toFixed(1)} mW`
+          : '';
+      lines.push(`- ${md(s.step)}: ${md(s.reading)}${s.baselineMw ? ` Idle baseline subtracted: ${s.baselineMw[0].toFixed(1)} / ${s.baselineMw[1].toFixed(1)} mW (${method}${mean}).` : ''}`);
     }
     lines.push('');
   }

@@ -81,6 +81,8 @@ export interface EnergyWithBaseline {
   baselineWatts?: number;
   /** How the baseline was found (see Baseline.method). Absent in older results: mean. */
   baselineMethod?: 'median-of-bins' | 'mean';
+  /** The idle window's mean power, W, kept beside a median so a burst in it stays visible. */
+  baselineMeanWatts?: number;
   estimatedIdleJoules?: number;
   incrementalJoules?: number;
   /** True when incremental energy came out negative (measurement noise). */

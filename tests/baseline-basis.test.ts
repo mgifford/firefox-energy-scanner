@@ -39,6 +39,7 @@ describe('the idle baseline', () => {
     expect(applyBaseline(page, b).incrementalJoules!).toBeGreaterThan(0);
     expect(applyBaseline(page, deriveBaseline(raw)).incrementalJoules!).toBeLessThan(0);
     expect(applyBaseline(page, b).baselineMethod).toBe('median-of-bins');
+    expect(applyBaseline(page, b).baselineMeanWatts).toBeCloseTo(0.15085, 5);
   });
 
   it('is not given from too few bins', () => {
@@ -54,6 +55,7 @@ describe('the basis of a comparison', () => {
       raw: { durationMs: ms, totalJoules: rawMwh * 3.6, measurementScope: 'process', measurementType: 'hardware-estimate', attribution: 'time-window', adapterId: 'x', sampleCount: 1000 },
       baselineWatts: baselineMw / 1000,
       baselineMethod: 'mean',
+      baselineMeanWatts: baselineMw / 1000,
       incrementalJoules: rawMwh * 3.6 - (baselineMw / 1000) * (ms / 1000),
     },
   });
@@ -80,7 +82,9 @@ describe('the basis of a comparison', () => {
     const median = (r: StepResult): StepResult => ({ ...r, energy: { ...r.energy!, baselineMethod: 'median-of-bins' as const } });
     const [med] = summarizeExperiment(a.map(median), b.map(median));
     expect(med!.energy!.baselineMethod).toBe('median-of-bins');
+    expect(med!.energy!.baselineMeanMw![0]).toBeGreaterThan(99);
     expect(med!.reading).toMatch(/median of the idle window’s bins/);
+    expect(med!.reading).toMatch(/the window’s mean is/);
   });
 
   it('keeps incremental energy when it can be read, with window energy beside it', () => {

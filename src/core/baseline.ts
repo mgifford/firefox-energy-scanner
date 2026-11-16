@@ -64,6 +64,7 @@ export function applyBaseline(
     raw,
     baselineWatts: baseline.watts,
     ...(baseline.method ? { baselineMethod: baseline.method } : {}),
+    ...(baseline.meanWatts !== undefined ? { baselineMeanWatts: baseline.meanWatts } : {}),
     estimatedIdleJoules,
     incrementalJoules,
     ...(incrementalJoules < 0 ? { negativeIncremental: true } : {}),
