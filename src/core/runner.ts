@@ -19,6 +19,7 @@ import { describeBlocked, describeStepFailure } from './failures.js';
 import { buildTimeline } from '../energy/timeline.js';
 import { detectSpikes, type SpikeSettings } from '../energy/spikes.js';
 import { geckoEvidence } from '../energy/gecko-evidence.js';
+import { energyByProcess } from '../energy/gecko-profile.js';
 import type { TimelineAnalysis } from '../energy/spike-analysis.js';
 
 export interface StepRecord {
@@ -371,7 +372,14 @@ function analyseTimeline(
           ]),
         )
       : undefined;
-  return { timeline: t, spikes, ...(evidence ? { evidence } : {}) };
+  // Per process, on per-process counters: a measurement, since each process has its own counter.
+  const processEnergy = Object.fromEntries(
+    spikes.intervals
+      .slice(0, 10)
+      .map((i) => [i.id, energyByProcess(selection, t.originEpochMs + i.startMs, t.originEpochMs + i.endMs)] as const)
+      .filter(([, v]) => v.length > 0),
+  );
+  return { timeline: t, spikes, ...(evidence ? { evidence } : {}), ...(Object.keys(processEnergy).length ? { processEnergy } : {}) };
 }
 
 /**

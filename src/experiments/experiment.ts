@@ -136,6 +136,11 @@ export interface SideState {
   snapshots?: { originalBytes: number; servedBytes: number }[];
 }
 
+/** Thrown from a run whose removal was refused; the experiment stops and reports it. */
+export class RemovalRefused extends Error {
+  override name = 'RemovalRefused';
+}
+
 export const emptySide = (): SideState => ({ counts: emptyCounts(), probes: [], assertionFailures: [], runs: 0, removals: [], removalProbes: [], activity: [] });
 
 async function checkAssertions(page: Page, assertions: Assertion[]): Promise<string[]> {
@@ -172,6 +177,7 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
         const snap = await installPreloadRemoval(args.context, args.page, spec.url, variant.selector!, apply, variant.maxMatches ?? DEFAULT_MAX_MATCHES, state.counts);
         (state.removals ??= []).push(snap.checkpoint);
         (state.snapshots ??= []).push({ originalBytes: snap.originalBytes, servedBytes: snap.bytes });
+        if (snap.checkpoint.refused) throw new RemovalRefused(snap.checkpoint.refusedDetail ?? snap.checkpoint.refused);
       }
     },
     async run(args) {
@@ -186,6 +192,8 @@ export function sideJourney(spec: ExperimentSpec, inner: JourneyDefinition | und
         const at = Date.now();
         const cp = await checkpoint(args.page, variant.selector!, apply, variant.maxMatches ?? DEFAULT_MAX_MATCHES);
         (state.removals ??= []).push(cp);
+        // Refused here means refused on every run: end this one now rather than measure an unchanged page.
+        if (cp.refused) throw new RemovalRefused(cp.refusedDetail ?? cp.refused);
         // The same settle on both sides, so neither measures the removal's own aftermath.
         if (spec.settle_ms > 0) await args.page.waitForTimeout(spec.settle_ms);
         await args.measure('idle', async () => {

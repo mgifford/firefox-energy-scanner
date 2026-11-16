@@ -82,14 +82,36 @@ Where this was built, Playwright's Firefox could not be downloaded, so the brows
 ran in Chromium (`WEB_ENERGY_TEST_ENGINE=chromium`, a test-only seam that refuses energy
 and marks every result). CI runs them in Firefox.
 
+### First run on hardware (Apple M2, Firefox 153, 16 November 2026)
+
+`doctor` confirmed per-process energy (417 power samples in 1.5 s). `diagnose` on
+example.org produced a timeline (163 bins of 250 ms, a 4 mW idle-baseline reference) and
+three intervals. It also showed four defects, now fixed:
+
+- marker durations were summed across overlapping markers and threads (436 s of "script"
+  in a 1.25 s interval): now the covered time;
+- Firefox's own work (remote settings, its modules, a system add-on update check to
+  `aus5.mozilla.org`) was reported as if it were the page's: markers and scripts now carry
+  their process, requests that are not the page's are listed apart, and each interval
+  gives its energy by process;
+- the warm-up run's load ranked first, unlabelled: warm-up intervals are now labelled and
+  ranked after the measured run's;
+- the page's inline script, and a `[10]` suffix on a script location, were not
+  recognised.
+
+The suggested experiment then failed on a placeholder `--evidence` path (and its selector
+does not exist on example.org). `--evidence` is now read before anything runs, a refused
+removal ends the run at its first checkpoint, and `diagnose` prints a runnable command with
+its real result file.
+
 Still to do on a physical machine that measures energy (an Apple Silicon Mac is simplest):
 
 1. `npm run energy-check`, to confirm the machine measures energy.
 2. `web-energy diagnose` on the fixture site's `/articles/d` and `/lab/ticker`, and on a
    real page: check the timeline's bins add up to the step totals, the resolution the
    counters report, that intervals fall in the idle window where the loops run, and that
-   the profile's markers and stacks are read (the Gecko marker and stack formats were
-   checked against Firefox's documented raw format and synthetic data, not a real profile).
+   the profile's processes are read correctly (`web-energy timeline <profile> --describe`;
+   process names and types were checked against synthetic data, not yet a real profile).
 3. `web-energy experiment … --kind remove` on `/lab/ticker` and `/lab/polite`, 10 runs or
    more: whether the idle difference resolves, and whether it is smaller for the ticker,
    whose timer keeps running, than for the polite ticker, whose timer stops.

@@ -132,12 +132,24 @@ export const spikeReportSchema = z
 const leadClass = z.enum(['observed-window', 'profiler-correlation', 'resource-association', 'cross-run-trace', 'direct-node', 'inferred', 'unattributed']);
 const leadEvidence = z.object({ class: leadClass, source: z.enum(['same-run-gecko', 'chromium-trace', 'firefox-dom', 'component-graph', 'lighthouse']), detail: z.string() }).strict();
 
+const processRole = z.enum(['browser', 'page', 'gpu', 'other', 'unknown']);
+
 const geckoSchema = z
   .object({
     source: z.literal('same-run-gecko'),
     available: z.object({ markers: z.boolean(), stacks: z.boolean(), cpuTime: z.boolean() }).strict(),
-    activity: z.array(z.object({ kind: z.string(), count: z.number().int().min(0), ms: z.number().min(0), names: z.array(z.string()) }).strict()),
-    scripts: z.array(z.object({ url: z.string(), functionName: z.string().optional(), line: z.number().optional(), samples: z.number().int().min(1) }).strict()),
+    activity: z.array(
+      z
+        .object({
+          kind: z.string(),
+          process: processRole.optional(),
+          count: z.number().int().min(0),
+          ms: z.number().min(0).describe('Time within the interval covered by at least one such marker: overlaps counted once.'),
+          names: z.array(z.string()),
+        })
+        .strict(),
+    ),
+    scripts: z.array(z.object({ url: z.string(), functionName: z.string().optional(), line: z.number().optional(), samples: z.number().int().min(1), process: processRole.optional() }).strict()),
     requests: z.array(z.object({ url: z.string(), count: z.number().int().min(1) }).strict()),
     domEvents: z.array(z.object({ type: z.string(), count: z.number().int().min(1) }).strict()),
     categories: z.array(z.object({ category: z.string(), cpuMs: z.number(), share: z.number().min(0).max(1), sessionShare: z.number().min(0).max(1).optional() }).strict()),
@@ -174,6 +186,7 @@ const leadSchema = z
       z
         .object({
           url: z.string(),
+          inline: z.boolean().optional(),
           resource: z.string().optional(),
           loadedBy: z.array(z.string()),
           functions: z.array(z.object({ name: z.string().optional(), line: z.number().optional(), samples: z.number().int().min(0) }).strict()),
@@ -194,8 +207,13 @@ export const timelineAnalysisSchema = z
     leads: z.record(z.string(), leadSchema).optional(),
     page: z.string().optional(),
     selectorMatches: z.record(z.string(), z.number().int()).optional(),
+    processEnergy: z
+      .record(z.string(), z.array(z.object({ role: processRole, energyJ: z.number().min(0), counters: z.number().int().min(1) }).strict()))
+      .optional()
+      .describe('Per interval: energy read by each kind of Firefox process. Measured per process (Apple Silicon), never apportioned.'),
   })
-  .strict();
+  .strict()
+  .refine((a) => !a.processEnergy || Object.keys(a.processEnergy).length === 0 || a.timeline.scope === 'process', { message: 'energy by process exists only for per-process counters' });
 
 const mwhPair = z.object({ medianMwh: z.number(), iqrMwh: z.number().min(0) }).strict();
 const findingStep = z

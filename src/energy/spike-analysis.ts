@@ -77,6 +77,8 @@ export interface ComponentLead {
 
 export interface ScriptLead {
   url: string;
+  /** The page's own document: an inline script, or an event handler in its HTML. */
+  inline?: boolean;
   /** The graph resource, when Firefox recorded the file on this page. */
   resource?: string;
   /** Components that load it; empty for a script loaded from the head or by another script. */
@@ -108,6 +110,12 @@ export interface TimelineAnalysis {
   page?: string;
   /** Per selector, how many elements matched when the page was captured. */
   selectorMatches?: Record<string, number>;
+  /**
+   * Per interval id: energy read by each kind of Firefox process (page, browser,
+   * gpu, other). Measured, since each process has its own counter; only on
+   * per-process counters (Apple Silicon), never apportioned.
+   */
+  processEnergy?: Record<string, { role: string; energyJ: number; counters: number }[]>;
 }
 
 const IDLE_TRACE = new Set(['trace:continuous-animation-frames', 'trace:repeating-timer', 'trace:running-animation', 'trace:iframe-idle-work', 'trace:idle-main-thread-work', 'trace:idle-request']);
@@ -117,10 +125,18 @@ const IDLE_DOM = new Set(['endless-animation', 'autoplay-video', 'iframe']);
 const fmtW = (w: number) => (w >= 1 ? `${w.toFixed(2)} W` : `${(w * 1000).toFixed(0)} mW`);
 const fmtJ = (j: number) => (j >= 1 ? `${j.toFixed(2)} J` : `${(j * 1000).toFixed(1)} mJ`);
 
+export const PROCESS_LABEL: Record<string, string> = {
+  page: 'the page (web content)',
+  browser: 'Firefox itself (parent process)',
+  gpu: 'GPU process',
+  other: 'other Firefox processes',
+  unknown: 'an undescribed process',
+};
+
 export function describeInterval(i: SpikeInterval): string {
   return (
     `${(i.durationMs / 1000).toFixed(2)} s (${i.shape === 'sustained' ? 'sustained' : 'a brief peak'}) from ${(i.startMs / 1000).toFixed(2)} s, ` +
-    `during ${i.phases.join(', ')}: up to ${fmtW(i.peakPowerW)}${i.peakAtMs !== undefined ? ` (at ${(i.peakAtMs / 1000).toFixed(2)} s)` : ''}, ${fmtW(i.meanPowerW)} on average, against a reference of ${fmtW(i.referenceW)}; ` +
+    `during ${i.phases.join(', ')}${i.flags.includes('warmup') ? ' of the warm-up run' : ''}: up to ${fmtW(i.peakPowerW)}${i.peakAtMs !== undefined ? ` (at ${(i.peakAtMs / 1000).toFixed(2)} s)` : ''}, ${fmtW(i.meanPowerW)} on average, against a reference of ${fmtW(i.referenceW)}; ` +
     `${fmtJ(i.energyJ)} measured in it, ${fmtJ(i.excessEnergyJ)} above the reference.`
   );
 }
@@ -175,7 +191,20 @@ export function linkSpikes(result: BenchmarkResult, analysis: TimelineAnalysis, 
     const onPage = (ids: string[]) => ids.filter((id) => instances.get(id)?.page === pid);
 
     // Same run: scripts on the stack and requests on the network during the interval.
+    const sansHash = (u: string) => u.replace(/#.*$/, '');
     for (const s of ev?.scripts ?? []) {
+      // Firefox's own processes do not run the page's scripts: an http(s) script there is not the page's.
+      if (s.process && s.process !== 'page' && s.process !== 'unknown') {
+        unattributed.push({ what: s.url, reason: `On the stack in Firefox’s ${s.process} process, not the page’s.` });
+        continue;
+      }
+      if (sansHash(s.url) === sansHash(pageUrl)) {
+        // The document itself: an inline script or an event handler attribute. No component owns it.
+        const lead: ScriptLead = scripts.get('inline') ?? { url: s.url, inline: true, loadedBy: [], functions: [], evidence: [{ class: 'profiler-correlation', source: 'same-run-gecko', detail: 'Inline script in the page’s HTML, on the stack during the interval.' }] };
+        lead.functions.push({ ...(s.functionName ? { name: s.functionName } : {}), ...(s.line !== undefined ? { line: s.line } : {}), samples: s.samples });
+        scripts.set('inline', lead);
+        continue;
+      }
       const r = resourceFor(s.url);
       // One lead per resource: the same script named by the profile and by the trace is one script.
       const k = r?.id ?? s.url;
@@ -189,11 +218,21 @@ export function linkSpikes(result: BenchmarkResult, analysis: TimelineAnalysis, 
         addComp(c, { class: 'resource-association', source: 'component-graph', detail: `It loads ${s.url.split('/').pop()}.` });
       }
     }
+    const notThePage: string[] = [];
     for (const q of ev?.requests ?? []) {
       const r = byKey.get(resourceIdentity(q.url));
-      for (const c of r && pageResources.has(r.id) ? onPage(r.loadedBy) : []) {
+      const mine = !!r && pageResources.has(r.id);
+      if (!mine && graph && sansHash(q.url) !== sansHash(pageUrl)) notThePage.push(q.url);
+      for (const c of mine ? onPage(r!.loadedBy) : []) {
         addComp(c, { class: 'profiler-correlation', source: 'same-run-gecko', detail: `A request it makes (${q.url.split('/').pop()}) was on the network during the interval.` });
       }
+    }
+    const hostsOf = (urls: string[]) => [...new Set(urls.map((u) => { try { return new URL(u).host; } catch { return u.slice(0, 60); } }))];
+    if (notThePage.length) {
+      unattributed.push({
+        what: `Requests that are not the page’s: ${hostsOf(notThePage).slice(0, 5).join(', ')}`,
+        reason: 'Not among the resources Firefox recorded for this page: Firefox’s own background requests (updates, remote settings, telemetry), or another document’s.',
+      });
     }
 
     // Another run, another browser: the trace's findings for the same phase of the same page.
@@ -252,7 +291,12 @@ export function linkSpikes(result: BenchmarkResult, analysis: TimelineAnalysis, 
 
     const activity = (ev?.activity ?? [])
       .filter((a) => a.kind !== 'other')
-      .map((a) => `${a.kind.replace(/-/g, ' ')}: ${a.count} marker${a.count === 1 ? '' : 's'}${a.ms ? `, ${a.ms} ms` : ''}${a.names.length ? ` (${a.names.slice(0, 3).join(', ')})` : ''}`);
+      .map((a) => `${a.process ? `${PROCESS_LABEL[a.process] ?? a.process}: ` : ''}${a.kind.replace(/-/g, ' ')}, ${a.count} marker${a.count === 1 ? '' : 's'} covering ${a.ms} ms${a.names.length ? ` (${a.names.slice(0, 3).join(', ')})` : ''}`);
+    const browserWork = (ev?.activity ?? []).filter((a) => a.process === 'browser' && ['script', 'network', 'dom-event'].includes(a.kind) && a.ms > 0);
+    const split = analysis.processEnergy?.[i.id];
+    const splitText = split?.length
+      ? ` By process (each has its own counter): ${split.map((p) => `${PROCESS_LABEL[p.role as keyof typeof PROCESS_LABEL] ?? p.role} ${fmtJ(p.energyJ)}`).join(', ')}.`
+      : '';
     if (ev?.activity.some((a) => ['style', 'layout', 'paint', 'composite', 'garbage-collection'].includes(a.kind))) {
       unattributed.push({ what: 'Style, layout, paint and garbage collection', reason: 'Firefox’s markers for this work do not name the elements or scripts that caused it.' });
     }
@@ -261,7 +305,7 @@ export function linkSpikes(result: BenchmarkResult, analysis: TimelineAnalysis, 
 
     out[i.id] = {
       spike: i.id,
-      observed: describeInterval(i),
+      observed: `${describeInterval(i)}${splitText}`,
       activity,
       components: components.slice(0, 12),
       scripts: [...scripts.values()].slice(0, 12),
@@ -271,6 +315,10 @@ export function linkSpikes(result: BenchmarkResult, analysis: TimelineAnalysis, 
         ...(hasTrace ? ['Chromium trace evidence comes from a separate run in another browser, matched by page and phase (load or idle), never by time.'] : []),
         ...(i.flags.includes('machine-wide-scope') ? ['These counters cover the whole machine: work in other processes shows in the interval too.'] : []),
         ...(i.flags.includes('outside-measured-steps') ? ['Part of the interval falls between measured steps (setup, a checkpoint, settling).'] : []),
+        ...(i.flags.includes('warmup') ? ['This interval is in a warm-up run, with a colder cache than the measured run: compare it with the measured run’s intervals before acting on it.'] : []),
+        ...(browserWork.length || notThePage.length
+          ? [`Firefox’s own work ran during this interval (${[...browserWork.map((a) => `${a.kind.replace(/-/g, ' ')} in the parent process`), ...(notThePage.length ? [`requests to ${hostsOf(notThePage).slice(0, 3).join(', ')}`] : [])].join('; ')}): part of its energy may be the browser’s, not the page’s.`]
+          : []),
       ],
     };
   }

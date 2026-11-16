@@ -18,6 +18,7 @@
  */
 
 import { attributeCpuTime } from './attribution.js';
+import { processRole, type ProcessRole } from './gecko-profile.js';
 
 export type ActivityKind =
   | 'garbage-collection'
@@ -37,10 +38,17 @@ export type ActivityKind =
 export interface GeckoEvidence {
   source: 'same-run-gecko';
   available: { markers: boolean; stacks: boolean; cpuTime: boolean };
-  /** Markers that overlap the interval, by kind of activity. */
-  activity: { kind: ActivityKind; count: number; ms: number; names: string[] }[];
+  /**
+   * Markers that overlap the interval, by kind of activity and the kind of
+   * process they were recorded in (page: web content; browser: Firefox's
+   * parent process; gpu; other). `ms` is the time within the interval that
+   * at least one such marker covered: overlapping and nested markers, and the
+   * same work on several threads, are counted once, so it never exceeds the
+   * interval. Absent `process` in results made before it was recorded.
+   */
+  activity: { kind: ActivityKind; process?: ProcessRole; count: number; ms: number; names: string[] }[];
   /** Scripts on the stack in samples taken during the interval, by URL and function. */
-  scripts: { url: string; functionName?: string; line?: number; samples: number }[];
+  scripts: { url: string; functionName?: string; line?: number; samples: number; process?: ProcessRole }[];
   /** Network markers during the interval. */
   requests: { url: string; count: number }[];
   domEvents: { type: string; count: number }[];
@@ -57,6 +65,7 @@ interface Table {
 interface Thread {
   name?: string;
   processType?: string;
+  processName?: string;
   markers?: Table;
   samples?: Table;
   stackTable?: Table;
@@ -103,9 +112,14 @@ export function activityKind(name: string, type?: string, category?: string): Ac
   return 'other';
 }
 
-/** A JS frame's location: "fn (https://host/a.js:12:3)", or a bare URL with line and column. */
+/**
+ * A JS frame's location: "fn (https://host/a.js:12:3)", or a bare URL with
+ * line and column. A trailing bracketed tag, as Firefox appends to some
+ * frames ("https://host/s.js[10]"), is not part of the URL.
+ */
 export function parseJsLocation(location: string): { url: string; functionName?: string; line?: number } | undefined {
-  const m = /^(?:(.*?) )?\(?((?:https?|file|moz-extension):\/\/[^\s)]+?)(?::(\d+))?(?::(\d+))?\)?$/.exec(location.trim());
+  const text = location.trim().replace(/(\[[^\]]*\])+$/, '').trim();
+  const m = /^(?:(.*?) )?\(?((?:https?|file|moz-extension):\/\/[^\s)[\]]+?)(?::(\d+))?(?::(\d+))?\)?$/.exec(text);
   if (!m) return undefined;
   const fn = m[1]?.trim();
   return { url: m[2]!, ...(fn ? { functionName: fn } : {}), ...(m[3] ? { line: Number(m[3]) } : {}) };
@@ -115,14 +129,28 @@ function strings(thread: Thread, root: Node): string[] {
   return thread.stringTable ?? thread.stringArray ?? root.shared?.stringArray ?? [];
 }
 
-function visit(root: Node, fn: (thread: Thread, origin: number, categories: string[]) => void): void {
+function visit(root: Node, fn: (thread: Thread, origin: number, categories: string[], role: ProcessRole) => void): void {
   const categories = (root.meta?.categories ?? []).map((c) => c.name);
-  const walk = (node: Node | undefined) => {
+  const walk = (node: Node | undefined, isRoot: boolean) => {
     if (!node?.meta) return;
-    for (const t of node.threads ?? []) fn(t, node.meta.startTime, categories);
-    for (const p of node.processes ?? []) walk(p);
+    const role = processRole(node, isRoot);
+    for (const t of node.threads ?? []) fn(t, node.meta.startTime, categories, role);
+    for (const p of node.processes ?? []) walk(p, false);
   };
-  walk(root);
+  walk(root, true);
+}
+
+/** Total length of a set of intervals, overlaps counted once. */
+export function coveredMs(spans: [number, number][]): number {
+  const sorted = spans.filter(([a, z]) => z > a).sort((x, y) => x[0] - y[0]);
+  let total = 0;
+  let end = -Infinity;
+  for (const [a, z] of sorted) {
+    if (z <= end) continue;
+    total += z - Math.max(a, end);
+    end = z;
+  }
+  return total;
 }
 
 const top = <T>(m: Map<string, T>, key: (x: T) => number, n: number) => [...m.values()].sort((a, b) => key(b) - key(a)).slice(0, n);
@@ -134,14 +162,14 @@ const top = <T>(m: Map<string, T>, key: (x: T) => number, n: number) => [...m.va
  */
 export function geckoEvidence(profile: unknown, startEpochMs: number, endEpochMs: number, session?: { startEpochMs: number; endEpochMs: number }): GeckoEvidence {
   const root = (profile ?? {}) as Node;
-  const activity = new Map<ActivityKind, { kind: ActivityKind; count: number; ms: number; names: Set<string> }>();
-  const scripts = new Map<string, { url: string; functionName?: string; line?: number; samples: number }>();
+  const activity = new Map<string, { kind: ActivityKind; process: ProcessRole; count: number; spans: [number, number][]; names: Set<string> }>();
+  const scripts = new Map<string, { url: string; functionName?: string; line?: number; samples: number; process: ProcessRole }>();
   const requests = new Map<string, { url: string; count: number }>();
   const events = new Map<string, { type: string; count: number }>();
   let sawMarkers = false;
   let sawJsFrames = false;
 
-  visit(root, (thread, origin, categories) => {
+  visit(root, (thread, origin, categories, role) => {
     const str = strings(thread, root);
     const rs = startEpochMs - origin;
     const re = endEpochMs - origin;
@@ -166,11 +194,13 @@ export function geckoEvidence(profile: unknown, startEpochMs: number, endEpochMs
         const type = typeof data?.['type'] === 'string' ? (data['type'] as string) : undefined;
         const cat = iCat !== undefined && typeof row[iCat] === 'number' ? categories[row[iCat] as number] : undefined;
         const kind = activityKind(name, type, cat);
-        const x = activity.get(kind) ?? { kind, count: 0, ms: 0, names: new Set<string>() };
+        const key = `${kind}|${role}`;
+        const x = activity.get(key) ?? { kind, process: role, count: 0, spans: [], names: new Set<string>() };
         x.count++;
-        x.ms += Math.max(0, Math.min(z, re) - Math.max(a, rs));
+        // On the shared epoch clock, clipped to the interval: covered time, not summed durations.
+        x.spans.push([Math.max(a, rs) + origin, Math.min(z, re) + origin]);
         if (x.names.size < 6 && name) x.names.add(name);
-        activity.set(kind, x);
+        activity.set(key, x);
         if (kind === 'network') {
           const uri = typeof data?.['URI'] === 'string' ? (data['URI'] as string) : /^Load \d+: (.*)$/.exec(name)?.[1];
           if (uri) {
@@ -229,8 +259,8 @@ export function geckoEvidence(profile: unknown, startEpochMs: number, endEpochMs
       const js = jsAt(stack);
       if (!js) continue;
       sawJsFrames = true;
-      const key = `${js.url}|${js.functionName ?? ''}|${js.line ?? ''}`;
-      const x = scripts.get(key) ?? { ...js, samples: 0 };
+      const key = `${js.url}|${js.functionName ?? ''}|${js.line ?? ''}|${role}`;
+      const x = scripts.get(key) ?? { ...js, samples: 0, process: role };
       x.samples++;
       scripts.set(key, x);
     }
@@ -255,7 +285,10 @@ export function geckoEvidence(profile: unknown, startEpochMs: number, endEpochMs
   return {
     source: 'same-run-gecko',
     available: { markers: sawMarkers, stacks: sawJsFrames, cpuTime: cpu.sampleCount > 0 && cpu.basis === 'cpu-time' },
-    activity: top(activity, (x) => x.ms + x.count, 12).map((x) => ({ kind: x.kind, count: x.count, ms: Math.round(x.ms * 10) / 10, names: [...x.names] })),
+    activity: [...activity.values()]
+      .map((x) => ({ kind: x.kind, process: x.process, count: x.count, ms: Math.round(coveredMs(x.spans) * 10) / 10, names: [...x.names] }))
+      .sort((a, b) => b.ms - a.ms || b.count - a.count)
+      .slice(0, 16),
     scripts: top(scripts, (x) => x.samples, 10),
     requests: top(requests, (x) => x.count, 20),
     domEvents: top(events, (x) => x.count, 10),
@@ -263,4 +296,47 @@ export function geckoEvidence(profile: unknown, startEpochMs: number, endEpochMs
     ...(cpu.sampleCount > 0 ? { categoryBasis: cpu.basis } : {}),
     notes,
   };
+}
+
+/**
+ * What a profile holds, process by process: how each is read (its role),
+ * its name and type as the profile records them, its power counters, threads
+ * and markers, and a few script locations. For checking the reading against a
+ * real profile; it reports structure, never energy.
+ */
+export function describeProfile(profile: unknown): {
+  version?: unknown;
+  processes: { role: ProcessRole; processName?: string; processType?: string; metaProcessType?: unknown; counters: string[]; threads: number; markers: number; scriptLocations: string[] }[];
+} {
+  const root = (profile ?? {}) as Node & { meta?: { version?: unknown; processType?: unknown }; counters?: { name?: string }[] };
+  const out: ReturnType<typeof describeProfile>['processes'] = [];
+  const walk = (node: (Node & { counters?: { name?: string }[]; meta?: { processType?: unknown } }) | undefined, isRoot: boolean) => {
+    if (!node?.meta) return;
+    const threads = node.threads ?? [];
+    const main = threads.find((t) => t.name === 'GeckoMain') ?? threads[0];
+    const locations = new Set<string>();
+    for (const t of threads) {
+      const str = strings(t, root);
+      const iLoc = t.frameTable?.schema['location'];
+      if (iLoc === undefined) continue;
+      for (const row of t.frameTable!.data) {
+        const loc = row[iLoc];
+        const text = typeof loc === 'number' ? str[loc] : typeof loc === 'string' ? loc : undefined;
+        if (text && /:\/\//.test(text) && locations.size < 5) locations.add(text.slice(0, 160));
+      }
+    }
+    out.push({
+      role: processRole(node as Parameters<typeof processRole>[0], isRoot),
+      ...(main?.processName ? { processName: main.processName } : {}),
+      ...(main?.processType ? { processType: main.processType } : {}),
+      ...(node.meta.processType !== undefined ? { metaProcessType: node.meta.processType } : {}),
+      counters: (node.counters ?? []).map((c) => c.name ?? '?'),
+      threads: threads.length,
+      markers: threads.reduce((n, t) => n + (t.markers?.data?.length ?? 0), 0),
+      scriptLocations: [...locations],
+    });
+    for (const p of node.processes ?? []) walk(p as typeof node, false);
+  };
+  walk(root, true);
+  return { version: root.meta?.version, processes: out };
 }

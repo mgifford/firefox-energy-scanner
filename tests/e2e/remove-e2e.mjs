@@ -94,7 +94,7 @@ try {
 
   const broad = await experiment('/big-list', 'li');
   check(broad.status === 2 && /Removal refused/.test(broad.x?.applied.note ?? ''), `a selector matching 2,008 elements is refused (${broad.x?.applied.note})`);
-  check((broad.result?.scenarios ?? []).filter((s) => s.scenario === 'variant').length <= 2 && broad.result?.warnings.some((w) => /Stopped after run/.test(w)), 'the experiment stopped after the refused run');
+  check((broad.result?.scenarios ?? []).filter((s) => s.scenario === 'variant').length <= 2 && broad.result?.warnings.some((w) => /Stopped (after|at) run/.test(w)), 'the experiment stopped after the refused run');
 
   const table = await experiment('/table', '[data-component-id="data-table"]', ['--assert-text', 'Sort by value']);
   check(table.x?.assertions.variant.length > 0 && table.x?.assertions.baseline.length === 0, `the variant failed the sort-button check the baseline passed (${JSON.stringify(table.x?.assertions)})`);

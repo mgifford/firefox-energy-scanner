@@ -106,8 +106,9 @@ Method `robust-threshold-v1` (`src/energy/spikes.ts`), recorded with every resul
    each differs. Intervals shorter than two bins are dropped (`--spike-min-ms`).
 5. **Shape and rank.** An interval of a second or more is **sustained**; shorter, a **brief
    peak**. Intervals are ranked by **energy above the reference**, so a long moderate
-   workload can outrank a short tall peak: it costs more. The five highest single bins are
-   listed separately.
+   workload can outrank a short tall peak: it costs more. Intervals in the measured run
+   come before those in warm-up runs (whose caches are colder), which are labelled. The
+   five highest single bins are listed separately.
 
 Flags on an interval: `outside-measured-steps` (setup, a checkpoint, settling),
 `crosses-phase-boundary`, `includes-lumped-bins`, `warmup`, `during-baseline`,
@@ -130,6 +131,40 @@ For each interval, `diagnose` reads the **same run's profile** for that time
   is labelled as one.
 
 What the profile does not hold is reported **unavailable**, not absent.
+
+### The page's work, and Firefox's own
+
+Firefox runs several processes, and only some of them run the page. Every marker and
+script is labelled with the kind of process that recorded it:
+
+| Process | What runs there |
+| --- | --- |
+| **the page (web content)** | the page's scripts, style, layout and painting (`Web Content`, `Isolated Web Content`) |
+| **Firefox itself (parent process)** | the browser's own interface and services: update checks, remote settings, its own modules; on macOS also compositing |
+| **GPU process** | compositing, where Firefox uses one |
+| **other Firefox processes** | network sockets, utilities, media decoding, extensions, preallocated processes |
+
+On the first real run (Apple M2, example.org), much of the activity in the intervals was
+Firefox's own: `remote-settings`, `ChromeUtils.importESModule`, and a system add-on update
+check to `aus5.mozilla.org` during the idle window. Such work is reported separately. Its
+requests are listed as **not the page's**, and the interval carries the note that part of
+its energy may be the browser's. Scripts on the stack in Firefox's own processes never
+become leads. A script whose URL is the page itself is the page's **inline** script (or
+an event-handler attribute): no component owns it.
+
+On Apple Silicon each process has its own power counter, so each interval also gives the
+energy **by process**: how much the page's content process drew, and how much Firefox
+itself did. That is a measurement per process, not an apportionment. It does not exist on
+RAPL machines, whose counters are the whole processor's.
+
+Marker time is the time **covered** within the interval: overlapping and nested markers,
+and the same work on several threads, are counted once, so it never exceeds the interval.
+(The first version summed marker durations, and reported hundreds of seconds of script in
+a 1.25 s interval.)
+
+`web-energy timeline <profile.json> --describe` lists each process in a saved profile as
+it is read: its role, name and type, power counters, threads, markers and a few script
+locations.
 
 Then it ties what it found to the [component graph](component-graph.md)
 (`src/energy/spike-analysis.ts`). Every lead says how it is tied:
@@ -188,12 +223,19 @@ live site.
    prints the intervals and same-run evidence again, with other settings; `--write` saves
    `profile.timeline.json` and `.csv`. Without the run's step windows it has no phases and
    no idle baseline, so its reference is the quietest bins.
-4. **Test the lead.** Copy the command for the component from the report:
+4. **Test the lead.** `diagnose` ends by printing the command for the top lead (or, with
+   none, a starting point), with its own result file as `--evidence`; the report has one
+   for each lead and kind. For example:
 
    ```bash
-   web-energy experiment https://example.org/ --kind remove --selector '[data-component-id="hero-carousel"]' \
-     --idle 10000 --runs 10 --warmups 2 --assert-role main --evidence diagnose-….json
+   node dist/cli/index.js experiment https://example.org/ --kind remove \
+     --selector '[data-component-id="hero-carousel"]' --idle 10000 --runs 10 --warmups 2 \
+     --assert-role main --evidence results/diagnose-2026-11-16T20-00-58-629Z.json
    ```
+
+   The selector must exist on that page, and `--evidence` must be the path `diagnose`
+   printed. The evidence file is read before anything runs, and a selector that matches
+   nothing stops the experiment at its first checkpoint.
 
    `--evidence` brings the interval's profiling evidence into the experiment's finding as
    the observed activity ([evidence-records.md](evidence-records.md)).

@@ -6,7 +6,7 @@
  */
 
 import type { BenchmarkResult } from '../core/types.js';
-import type { ComponentLead, ExperimentOption, SpikeLead, TimelineAnalysis } from '../energy/spike-analysis.js';
+import { PROCESS_LABEL, type ComponentLead, type ExperimentOption, type SpikeLead, type TimelineAnalysis } from '../energy/spike-analysis.js';
 import type { SpikeInterval } from '../energy/spikes.js';
 import type { GeckoEvidence } from '../energy/gecko-evidence.js';
 import type { TimelinePhase } from '../energy/timeline.js';
@@ -192,7 +192,9 @@ function geckoBlock(e: GeckoEvidence | undefined): string {
   if (!e) return '<p class="note">This run’s profile was not read for evidence (only its power counters). Run <code>diagnose</code> for markers and script stacks.</p>';
   const acts = e.activity.filter((x) => x.kind !== 'other');
   return `<h5>Same run: what Firefox’s profile shows during the interval</h5>
-    ${acts.length ? `<ul>${acts.map((x) => `<li>${esc(x.kind.replace(/-/g, ' '))}: ${x.count} marker${x.count === 1 ? '' : 's'}${x.ms ? `, ${x.ms} ms` : ''}${x.names.length ? ` <span class="note">(${esc(x.names.slice(0, 3).join(', '))})</span>` : ''}</li>`).join('')}</ul>` : ''}
+    ${acts.length ? `<div class="scroll"><table><caption>Markers during the interval, by the process that recorded them (covered time counts overlaps once)</caption>
+      <thead><tr><th scope="col" class="text">Process</th><th scope="col" class="text">Activity</th><th scope="col">Markers</th><th scope="col">Covered ms</th><th scope="col" class="text">Examples</th></tr></thead>
+      <tbody>${acts.map((x) => `<tr><td class="text">${esc(x.process ? (PROCESS_LABEL[x.process] ?? x.process) : '—')}</td><th scope="row" class="text">${esc(x.kind.replace(/-/g, ' '))}</th><td>${x.count}</td><td>${x.ms}</td><td class="text"><span class="note">${esc(x.names.slice(0, 3).join(', '))}</span></td></tr>`).join('')}</tbody></table></div>` : ''}
     ${e.scripts.length ? `<p><strong>Scripts on the stack:</strong></p><ul>${e.scripts.slice(0, 6).map((s) => `<li><code>${esc(s.url)}</code>${s.functionName ? ` <code>${esc(s.functionName)}</code>` : ''}${s.line !== undefined ? ` line ${s.line}` : ''}: ${s.samples} sample${s.samples === 1 ? '' : 's'}</li>`).join('')}</ul>` : ''}
     ${e.categories.length ? `<div class="scroll"><table><caption>CPU time by category in the interval, and over the whole run (${esc(e.categoryBasis ?? '')}; apportioning energy by it is a model, not a measurement)</caption><thead><tr><th scope="col">Category</th><th scope="col">CPU ms</th><th scope="col">Share here</th><th scope="col">Share over the run</th></tr></thead><tbody>${e.categories.slice(0, 8).map((c) => `<tr><th scope="row">${esc(c.category)}</th><td>${c.cpuMs}</td><td>${Math.round(c.share * 100)}%</td><td>${c.sessionShare !== undefined ? `${Math.round(c.sessionShare * 100)}%` : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}
     ${e.notes.length ? `<ul class="note">${e.notes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`;
@@ -243,7 +245,7 @@ function leadBlock(result: BenchmarkResult, lead: SpikeLead | undefined, evidenc
     ${lead.components.length ? `<div class="scroll"><table class="lead-table"><caption>Components tied to the interval, strongest evidence first</caption>
       <thead><tr><th scope="col" class="text">Component</th><th scope="col" class="text">Selector</th><th scope="col">Reach</th><th scope="col" class="text">Evidence classes</th><th scope="col" class="text">Its scripts</th><th scope="col" class="text">Evidence</th></tr></thead>
       <tbody>${lead.components.map((c) => componentRow(c, verifiedText(result, c))).join('')}</tbody></table></div>` : '<p>No component is tied to this interval.</p>'}
-    ${lead.scripts.length ? `<p><strong>Scripts:</strong></p><ul>${lead.scripts.map((s) => `<li><code>${esc(s.url)}</code>${s.functions.length ? `: ${esc(s.functions.map((f) => `${f.name ?? '(anonymous)'}${f.line !== undefined ? `:${f.line}` : ''}`).join(', '))}` : ''}${s.loadedBy.length ? '' : ' <span class="note">(no component loads it: a page-wide script)</span>'}<br><span class="note">${esc(s.evidence.map((e) => e.class).join(', '))}</span></li>`).join('')}</ul>` : ''}
+    ${lead.scripts.length ? `<p><strong>Scripts:</strong></p><ul>${lead.scripts.map((s) => `<li><code>${esc(s.url)}</code>${s.functions.length ? `: ${esc(s.functions.map((f) => `${f.name ?? '(anonymous)'}${f.line !== undefined ? `:${f.line}` : ''}`).join(', '))}` : ''}${s.inline ? ' <span class="note">(inline, in the page’s HTML: no component owns it)</span>' : s.loadedBy.length ? '' : ' <span class="note">(no component loads it: a page-wide script)</span>'}<br><span class="note">${esc(s.evidence.map((e) => e.class).join(', '))}</span></li>`).join('')}</ul>` : ''}
     ${lead.unattributed.length ? `<p><strong>Unattributed:</strong></p><ul>${lead.unattributed.map((u) => `<li>${esc(u.what)}: ${esc(u.reason)}</li>`).join('')}</ul>` : ''}
     <ul class="note">${lead.caveats.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
     ${lead.components.length ? experimentConfig(lead.components.slice(0, 3), evidenceFile) : ''}`;
@@ -265,9 +267,14 @@ function experimentConfig(components: ComponentLead[], evidenceFile: string | un
 
 function intervalDetails(result: BenchmarkResult, a: TimelineAnalysis, n: number, i: SpikeInterval, evidenceFile: string | undefined): string {
   const lead = a.leads?.[i.id];
+  const split = a.processEnergy?.[i.id] ?? [];
+  const total = split.reduce((t, p) => t + p.energyJ, 0);
   return `<section id="${esc(spikeAnchor(n, i.id))}" aria-labelledby="${esc(spikeAnchor(n, i.id))}-h" class="boundary">
-    <h4 id="${esc(spikeAnchor(n, i.id))}-h">Interval ${i.rank}: ${sec(i.startMs)}–${sec(i.endMs)}</h4>
+    <h4 id="${esc(spikeAnchor(n, i.id))}-h">Interval ${i.rank}: ${sec(i.startMs)}–${sec(i.endMs)}${i.flags.includes('warmup') ? ' (warm-up run)' : ''}</h4>
     <p><strong>Observed (measured):</strong> ${esc(lead?.observed ?? `${sec(i.durationMs)} up to ${watts(i.peakPowerW)}`)}</p>
+    ${split.length ? `<div class="scroll"><table><caption>Energy in the interval by Firefox process (each process has its own counter: measured, not apportioned)</caption>
+      <thead><tr><th scope="col" class="text">Process</th><th scope="col">Energy</th><th scope="col">Share</th><th scope="col">Counters</th></tr></thead>
+      <tbody>${split.map((p) => `<tr><th scope="row" class="text">${esc(PROCESS_LABEL[p.role] ?? p.role)}</th><td>${joules(p.energyJ)}</td><td>${total > 0 ? `${Math.round((p.energyJ / total) * 100)}%` : '—'}</td><td>${p.counters}</td></tr>`).join('')}</tbody></table></div>` : ''}
     ${geckoBlock(a.evidence?.[i.id])}
     ${leadBlock(result, lead, evidenceFile)}
   </section>`;

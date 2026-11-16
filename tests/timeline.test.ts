@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { collectPowerUnits, energyInWindow, selectPowerUnits } from '../src/energy/gecko-profile.js';
+import { collectPowerUnits, energyByProcess, energyInWindow, processRole, selectPowerUnits } from '../src/energy/gecko-profile.js';
 import { buildTimeline, phasesFrom, rebin, phaseEnergy, type WindowRecord } from '../src/energy/timeline.js';
 import { detectSpikes } from '../src/energy/spikes.js';
-import { geckoEvidence, parseJsLocation, activityKind } from '../src/energy/gecko-evidence.js';
+import { geckoEvidence, parseJsLocation, activityKind, coveredMs, describeProfile } from '../src/energy/gecko-evidence.js';
 
 /** pWh for an energy in joules: the counters' own unit. */
 const pwh = (j: number) => j / 3.6e-9;
@@ -206,6 +206,18 @@ describe('detectSpikes', () => {
     expect(r.intervals[0]!.peakAtMs).toBeGreaterThanOrEqual(5_500);
   });
 
+  it('puts the measured run’s intervals before the warm-up’s', () => {
+    const w = [
+      { label: '__baseline__', startedAt: T0, endedAt: T0 + 4_000 },
+      { label: 'warmup:0:load', startedAt: T0 + 4_500, endedAt: T0 + 6_000 },
+      { label: 'run:0:load', startedAt: T0 + 7_000, endedAt: T0 + 8_500 },
+    ];
+    // The warm-up load costs more (a cold cache), but the measured run comes first.
+    const t = buildTimeline(selectPowerUnits(collectPowerUnits(proc(T0, samples(0, 8_500, 10, (x) => (x > 4_500 && x <= 6_000 ? 6 : x > 7_000 && x <= 8_000 ? 3 : 1 + wobble(x)))))), w, { binMs: 250 })!;
+    const r = detectSpikes(t);
+    expect(r.intervals.map((i) => [i.steps[0], i.flags.includes('warmup')])).toEqual([['run:0:load', false], ['warmup:0:load', true]]);
+  });
+
   it('flags intervals outside measured steps', () => {
     const r = detectSpikes(timeline((t) => (t > 4_000 && t <= 4_500 ? 4 : 1 + wobble(t))));
     expect(r.intervals[0]).toMatchObject({ startMs: 4_000, flags: ['outside-measured-steps'], phases: ['unmeasured'] });
@@ -241,7 +253,7 @@ describe('geckoEvidence', () => {
     expect(e.available).toEqual({ markers: true, stacks: true, cpuTime: true });
     const kinds = Object.fromEntries(e.activity.map((a) => [a.kind, a.count]));
     expect(kinds).toMatchObject({ 'garbage-collection': 1, style: 1, layout: 1, 'refresh-tick': 2, network: 1, 'dom-event': 1 });
-    expect(e.scripts).toEqual([{ url: 'https://a.org/js/chart.js', functionName: 'frame', line: 3, samples: 2 }]);
+    expect(e.scripts).toEqual([{ url: 'https://a.org/js/chart.js', functionName: 'frame', line: 3, samples: 2, process: 'unknown' }]);
     expect(e.requests).toEqual([{ url: 'https://a.org/js/chart.js', count: 1 }]);
     expect(e.domEvents).toEqual([{ type: 'click', count: 1 }]);
     expect(e.categories[0]).toMatchObject({ category: 'JavaScript', share: 1 });
@@ -256,12 +268,72 @@ describe('geckoEvidence', () => {
     expect(e.notes.join(' ')).toMatch(/"js" feature/);
   });
 
+  it('counts covered time once, however many markers and threads overlap (found on a real M2 profile)', () => {
+    // 50 overlapping 400 ms "script" markers on each of 3 threads, inside a 500 ms interval.
+    const many = (n: number) => ({ name: 'GeckoMain', stringTable: ['Perform microtasks'], markers: { schema: { name: 0, startTime: 1, endTime: 2, phase: 3, category: 4, data: 5 }, data: Array.from({ length: n }, (_, k) => [0, 1_000 + k, 1_400 + k, 1, 0, null]) } });
+    const p = { meta: { startTime: T0 }, threads: [many(50)], processes: [{ meta: { startTime: T0 }, threads: [many(50), many(50)] }] };
+    const e = geckoEvidence(p, T0 + 1_000, T0 + 1_500);
+    for (const a of e.activity) expect(a.ms).toBeLessThanOrEqual(500);
+    expect(coveredMs([[0, 10], [5, 20], [30, 40], [35, 36]])).toBe(30);
+  });
+
+  it('tells the page’s processes from Firefox’s own', () => {
+    const t = (processName: string, processType: string, names: string[]) => ({ name: 'GeckoMain', processName, processType, stringTable: names, markers: { schema: { name: 0, startTime: 1, endTime: 2, phase: 3, category: 4, data: 5 }, data: names.map((_, k) => [k, 1_100, 1_200, 1, 0, null]) } });
+    const p = {
+      meta: { startTime: T0 },
+      threads: [t('Parent Process', 'default', ['remote-settings:get:sync'])],
+      processes: [
+        { meta: { startTime: T0 }, threads: [t('Isolated Web Content', 'tab', ['Styles'])] },
+        { meta: { startTime: T0 }, threads: [t('WebExtensions', 'tab', ['JS::Something'])] },
+        { meta: { startTime: T0 }, threads: [t('GPU Process', 'gpu', ['Composite'])] },
+      ],
+    };
+    const e = geckoEvidence(p, T0 + 1_000, T0 + 1_500);
+    const by = Object.fromEntries(e.activity.map((a) => [`${a.process}:${a.kind}`, a.count]));
+    expect(by).toMatchObject({ 'browser:other': 1, 'page:style': 1, 'other:script': 1, 'gpu:composite': 1 });
+    expect(processRole({ threads: [] }, true)).toBe('browser');
+    expect(processRole({ threads: [{ processType: 'socket' }] }, false)).toBe('other');
+    expect(processRole({}, false)).toBe('unknown');
+  });
+
+  it('measures energy per process where each process has its own counter, and only there', () => {
+    const counter = (name: string) => ({ name, category: 'power', samples: { schema: { time: 0, count: 1 }, data: samples(0, 2_000, 10, () => 1) } });
+    const p = {
+      meta: { startTime: T0 }, threads: [{ name: 'GeckoMain', processType: 'default' }], counters: [counter('Process Power')],
+      processes: [{ meta: { startTime: T0 }, threads: [{ name: 'GeckoMain', processName: 'Isolated Web Content', processType: 'tab' }], counters: [counter('Process Power')] }],
+    };
+    const split = energyByProcess(selectPowerUnits(collectPowerUnits(p)), T0, T0 + 1_000);
+    expect(split.map((x) => [x.role, Math.round(x.energyJ * 1000)])).toEqual([['browser', 1000], ['page', 1000]]);
+    const rapl = { meta: { startTime: T0 }, counters: [counter('Power: CPU package')] };
+    expect(energyByProcess(selectPowerUnits(collectPowerUnits(rapl)), T0, T0 + 1_000)).toEqual([]);
+  });
+
   it('parses script locations and classifies markers', () => {
+    expect(parseJsLocation('https://example.org/s.js[10]')).toEqual({ url: 'https://example.org/s.js' });
+    expect(parseJsLocation('f (https://example.org/s.js:4:2)[10]')).toEqual({ url: 'https://example.org/s.js', functionName: 'f', line: 4 });
     expect(parseJsLocation('draw (https://a.org/js/chart.js:12:4)')).toEqual({ url: 'https://a.org/js/chart.js', functionName: 'draw', line: 12 });
     expect(parseJsLocation('https://a.org/js/x.js:5:1')).toEqual({ url: 'https://a.org/js/x.js', line: 5 });
     expect(parseJsLocation('js::RunScript')).toBeUndefined();
     expect(activityKind('Rasterize')).toBe('composite');
     expect(activityKind('Something', undefined, 'GC / CC')).toBe('garbage-collection');
     expect(activityKind('Unknown thing')).toBe('other');
+  });
+});
+
+describe('describeProfile', () => {
+  it('lists each process as it is read, with its counters and a few script locations', () => {
+    const p = {
+      meta: { startTime: T0, version: 31 },
+      threads: [{ name: 'GeckoMain', processType: 'default', processName: 'Parent Process', stringTable: ['x'], markers: { schema: {}, data: [[0], [0]] } }],
+      counters: [{ name: 'Process Power' }],
+      processes: [{ meta: { startTime: T0, processType: 2 }, counters: [{ name: 'Process Power' }], threads: [{ name: 'GeckoMain', processType: 'tab', processName: 'Isolated Web Content', stringTable: ['f (https://a.org/s.js:1:2)', 'Paint'], frameTable: { schema: { location: 0 }, data: [[0], [1]] } }] }],
+    };
+    expect(describeProfile(p)).toEqual({
+      version: 31,
+      processes: [
+        { role: 'browser', processName: 'Parent Process', processType: 'default', counters: ['Process Power'], threads: 1, markers: 2, scriptLocations: [] },
+        { role: 'page', processName: 'Isolated Web Content', processType: 'tab', metaProcessType: 2, counters: ['Process Power'], threads: 1, markers: 0, scriptLocations: ['f (https://a.org/s.js:1:2)'] },
+      ],
+    });
   });
 });

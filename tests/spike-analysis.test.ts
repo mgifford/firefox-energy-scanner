@@ -51,7 +51,7 @@ describe('linkSpikes', () => {
     expect(chart.resource).toMatch(/^rs-[0-9a-f]{8}$/);
     expect(chart.functions).toEqual([{ name: 'frame', line: 2, samples: 40 }]);
     expect(chart.evidence.map((e) => e.class)).toEqual(expect.arrayContaining(['profiler-correlation', 'cross-run-trace']));
-    expect(lead.activity).toEqual(['refresh tick: 90 markers, 300 ms (RefreshDriverTick)', 'paint: 90 markers, 120 ms (Paint)']);
+    expect(lead.activity).toEqual(['refresh tick, 90 markers covering 300 ms (RefreshDriverTick)', 'paint, 90 markers covering 120 ms (Paint)']);
     expect(lead.unattributed.some((u) => /do not name the elements/.test(u.reason))).toBe(true);
     expect(lead.caveats.join(' ')).toMatch(/separate run in another browser, matched by page and phase/);
     expect(lead.observed).toBe(describeInterval(interval({})));
@@ -77,6 +77,33 @@ describe('linkSpikes', () => {
     expect(compute!.loadedBy).toEqual([]);
     const idle = linkSpikes(r, analysis([interval({})]), `${SITE}/compute`)['spike-1']!;
     expect(idle.scripts.some((s) => s.url.endsWith('/js/compute.js'))).toBe(false);
+  });
+
+  it('keeps Firefox’s own work apart from the page’s (as on a real M2 run of example.org)', () => {
+    const ev = gecko({
+      scripts: [
+        { url: `${SITE}/light`, functionName: 'onload', samples: 4, process: 'page' },
+        { url: 'https://example.net/x.js', samples: 2, process: 'browser' },
+      ],
+      requests: [{ url: 'https://aus5.mozilla.org/update/3/SystemAddons/153.0/update.xml', count: 1 }],
+      activity: [{ kind: 'script', process: 'browser', count: 300, ms: 410, names: ['ChromeUtils.importESModule'] }, { kind: 'style', process: 'page', count: 2, ms: 3, names: ['Styles'] }],
+    });
+    const lead = linkSpikes(r, analysis([interval({ flags: ['warmup'] })], { 'spike-1': ev }), `${SITE}/light`)['spike-1']!;
+    const inline = lead.scripts.find((s) => s.inline)!;
+    expect(inline.functions).toEqual([{ name: 'onload', samples: 4 }]);
+    expect(lead.unattributed.some((u) => u.what === 'https://example.net/x.js' && /browser process/.test(u.reason))).toBe(true);
+    expect(lead.unattributed.some((u) => /not the page’s: aus5\.mozilla\.org/.test(u.what))).toBe(true);
+    expect(lead.activity[0]).toBe('Firefox itself (parent process): script, 300 markers covering 410 ms (ChromeUtils.importESModule)');
+    expect(lead.caveats.join(' ')).toMatch(/Firefox’s own work ran during this interval \(script in the parent process; requests to aus5\.mozilla\.org\)/);
+    expect(lead.caveats.join(' ')).toMatch(/warm-up run/);
+    expect(lead.observed).toMatch(/of the warm-up run/);
+  });
+
+  it('adds the measured energy by process to what was observed', () => {
+    const a = analysis([interval({})]);
+    a.processEnergy = { 'spike-1': [{ role: 'browser', energyJ: 0.6, counters: 1 }, { role: 'page', energyJ: 0.15, counters: 2 }] };
+    const lead = linkSpikes(r, a, `${SITE}/light`)['spike-1']!;
+    expect(lead.observed).toMatch(/By process \(each has its own counter\): Firefox itself \(parent process\) 600\.0 mJ, the page \(web content\) 150\.0 mJ\.$/);
   });
 
   it('says a script the page did not record is unattributed, and why', () => {

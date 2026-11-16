@@ -23,7 +23,8 @@
  *
  * Intervals are ranked by excess energy (the energy above the reference
  * level), so a long moderate workload can outrank a short high peak: it costs
- * more. The highest single bins are listed separately.
+ * more. Intervals in warm-up runs (colder caches) come after the measured
+ * run's. The highest single bins are listed separately.
  *
  * The power is the whole measurement scope's. An interval says when the
  * browser (or, with RAPL, the machine) drew more, never which element did.
@@ -262,7 +263,9 @@ export function detectSpikes(t: EnergyTimeline, overrides: Partial<SpikeSettings
       flags,
     });
   }
-  intervals.sort((a, b) => b.excessEnergyJ - a.excessEnergyJ || a.startMs - b.startMs);
+  // The measured run first, then warm-ups (colder caches); within each, by energy above the reference.
+  const warm = (x: { flags: SpikeInterval['flags'] }) => (x.flags.includes('warmup') ? 1 : 0);
+  intervals.sort((a, b) => warm(a) - warm(b) || b.excessEnergyJ - a.excessEnergyJ || a.startMs - b.startMs);
 
   const topBins = [...pageBins]
     .sort((a, b) => b.averagePowerW! - a.averagePowerW!)

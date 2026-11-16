@@ -11,10 +11,10 @@ import {
 import { runBenchmark, newSessionId } from '../core/runner.js';
 import { defineJourney, loadJourney } from '../core/journey.js';
 import { detectSpikes, type SpikeSettings } from '../energy/spikes.js';
-import { describeInterval, linkSpikes, type TimelineAnalysis } from '../energy/spike-analysis.js';
+import { PROCESS_LABEL, describeInterval, linkSpikes, type TimelineAnalysis } from '../energy/spike-analysis.js';
 import { buildTimeline } from '../energy/timeline.js';
-import { geckoEvidence } from '../energy/gecko-evidence.js';
-import { collectPowerUnits, selectPowerUnits } from '../energy/gecko-profile.js';
+import { describeProfile, geckoEvidence } from '../energy/gecko-evidence.js';
+import { collectPowerUnits, energyByProcess, selectPowerUnits } from '../energy/gecko-profile.js';
 import { buildEvidenceRecord, findingMarkdown } from '../report/evidence-record.js';
 import { timelineCsv } from '../report/timeline-csv.js';
 import { collectEnvironment, readPowerState, playwrightVersion } from './env.js';
@@ -52,7 +52,7 @@ import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
-import { buildReport, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
+import { RemovalRefused, buildReport, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
 import { specFromQueue } from '../experiments/from-queue.js';
 import { checkJourneySource } from '../experiments/journey-lint.js';
 import { experimentCsv } from '../report/experiment-csv.js';
@@ -133,7 +133,7 @@ Usage:
   web-energy diagnose <url>            [--idle <ms>] [--bin <ms>] [--trace] [--keep-profile] [--low-overhead]
                                        [--no-screenshot] [--spike-reference auto|baseline|quiet|rolling]
                                        [--spike-k <n>] [--spike-min-ms <ms>] [--spike-min-rise <W>]
-  web-energy timeline <profile.json>   [--bin <ms>] [--json] [--spike-* options]
+  web-energy timeline <profile.json>   [--bin <ms>] [--json] [--write] [--describe] [--spike-* options]
   web-energy lighthouse <url...>       [--lighthouse-* options]
   web-energy trace <url...>            [--trace-* options]
   web-energy crux <url>                [--crux-* options]
@@ -1163,6 +1163,19 @@ async function cmdExperiment(args: Args): Promise<number> {
     return 0;
   }
 
+  // --evidence is read before anything runs, so a wrong path does not cost the experiment.
+  const evidenceFile = one(args, 'evidence');
+  let evidence: BenchmarkResult | undefined;
+  if (evidenceFile) {
+    try {
+      evidence = JSON.parse(await readFile(resolve(evidenceFile), 'utf8')) as BenchmarkResult;
+    } catch (e) {
+      console.error(`--evidence ${evidenceFile}: ${(e as NodeJS.ErrnoException).code === 'ENOENT' ? 'no such file' : (e as Error).message}. Give the .json path that diagnose printed.`);
+      return 1;
+    }
+    if (!evidence.timelines?.length) console.error(`warning: ${evidenceFile} holds no energy timeline (was it a diagnose result, on a machine that measures energy?). The finding will not include profiling evidence.`);
+  }
+
   const config = await buildConfig(args);
   await announceEnergy(config);
   if (spec.runs !== undefined) config.benchmark.runs = spec.runs;
@@ -1183,7 +1196,9 @@ async function cmdExperiment(args: Args): Promise<number> {
     // Each side's first run carries the warm-ups, so neither side starts cold.
     const warmups = seen[side] ? 0 : config.benchmark.warmups;
     seen[side] = true;
-    const outcome = await runBenchmark({
+    let outcome: Awaited<ReturnType<typeof runBenchmark>>;
+    try {
+      outcome = await runBenchmark({
       config: { ...config, benchmark: { ...config.benchmark, runs: 1, warmups } },
       baseUrl: spec.url,
       journey: sideJourney(spec, inner, side === 'b', state[side]),
@@ -1191,6 +1206,12 @@ async function cmdExperiment(args: Args): Promise<number> {
       // Power samples only: the timeline adds no profiler overhead to the comparison.
       ...(has(args, 'timeline') ? { timeline: { binMs: one(args, 'bin') ? parseIntegerFlag('--bin', one(args, 'bin')!) : 250, spikes: spikeSettingsFromArgs(args), run: runIndex[side] } } : {}),
     });
+    } catch (e) {
+      // A refused removal ends the run at its first checkpoint (often a warm-up): stop, and report it.
+      if (!(e instanceof RemovalRefused)) throw e;
+      warnings.push(`Stopped at run ${i + 1} of ${order.length}: the removal was refused (${e.message}).`);
+      break;
+    }
     runIndex[side]++;
     if (outcome.timeline) timelines.push({ ...outcome.timeline, page: spec.url });
     firefoxVersion = outcome.firefoxVersion;
@@ -1242,8 +1263,6 @@ async function cmdExperiment(args: Args): Promise<number> {
     ...(timelines.length ? { timelines } : {}),
     warnings: [...new Set(warnings)],
   };
-  const evidenceFile = one(args, 'evidence');
-  const evidence = evidenceFile ? (JSON.parse(await readFile(resolve(evidenceFile), 'utf8')) as BenchmarkResult) : undefined;
   const base = await writeOutputs(result, config, async (stem) => {
     const name = stem.split(/[\\/]/).pop()!;
     result.finding = buildEvidenceRecord(result, {
@@ -2456,10 +2475,13 @@ async function cmdDiagnose(args: Args): Promise<number> {
     if (!t.spikes.intervals.length) console.log('  No interval of elevated power was found.');
     for (const i of t.spikes.intervals.slice(0, 5)) {
       console.log(`\n  ${i.id}: ${describeInterval(i)}`);
+      const split = t.processEnergy?.[i.id];
+      if (split?.length) console.log(`    by process (measured): ${split.map((p) => `${PROCESS_LABEL[p.role] ?? p.role} ${(p.energyJ * 1000).toFixed(1)} mJ`).join(', ')}`);
       const lead = t.leads?.[i.id];
       for (const c of lead?.components.slice(0, 3) ?? []) console.log(`    component ${c.signature} (${c.classes.join(', ')}) ${c.selector}`);
-      for (const sc of lead?.scripts.slice(0, 3) ?? []) console.log(`    script ${sc.url}${sc.loadedBy.length ? '' : ' (no component loads it)'}`);
-      for (const a of lead?.activity.slice(0, 4) ?? []) console.log(`    ${a}`);
+      for (const sc of lead?.scripts.slice(0, 3) ?? []) console.log(`    script ${sc.url}${sc.inline ? ' (inline, in the page’s HTML)' : sc.loadedBy.length ? '' : ' (no component loads it)'}`);
+      for (const a of lead?.activity.slice(0, 5) ?? []) console.log(`    ${a}`);
+      for (const c of lead?.caveats.filter((x) => /Firefox’s own work|warm-up run/.test(x)) ?? []) console.log(`    note: ${c}`);
     }
     for (const w of t.spikes.warnings) console.log(`  note: ${w}`);
     console.log('');
@@ -2531,11 +2553,25 @@ async function cmdDiagnose(args: Args): Promise<number> {
   console.log(
     '\nWhat this cannot tell you: Firefox has no per-element power counter, and the\n' +
       'profile carries no DOM node references (Mozilla bugs 789712 and 713031 remain open).\n' +
-      'Intervals say when power was high; leads say what to test. Neither is per-element energy.\n' +
-      'Test a lead with: web-energy experiment <url> --kind remove --selector <css>',
+      'Intervals say when power was high; leads say what to test. Neither is per-element energy.',
+  );
+  // The next step, ready to run: the top lead's component, or the page's largest one, with this result as evidence.
+  const lead = result.timelines?.[0]?.leads ? Object.values(result.timelines[0].leads).flatMap((l) => l.components).find((c) => c.experiments.some((e) => e.kind === 'remove' && e.available)) : undefined;
+  // Without a lead: a component holding something that usually works while idle, else the largest; a starting point, not a lead.
+  const busy = (i: (typeof instances)[number]) => (i.animations?.infinite ?? 0) + (i.media?.autoplayVideos ?? 0) + (i.media?.iframes ?? 0) + (i.media?.canvases ?? 0);
+  const fallback = instances
+    .filter((i) => i.method !== 'landmark' && (result.capture?.selectorMatches[i.selector] ?? 0) === 1)
+    .sort((a, b) => busy(b) - busy(a) || b.nodes - a.nodes)[0];
+  const selector = lead?.selector ?? fallback?.selector;
+  console.log(
+    selector
+      ? `\nTo test ${lead ? 'the top lead' : fallback && busy(fallback) ? 'a component with an animation, canvas, video or iframe (a starting point, not a lead)' : 'the largest component (a starting point, not a lead)'} (${lead?.signature ?? fallback?.signature}), with this run as evidence:\n` +
+          `  node dist/cli/index.js experiment ${shellQuote(url)} --kind remove --selector ${shellQuote(selector)} --idle 10000 --runs 10 --warmups 2 --assert-role main --evidence ${shellQuote(`${base}.json`)}`
+      : '\nNo component on this page has a selector that matched exactly one element, so there is nothing to remove. Use diagnose on a page with components.',
   );
   for (const w of result.warnings) console.log(`\nwarning: ${w}`);
-  console.log(`\nWrote ${base}.{json,csv,html}${t ? `, ${base}.timeline.csv` : ''}${result.capture?.screenshot ? ` and ${base}.screenshot.png` : ''}`);
+  const kept = has(args, 'keep-profile') && outcome.profilePath ? ` and the Gecko profile ${base}.profile.json` : '';
+  console.log(`\nWrote ${base}.{json,csv,html}${t ? `, ${base}.timeline.csv` : ''}${result.capture?.screenshot ? `, ${base}.screenshot.png` : ''}${kept}`);
   return 0;
 }
 
@@ -2550,6 +2586,8 @@ function spikeSettingsFromArgs(args: Args): Partial<SpikeSettings> {
     ...(one(args, 'spike-min-rise') ? { minRiseW: parseNumberFlag('--spike-min-rise', one(args, 'spike-min-rise')!) } : {}),
   };
 }
+
+const shellQuote = (s: string) => (/^[\w./:=@%+-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
 
 let attributionCache: { load?: ReturnType<typeof attributeEnergy>; idle?: ReturnType<typeof attributeEnergy> } | undefined;
 
@@ -2581,6 +2619,11 @@ async function cmdTimeline(args: Args): Promise<number> {
     return 1;
   }
   const profile = JSON.parse(await readFile(resolve(file), 'utf8')) as unknown;
+  if (has(args, 'describe')) {
+    // What the profile holds, for checking how its processes are read.
+    console.log(JSON.stringify(describeProfile(profile), null, 2));
+    return 0;
+  }
   const selection = selectPowerUnits(collectPowerUnits(profile));
   const t = buildTimeline(selection, [], { ...(one(args, 'bin') ? { binMs: parseIntegerFlag('--bin', one(args, 'bin')!) } : {}) });
   if (!t) {
@@ -2591,7 +2634,10 @@ async function cmdTimeline(args: Args): Promise<number> {
   const evidence = Object.fromEntries(
     spikes.intervals.slice(0, 10).map((i) => [i.id, geckoEvidence(profile, t.originEpochMs + i.startMs, t.originEpochMs + i.endMs, { startEpochMs: t.originEpochMs, endEpochMs: t.originEpochMs + t.durationMs })]),
   );
-  const analysis: TimelineAnalysis = { timeline: t, spikes, evidence };
+  const processEnergy = Object.fromEntries(
+    spikes.intervals.slice(0, 10).map((i) => [i.id, energyByProcess(selection, t.originEpochMs + i.startMs, t.originEpochMs + i.endMs)] as const).filter(([, v]) => v.length > 0),
+  );
+  const analysis: TimelineAnalysis = { timeline: t, spikes, evidence, ...(Object.keys(processEnergy).length ? { processEnergy } : {}) };
   if (has(args, 'json')) {
     console.log(JSON.stringify(analysis, null, 2));
   } else {
@@ -2601,8 +2647,10 @@ async function cmdTimeline(args: Args): Promise<number> {
     if (!spikes.intervals.length) console.log('No interval of elevated power was found.');
     for (const i of spikes.intervals.slice(0, 12)) {
       console.log(`\n${i.id}: ${describeInterval(i)}`);
+      const split = processEnergy[i.id];
+      if (split?.length) console.log(`  by process: ${split.map((p) => `${PROCESS_LABEL[p.role] ?? p.role} ${(p.energyJ * 1000).toFixed(1)} mJ`).join(', ')}`);
       const e = evidence[i.id];
-      for (const a of e?.activity.filter((x) => x.kind !== 'other').slice(0, 5) ?? []) console.log(`  ${a.kind}: ${a.count} markers, ${a.ms} ms`);
+      for (const a of e?.activity.filter((x) => x.kind !== 'other').slice(0, 6) ?? []) console.log(`  ${a.process ? `${PROCESS_LABEL[a.process] ?? a.process}: ` : ''}${a.kind.replace(/-/g, ' ')}, ${a.count} markers covering ${a.ms} ms`);
       for (const sc of e?.scripts.slice(0, 3) ?? []) console.log(`  script ${sc.url}${sc.functionName ? ` ${sc.functionName}` : ''}${sc.line !== undefined ? `:${sc.line}` : ''} (${sc.samples} samples)`);
     }
     for (const w of [...t.warnings, ...spikes.warnings]) console.log(`\nnote: ${w}`);

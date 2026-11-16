@@ -609,6 +609,16 @@
                 "kind": {
                   "type": "string"
                 },
+                "process": {
+                  "type": "string",
+                  "enum": [
+                    "browser",
+                    "page",
+                    "gpu",
+                    "other",
+                    "unknown"
+                  ]
+                },
                 "count": {
                   "type": "integer",
                   "minimum": 0,
@@ -616,7 +626,8 @@
                 },
                 "ms": {
                   "type": "number",
-                  "minimum": 0
+                  "minimum": 0,
+                  "description": "Time within the interval covered by at least one such marker: overlaps counted once."
                 },
                 "names": {
                   "type": "array",
@@ -652,6 +663,16 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 9007199254740991
+                },
+                "process": {
+                  "type": "string",
+                  "enum": [
+                    "browser",
+                    "page",
+                    "gpu",
+                    "other",
+                    "unknown"
+                  ]
                 }
               },
               "required": [
@@ -947,6 +968,9 @@
                 "url": {
                   "type": "string"
                 },
+                "inline": {
+                  "type": "boolean"
+                },
                 "resource": {
                   "type": "string"
                 },
@@ -1080,6 +1104,46 @@
         "type": "integer",
         "minimum": -9007199254740991,
         "maximum": 9007199254740991
+      }
+    },
+    "processEnergy": {
+      "description": "Per interval: energy read by each kind of Firefox process. Measured per process (Apple Silicon), never apportioned.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "enum": [
+                "browser",
+                "page",
+                "gpu",
+                "other",
+                "unknown"
+              ]
+            },
+            "energyJ": {
+              "type": "number",
+              "minimum": 0
+            },
+            "counters": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "role",
+            "energyJ",
+            "counters"
+          ],
+          "additionalProperties": false
+        }
       }
     }
   },
