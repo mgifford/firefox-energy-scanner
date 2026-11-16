@@ -197,6 +197,15 @@ describe('detectSpikes', () => {
     expect(detectSpikes(timeline(), { reference: 'rolling' }).warnings.join(' ')).toMatch(/rolling reference rises/);
   });
 
+  it('splits an elevation that runs from load into idle, so each part keeps its own evidence', () => {
+    const r = detectSpikes(timeline((t) => (t > 4_500 && t <= 7_000 ? 3 : 1 + wobble(t))));
+    expect(r.intervals.map((i) => [i.startMs, i.endMs, i.phases])).toEqual([
+      [5_500, 7_000, ['idle']],
+      [4_500, 5_500, ['loading', 'stabilizing']],
+    ]);
+    expect(r.intervals[0]!.peakAtMs).toBeGreaterThanOrEqual(5_500);
+  });
+
   it('flags intervals outside measured steps', () => {
     const r = detectSpikes(timeline((t) => (t > 4_000 && t <= 4_500 ? 4 : 1 + wobble(t))));
     expect(r.intervals[0]).toMatchObject({ startMs: 4_000, flags: ['outside-measured-steps'], phases: ['unmeasured'] });

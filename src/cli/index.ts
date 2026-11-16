@@ -113,7 +113,7 @@ Usage:
   web-energy journey <file>            [options]
   web-energy baseline                  [options]
   web-energy compare --a <url> --b <url> --journey <file> [options]
-  web-energy report <result.json>
+  web-energy report <result.json>      [--with <experiment.json>]
   web-energy families <result.json>    [--json] [--write]
   web-energy components <result.json>  [--json] [--write]
   web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
@@ -2399,6 +2399,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
 
   const base = await writeOutputs(result, config, async (stem) => {
     const t = result.timelines?.[0];
+    if (result.capture) result.capture.resultFile = `${stem.split(/[\\/]/).pop()}.json`;
     if (shot && result.capture) {
       await writeFile(`${stem}.screenshot.png`, shot.png);
       result.capture.screenshot = { file: `${stem.split(/[\\/]/).pop()}.screenshot.png`, width: shot.width, height: shot.height };
@@ -2634,6 +2635,26 @@ async function cmdReport(args: Args): Promise<number> {
   const { readFile } = await import('node:fs/promises');
   // Older results are read through migration, so the report shows what they support.
   const { result } = migrateResult(JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult);
+  // --with <experiment.json>: experiments run on this result's components, shown beside them.
+  const related = args.flags.get('with') ?? [];
+  if (related.length) {
+    result.relatedExperiments = [];
+    for (const f of related) {
+      const x = JSON.parse(await readFile(resolve(f), 'utf8')) as BenchmarkResult;
+      if (!x.experiment) continue;
+      const record = x.finding ?? buildEvidenceRecord(x);
+      result.relatedExperiments.push({
+        file: f.split(/[\\/]/).pop() ?? f,
+        name: x.experiment.name,
+        kind: x.experiment.variant.kind,
+        ...(x.experiment.variant.selector ? { selector: x.experiment.variant.selector } : {}),
+        applied: x.experiment.applied.ok,
+        status: record?.outcome.status ?? (x.experiment.applied.ok ? 'applied' : 'not applied'),
+        ...(record ? { confidence: record.outcome.confidence } : {}),
+      });
+    }
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+  }
   const outPath = resolve(file).replace(/\.json$/, '') + '.html';
   await writeFile(outPath, toHtml(result));
   await writeFile(resolve(file).replace(/\.json$/, '') + '.csv', toCsv(result));

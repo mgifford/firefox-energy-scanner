@@ -56,7 +56,7 @@ export const KNOWN_FLAGS = new Set([
   'keep-eager', 'kind', 'label-a', 'label-b', 'lighthouse-categories', 'lighthouse-form-factor', 'lighthouse-reports',
   'lighthouse-runs', 'lighthouse-top', 'markdown', 'max-depth', 'max-matches', 'max-pages', 'name', 'out', 'path', 'previous', 'release', 'runs',
   'save-spec', 'seed', 'selector', 'settle', 'spec', 'spike-k', 'spike-min-ms', 'spike-min-rise', 'spike-reference', 'title-file', 'trace-idle', 'trace-keep', 'trace-max-mb',
-  'trace-pages', 'url', 'viewport', 'wait', 'warmups', 'webnrg-top', 'webnrg-wait',
+  'trace-pages', 'url', 'viewport', 'wait', 'warmups', 'with', 'webnrg-top', 'webnrg-wait',
 ]);
 
 /** Edit distance, for suggesting the option someone meant. */

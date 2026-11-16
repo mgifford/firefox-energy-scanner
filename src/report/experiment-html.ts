@@ -1,5 +1,6 @@
 import type { ExperimentReport, RemovalSummary, StepDifference } from '../experiments/experiment.js';
 import { describeContent } from '../experiments/dom-removal.js';
+import type { EvidenceRecord } from './evidence-record.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -103,5 +104,40 @@ export function experimentSection(x: ExperimentReport | undefined): string {
       : ''
   }
   <ul class="note">${x.limitations.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
+</section>`;
+}
+
+const STATUS: Record<EvidenceRecord['outcome']['status'], string> = {
+  'reduction-shown': 'Reduction shown',
+  'reduction-not-like-for-like': 'Reduction shown, but not like-for-like',
+  'increase-shown': 'Increase shown',
+  'no-difference-shown': 'No difference shown',
+  'below-resolution': 'Below the resolution of this setup',
+  'not-measured': 'Energy not measured',
+  'intervention-failed': 'The change did not take effect: nothing compared',
+};
+
+/**
+ * The finding, as a development issue would carry it: observed activity,
+ * suspected cause, the experimentally supported outcome and the
+ * recommended change, each under its own heading, never merged.
+ */
+export function findingSection(r: EvidenceRecord | undefined): string {
+  if (!r) return '';
+  return `<section aria-labelledby="finding-h" class="boundary">
+  <h2 id="finding-h">Finding: ${esc(STATUS[r.outcome.status])} <span class="note">(confidence: ${esc(r.outcome.confidence)})</span></h2>
+  <h3>1. Observed activity</h3>
+  <ul>${r.observed.statements.map((s) => `<li>${esc(s)}</li>`).join('')}${r.observed.evidence.map((e) => `<li><span class="note">${esc(e.class)}, ${esc(e.source)}:</span> ${esc(e.detail)}</li>`).join('')}</ul>
+  <h3>2. Suspected cause</h3>
+  <p>${esc(r.suspected.statement)}</p>
+  ${r.target.sourceFiles.length ? `<ul>${r.target.sourceFiles.map((f) => `<li><code>${esc(f.url)}</code>${f.functions.length ? ` (${esc(f.functions.join(', '))})` : ''}: ${esc(f.how)}</li>`).join('')}</ul>` : '<p class="note">Source files: unknown (no profiling evidence was attached).</p>'}
+  <h3>3. Experimentally supported outcome</h3>
+  <p>${esc(r.outcome.statement)}</p>
+  <h3>4. Recommended production change</h3>
+  <p>${esc(r.recommendation.statement)}</p>
+  <p class="note">${esc(r.recommendation.caution)}</p>
+  <h3>Reproduce</h3>
+  <pre class="cmd"><code>${esc(r.experiment.command)}</code></pre>
+  <p class="note">Record <code>${esc(r.id)}</code> (<code>${esc(r.schema)}</code>). ${r.artifacts['issueDraft'] ? `Issue draft: <a href="${esc(r.artifacts['issueDraft'])}">${esc(r.artifacts['issueDraft'])}</a>.` : ''} Topics for mapping to the Web Sustainability Guidelines: ${esc(r.topics.join(', ') || 'none')}; no guideline is asserted.</p>
 </section>`;
 }

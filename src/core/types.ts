@@ -448,7 +448,11 @@ export interface BenchmarkResult {
     capturedAt: string;
     selectorMatches: Record<string, number>;
     screenshot?: { file: string; width: number; height: number };
+    /** This result's own file name, for commands that cite it as evidence. */
+    resultFile?: string;
   };
+  /** Experiments run on this result's components, linked with `report --with`. Summaries only. */
+  relatedExperiments?: { file: string; name: string; kind: string; selector?: string; applied: boolean; status: string; confidence?: string }[];
   /** The evidence record for a development issue, built from the experiment. */
   finding?: import('../report/evidence-record.js').EvidenceRecord;
   warnings: string[];

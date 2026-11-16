@@ -120,7 +120,7 @@ const fmtJ = (j: number) => (j >= 1 ? `${j.toFixed(2)} J` : `${(j * 1000).toFixe
 export function describeInterval(i: SpikeInterval): string {
   return (
     `${(i.durationMs / 1000).toFixed(2)} s (${i.shape === 'sustained' ? 'sustained' : 'a brief peak'}) from ${(i.startMs / 1000).toFixed(2)} s, ` +
-    `during ${i.phases.join(', ')}: up to ${fmtW(i.peakPowerW)}, ${fmtW(i.meanPowerW)} on average, against a reference of ${fmtW(i.referenceW)}; ` +
+    `during ${i.phases.join(', ')}: up to ${fmtW(i.peakPowerW)}${i.peakAtMs !== undefined ? ` (at ${(i.peakAtMs / 1000).toFixed(2)} s)` : ''}, ${fmtW(i.meanPowerW)} on average, against a reference of ${fmtW(i.referenceW)}; ` +
     `${fmtJ(i.energyJ)} measured in it, ${fmtJ(i.excessEnergyJ)} above the reference.`
   );
 }

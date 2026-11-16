@@ -72,6 +72,8 @@ export interface SpikeInterval {
   durationMs: number;
   bins: number;
   peakPowerW: number;
+  /** Start of the highest bin in the interval, ms from the origin. */
+  peakAtMs: number;
   meanPowerW: number;
   /** Energy read in the interval, J (whole measurement scope). */
   energyJ: number;
@@ -189,10 +191,25 @@ export function detectSpikes(t: EnergyTimeline, overrides: Partial<SpikeSettings
   const candidates = t.bins.filter((b) => !(kind === 'baseline-window' && isBaseline(b)));
   const above = (b: TimelineBin) => b.averagePowerW !== null && b.averagePowerW > threshold(b);
 
+  // An interval stays within one part of the workload: load (loading and
+  // settling), idle, one interaction, or the time between steps. Evidence
+  // differs between them, so an elevation that runs from load into idle is
+  // two intervals.
+  const part = (b: TimelineBin) => {
+    const p = phaseName(t, b);
+    if (!p) return 'unmeasured';
+    const kind = p.kind === 'loading' || p.kind === 'stabilizing' ? 'load' : p.kind;
+    return `${kind}|${p.label}`;
+  };
   const groups: TimelineBin[][] = [];
   let current: TimelineBin[] = [];
   let gap = 0;
   for (const b of candidates) {
+    if (current.length && part(b) !== part(current[0]!)) {
+      groups.push(current);
+      current = [];
+      gap = 0;
+    }
     if (above(b)) {
       current.push(b);
       gap = 0;
@@ -233,6 +250,7 @@ export function detectSpikes(t: EnergyTimeline, overrides: Partial<SpikeSettings
       durationMs,
       bins: g.length,
       peakPowerW: Math.max(...withPower.map((b) => b.averagePowerW!)),
+      peakAtMs: withPower.reduce((a, b) => (b.averagePowerW! > a.averagePowerW! ? b : a)).startMs,
       meanPowerW: energyJ / Math.max(0.001, durationMs / 1000),
       energyJ,
       excessEnergyJ,

@@ -25,7 +25,7 @@ const fixture = (): BenchmarkResult => {
 const SITE = 'http://www.site.test:8082';
 
 const interval = (o: Partial<SpikeInterval>): SpikeInterval => ({
-  id: 'spike-1', rank: 1, startMs: 6_000, endMs: 7_500, durationMs: 1_500, bins: 6, peakPowerW: 3.1, meanPowerW: 2.9, energyJ: 4.35, excessEnergyJ: 2.85,
+  id: 'spike-1', rank: 1, startMs: 6_000, endMs: 7_500, durationMs: 1_500, bins: 6, peakPowerW: 3.1, peakAtMs: 6_500, meanPowerW: 2.9, energyJ: 4.35, excessEnergyJ: 2.85,
   referenceW: 1, thresholdW: 1.2, shape: 'sustained', phases: ['idle'], steps: ['run:0:idle'], flags: [], ...o,
 });
 const analysis = (intervals: SpikeInterval[], evidence?: Record<string, GeckoEvidence>): TimelineAnalysis => ({
