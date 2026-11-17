@@ -107,6 +107,9 @@ describe('site-wide patterns', () => {
     const alt = p.patterns.find((x) => x.target.id === 'ct-nav-alt')!;
     expect(nav.id).not.toBe(alt.id);
     expect(alt.pages).toBe(1);
+    // A component finding is not a finding about every resource the component loads.
+    expect(nav.resourceIds).toEqual([]);
+    expect(p.resources.find((r) => r.id === 'rs-app')!.findings.map((f) => f.kind)).not.toContain('endless-animation');
   });
 
   it('keeps the chart-specific finding separate from the shared navigation one', () => {

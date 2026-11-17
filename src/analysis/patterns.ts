@@ -163,14 +163,15 @@ export function buildSitePatterns(result: BenchmarkResult): SitePatterns | undef
       const type = typeOfInstance(f.target.id);
       if (type) acc.componentTypeIds.add(type);
       const inst = instances.get(f.target.id);
-      if (inst) {
-        for (const r of inst.resources) acc.resourceIds.add(r);
-        if (!acc.representative.selector) acc.representative.selector = inst.selector;
-      }
+      if (inst && !acc.representative.selector) acc.representative.selector = inst.selector;
     } else if (f.target.type === 'resource' && f.target.id) {
+      // resourceIds names the resource a finding is ABOUT. A component's
+      // resources are listed on the component entry, not here: the reverse
+      // view must not read a component finding as a resource finding.
       acc.resourceIds.add(f.target.id);
       const resource = resources.get(f.target.id);
       for (const ci of resource?.loadedBy ?? []) {
+        acc.instances.add(ci);
         const type = typeOfInstance(ci);
         if (type) acc.componentTypeIds.add(type);
       }
