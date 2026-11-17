@@ -113,6 +113,14 @@ describe('the evidence record', () => {
     expect(md).toContain('the window’s mean was 120.0 / 118.0 mW');
   });
 
+  it('carries a spec’s provenance note into the result and the finding', () => {
+    const r = result(side(false, 10), side(true, 10));
+    r.experiment!.note = 'Vital Core candidate third-party-resource:https://cdn.example.net/widget.js.';
+    const rec = buildEvidenceRecord(r)!;
+    expect(rec.experiment.note).toMatch(/Vital Core candidate/);
+    expect(findingMarkdown(rec)).toContain('**Spec provenance:** Vital Core candidate');
+  });
+
   it('a moved negative control is indicative, and says so', () => {
     const steps = { a: series('baseline', around(0.2, 10), around(0.1, 10)), b: series('variant', around(0.1, 10), around(0.05, 10)) };
     const r = buildEvidenceRecord(result(side(false, 10), side(true, 10), steps))!;

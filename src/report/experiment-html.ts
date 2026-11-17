@@ -154,6 +154,7 @@ export function findingSection(r: EvidenceRecord | undefined): string {
   <p class="note">${esc(r.recommendation.caution)}</p>
   <h3>Reproduce</h3>
   <pre class="cmd"><code>${esc(r.experiment.command)}</code></pre>
+  ${r.experiment.note ? `<p class="note"><strong>Spec provenance:</strong> ${esc(r.experiment.note)}</p>` : ''}
   <p class="note">Record <code>${esc(r.id)}</code> (<code>${esc(r.schema)}</code>). ${r.artifacts['issueDraft'] ? `Issue draft: <a href="${esc(r.artifacts['issueDraft'])}">${esc(r.artifacts['issueDraft'])}</a>.` : ''} Topics for mapping to the Web Sustainability Guidelines: ${esc(r.topics.join(', ') || 'none')}; no guideline is asserted.</p>
 </section>`;
 }

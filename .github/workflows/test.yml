@@ -68,6 +68,8 @@ jobs:
       # Removal experiments through the CLI, in Firefox, without energy hardware:
       # removed and verified, put back by the page, refused, and not like-for-like.
       - run: node tests/e2e/remove-e2e.mjs
+      # The opt-in Vital Core handoff: spec generation only, no browser.
+      - run: node tests/e2e/vital-e2e.mjs
       # The in-page removal code, in Firefox (the unit job runs it in Chromium when one is present).
       - run: npx vitest run tests/browser
         env:

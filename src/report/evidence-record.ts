@@ -82,6 +82,8 @@ export interface EvidenceRecord {
     name: string;
     kind: string;
     description: string;
+    /** Why the experiment exists: the spec's provenance note, when it has one. */
+    note?: string;
     mode?: 'post-load' | 'pre-load';
     workload?: ExperimentReport['workload'];
     seed: string;
@@ -355,6 +357,7 @@ export function buildEvidenceRecord(result: BenchmarkResult, options: RecordOpti
       name: x.name,
       kind: x.variant.kind,
       description: x.description,
+      ...(x.note ? { note: x.note } : {}),
       ...(x.removal ? { mode: x.removal.mode } : {}),
       ...(x.workload ? { workload: x.workload } : {}),
       seed: x.seed,
@@ -424,6 +427,7 @@ export function findingMarkdown(r: EvidenceRecord): string {
   }
   lines.push('## 4. Recommended production change', '', md(r.recommendation.statement), '', `> ${md(r.recommendation.caution)}`, '');
   lines.push('## Reproduce', '', '```sh', r.experiment.command, '```', '', '```yaml', toYaml(r.experiment.spec).trim(), '```', '');
+  if (r.experiment.note) lines.push(`**Spec provenance:** ${md(r.experiment.note)}`, '');
   lines.push(`Interleaved order (seed \`${r.experiment.seed.replace(/`/g, "'")}\`): ${r.experiment.order.join(' ')}`, '');
   lines.push('## Measurement environment', '');
   for (const [k, v] of Object.entries(r.environment)) if (v !== undefined && v !== '') lines.push(`- ${k}: ${md(String(v))}`);
