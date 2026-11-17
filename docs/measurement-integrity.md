@@ -30,7 +30,8 @@ additive commits on top of `25ca6d5`.
 | `WEB_ENERGY_TEST_ENGINE=chromium npm test` | **849 passed**, 53 test files; browser tests run in Chromium for structure only |
 | Firefox browser tests (3 suites in `tests/browser/dom-removal.test.ts`) | **failed to start**: `beforeAll` timed out while launching Playwright Firefox |
 | `WEB_ENERGY_TEST_ENGINE=chromium FIXTURE_PORT=18086 node tests/e2e/remove-e2e.mjs` | **all checks passed**; the same suite on 8086 exits 2 with the new clear `EADDRINUSE` message and does not kill the listener |
-| One headless Firefox `experiment` against the running fixture | did not complete: Playwright Firefox could not start under the agent sandbox |
+| CI (draft PR #51): `test`, `e2e`, `e2e-components` | **all pass**; `e2e` (7m4s) includes Firefox `remove-e2e` and `tests/browser`; `e2e-components` 1m28s |
+| One headless Firefox `experiment` against the running fixture | did not complete locally: Playwright Firefox could not start under the agent sandbox; CI's Firefox e2e does start it |
 
 The browser failure is environmental, not a product assertion failure. Firefox
 prints `sandbox initialization failed: Operation not permitted` when launched
@@ -117,8 +118,9 @@ On the fixture, a Chromium `diagnose` of `/articles/d` recorded
 and a `declares-resource` edge from `landmark:main`, and added a **low-confidence
 `suspected-association`** to `component:live-chart`. It did not add an observed edge, because
 Chromium does not produce the Firefox power profile. The synthetic same-run stack test adds
-the `script-observed-with-component` edge at medium confidence; the Firefox `diagnose` run
-that produces the real one is **pending Firefox**.
+the `script-observed-with-component` edge at medium confidence. CI's Firefox e2e ran the real
+browser test and `remove-e2e`; the real same-run stack edge still needs a Firefox
+power-profile `diagnose`, which CI does not run.
 
 The Chromium run also exposed and fixed a graph defect: for a load+idle run, the graph took
 the idle step's (empty) network instead of the load step's, so every page resource was lost.
@@ -131,9 +133,13 @@ container ambiguity, cross-origin/inline exclusion, stable ids), and the new
 
 ## Still pending
 
-- Firefox browser tests and CLI e2e (including the real same-run stack edge) on a
-  host where Playwright Firefox can launch (maintainer terminal or CI).
+- A Firefox power-profile `diagnose` on the fixture to produce the real same-run stack
+  edge. CI runs Firefox browser tests and CLI e2e, but not a physical power profile.
+  The local Firefox browser tests still cannot start inside the agent sandbox; the CI e2e
+  job starts Firefox and passes.
 - The quiet-device median-baseline re-run of the two chart experiments, with
   null/A-A and negative controls.
+- A second independent session, if the first quiet re-run is promising; the
+  replication field will stay `not-replicated` until then.
 - Real-site candidate import, selective diagnostics and the later phases. None
   of those is started here.
