@@ -46,6 +46,43 @@ describe('the timeline in the report', () => {
   r.capture = { page: a.page!, capturedAt: '2026-11-16T00:00:00Z', selectorMatches: {}, resultFile: 'diagnose-x.json' };
   const html = timelineSection(r);
 
+  it('shows an observed script relationship instead of “no component loads it”', () => {
+    const a2 = analysis();
+    a2.leads = {
+      'spike-1': {
+        spike: 'spike-1',
+        observed: 'synthetic',
+        activity: [],
+        components: [],
+        scripts: [
+          {
+            url: 'http://www.site.test:8082/js/chart.js',
+            resource: 'rs-chart',
+            loadedBy: [],
+            functions: [{ name: 'frame', line: 2, samples: 12 }],
+            evidence: [{ class: 'profiler-correlation', source: 'same-run-gecko', detail: 'on the stack' }],
+            relatedComponents: [
+              {
+                instance: 'ci-live-chart',
+                signature: 'component:live-chart',
+                kind: 'script-observed-with-component',
+                evidenceClass: 'profiler-correlation',
+                confidence: 'medium',
+                attributionStatus: 'supported',
+              },
+            ],
+          },
+        ],
+        unattributed: [],
+        caveats: [],
+      },
+    };
+    const html = timelineSection({ ...r, timelines: [a2] });
+    expect(html).toContain('observed with component:live-chart');
+    expect(html).toContain('not ownership');
+    expect(html).not.toContain('page-level: no component relationship established');
+  });
+
   it('draws a chart with a text alternative, and the same values in tables, without scripts', () => {
     expect(html).toContain('<h2 id="timeline-h">Energy timeline</h2>');
     expect(html).toMatch(/<figure class="viz" aria-labelledby="tl-chart-0">\s*<svg role="group" aria-labelledby="tl-chart-0"/);

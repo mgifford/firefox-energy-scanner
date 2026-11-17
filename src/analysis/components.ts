@@ -342,7 +342,7 @@ export function buildInventory(
               ? 'Chromium could not name the script.'
               : s.url === url || withoutQuery(s.url) === withoutQuery(url)
                 ? 'Work in the page’s own inline scripts and parsing, which no component element loads.'
-                : 'No recorded component loads this script: bundled and global scripts serve the whole page.',
+                : 'No recorded component element loads this script: it is page-level. A runtime relationship, if any, is in the graph relations, not ownership.',
         });
       }
     }

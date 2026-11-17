@@ -22,6 +22,7 @@ import { activityFindings } from '../../src/experiments/experiment.js';
 import { installPreloadRemoval } from '../../src/experiments/preload-removal.js';
 import { emptyCounts } from '../../src/experiments/variants.js';
 import { inputWatchInit, interference, readInput, watchNavigation } from '../../src/collect/interference.js';
+import { collectScriptReferences } from '../../src/collect/script-references.js';
 
 const run = ENGINE ? describe : describe.skip;
 
@@ -46,6 +47,20 @@ run(`DOM removal in ${ENGINE ?? 'no browser'}`, () => {
     return { context, page };
   }
   const count = (page: Page, sel: string) => page.evaluate((s) => document.querySelectorAll(s).length, sel);
+
+  it('reads chart.js’s #chart reference, and does not assign another page’s script to it', async () => {
+    const { context, page } = await open('/articles/d', false);
+    try {
+      const refs = await collectScriptReferences(page, `${site.url}/articles/d`);
+      const chart = refs.find((r) => r.url.endsWith('/js/chart.js'));
+      expect(chart).toMatchObject({ status: 'scanned' });
+      expect(chart!.refs).toEqual(expect.arrayContaining([{ kind: 'id', value: 'chart' }]));
+      const cards = refs.find((r) => r.url.endsWith('/js/cards.js'));
+      expect(cards?.refs.some((r) => r.value === 'chart')).not.toBe(true);
+    } finally {
+      await context.close();
+    }
+  });
 
   it('removes the subtree, leaves the rest of the page, and keeps it removed', async () => {
     const { context, page } = await open('/lab/static');

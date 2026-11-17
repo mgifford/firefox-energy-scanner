@@ -251,6 +251,20 @@ export interface ReplicationRecord {
   note: string;
 }
 
+/** A script inspected after a diagnostic run's measured windows; refs are static leads. */
+export interface ScriptReferenceRecord {
+  url: string;
+  /** The page the script was inspected on. */
+  page: string;
+  inline?: boolean;
+  status: 'scanned' | 'cross-origin' | 'unavailable' | 'too-large' | 'not-fetched';
+  /** Only the first 256 KB of a large script was scanned. */
+  truncated?: boolean;
+  bytes?: number;
+  refs: { kind: 'id' | 'selector'; value: string }[];
+  error?: string;
+}
+
 /** How a crawl chose its pages, so a reader knows what the sample stands for. */
 export interface CrawlSampling {
   /**
@@ -473,6 +487,8 @@ export interface BenchmarkResult {
   relatedExperiments?: { file: string; name: string; kind: string; selector?: string; applied: boolean; status: string; confidence?: string }[];
   /** The evidence record for a development issue, built from the experiment. */
   finding?: import('../report/evidence-record.js').EvidenceRecord;
+  /** diagnose: script sources read after the measured windows, for static DOM-reference leads. */
+  scriptReferences?: ScriptReferenceRecord[];
   /**
    * Whether an energy result was independently replicated. A within-session
    * statistical verdict is not an independent replication; this field keeps

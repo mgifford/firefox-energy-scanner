@@ -76,6 +76,55 @@ loaded by script, have no loader: they are page-level, and their reach is the ev
 That is how a 3.5 MB icon library on every page becomes visible even though no
 component owns it.
 
+## Relations: how entities are connected
+
+`graph.relations` holds evidence-backed edges between a page, an instance and a resource. Each
+edge carries its `kind`, `from`/`to`, `source`, `evidenceClass`, `artifactRef`, `method`,
+`confidence` and `attributionStatus`, and optional `limitations`. The kinds emitted now:
+
+| Kind | What it says | Not what it says |
+| --- | --- | --- |
+| `declares-resource` | an element inside the component loads the resource | that the resource's work or cost belongs to the component |
+| `resource-used-on-page` | Firefox transferred the resource while the page loaded | which component, if any, used it |
+| `script-observed-with-component` | the script was on the same run's stack, and its source names an element the component contains | that the component owns the script, or that the script modified that element |
+| `suspected-association` | the static DOM reference exists, but the script was not seen on the stack in this result | a runtime relationship |
+
+`script-modifies-component`, `contains-dom` and `uses-template` are defined in the schema but
+are **not emitted** until there is a direct DOM-write, node-identity or template observation
+to support them. A page-level script that names a component's element is not credited to the
+component as ownership.
+
+A page's full resource reach is already `pages[].resources` (and `resources[].pages`).
+`declares-resource` and `resource-used-on-page` edges are emitted only for scripts a
+`diagnose` run inspected, so a crawl's graph does not grow by one redundant edge per page and
+resource. A result without `scriptReferences` therefore has no script relations; its pages,
+instances and resources still carry the reach.
+
+### The `live-chart` / `chart.js` example
+
+On `/articles/d`, `/js/chart.js` is a page-level `<script>`; the `live-chart` figure does not
+declare it. The graph records:
+
+- `resource-used-on-page`: the page loaded `chart.js`;
+- `declares-resource`: the container around it (`landmark:main`) has the `<script>` element;
+- `script-observed-with-component`: `chart.js` was on the same diagnostic run's stack
+  (`frame:2`, 12 samples) **and** its source names `#chart`, an element inside
+  `live-chart`.
+
+The last edge is why the timeline can say "observed with live-chart" instead of "no
+component loads it". It is an observed relationship with a static DOM reference, at medium
+confidence; it is not ownership, and it is not an energy figure. Without the stack hit it is
+only `suspected-association`, at low confidence.
+
+Static references are read only in `diagnose`, after the measured windows: the first 24
+scripts, same-origin, 256 KB each, 2 s per fetch. Cross-origin scripts are marked, never
+fetched. Minified or dynamically composed selectors, shadow DOM, frames and missing source
+maps can hide the reference; those are recorded as limitations, not as "no relationship".
+
+`graph <result.json>` rebuilds the relations from the stored result; no browser is needed.
+The additions are optional fields on `component-graph/1`, so graphs made before relations
+still validate.
+
 ## Findings: the evidence contract
 
 Each finding has:

@@ -85,6 +85,15 @@ export interface ScriptLead {
   loadedBy: string[];
   functions: { name?: string; line?: number; samples: number }[];
   evidence: LeadEvidence[];
+  /** Graph relations from this script to a component: observed or suspected, never ownership. */
+  relatedComponents?: {
+    instance: string;
+    signature: string;
+    kind: string;
+    evidenceClass: string;
+    confidence: string;
+    attributionStatus: string;
+  }[];
 }
 
 export interface SpikeLead {

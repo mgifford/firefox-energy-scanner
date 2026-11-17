@@ -29,6 +29,7 @@ import { crawl } from '../collect/crawler.js';
 import { fingerprint, triage } from './triage.js';
 import { loadMatrix, triageMatrix, baselineOf } from './matrix.js';
 import { collectPageAnatomy, installLcpObserver, readLcp } from '../collect/page-anatomy.js';
+import { collectScriptReferences } from '../collect/script-references.js';
 import { attributeEnergy } from '../energy/attribution.js';
 import { buildFindings } from '../report/findings.js';
 import { collectTwigTemplates, templatesForInstances } from '../drupal/twig-debug.js';
@@ -778,6 +779,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   attachInventory(result);
   attachInvestigation(result);
   for (const t of result.timelines ?? []) if (t.page) t.leads = linkSpikes(result, t, t.page);
+  attachRelationsToLeads(result);
   if (!has(args, 'no-history')) await attachHistory(result, resolve(config.output.directory));
   const base = await writeOutputs(result, config, timelineFiles(result));
   printSummary(outcome.steps, grid);
@@ -984,6 +986,38 @@ function printComponents(inv: ComponentInventory): void {
   for (const c of recurring) {
     console.log(`  ${c.id}  ${c.signature}  [${c.confidence}]`);
     for (const s of c.signals.slice(0, 4)) console.log(`      ${s}`);
+  }
+}
+
+/**
+ * Put the graph's script-to-component relations on the timeline leads, so the
+ * CLI and the HTML can say "observed with live-chart" instead of "no component
+ * loads it", without claiming ownership.
+ */
+function attachRelationsToLeads(result: BenchmarkResult): void {
+  const graph = result.graph;
+  if (!graph?.relations?.length) return;
+  const instances = new Map(graph.instances.map((i) => [i.id, i]));
+  const types = new Map(graph.types.map((t) => [t.id, t]));
+  for (const t of result.timelines ?? []) {
+    for (const lead of Object.values(t.leads ?? {})) {
+      for (const s of lead.scripts) {
+        if (!s.resource) continue;
+        const rels = graph.relations.filter((r) => r.from.type === 'resource' && r.from.id === s.resource && r.to.type === 'instance');
+        if (!rels.length) continue;
+        s.relatedComponents = rels.map((r) => {
+          const inst = instances.get(r.to.id);
+          return {
+            instance: r.to.id,
+            signature: (inst && types.get(inst.type)?.signature) || inst?.selector || r.to.id,
+            kind: r.kind,
+            evidenceClass: r.evidenceClass,
+            confidence: r.confidence,
+            attributionStatus: r.attributionStatus,
+          };
+        });
+      }
+    }
   }
 }
 
@@ -2391,6 +2425,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
   const features = lowOverhead ? [] : ['js', 'stackwalk', 'cpu'];
   let anatomy: Awaited<ReturnType<typeof collectPageAnatomy>>;
   let lcp: Awaited<ReturnType<typeof readLcp>>;
+  let scriptReferences: Awaited<ReturnType<typeof collectScriptReferences>> = [];
   let twig: Awaited<ReturnType<typeof collectTwigTemplates>> | undefined;
   let shot: { png: Buffer; width: number; height: number } | undefined;
   let selectorMatches: Record<string, number> = {};
@@ -2432,6 +2467,8 @@ async function cmdDiagnose(args: Args): Promise<number> {
       anatomy = await collectPageAnatomy(page);
       lcp = await readLcp(page);
       if (anatomy && lcp) anatomy.lcpElement = lcp;
+      // After the measured windows: a static DOM reference is a lead, not ownership.
+      scriptReferences = await collectScriptReferences(page, url);
       // Drupal only: maps rendered markup back to Twig templates when the target
       // has debug enabled. Silently reports "not enabled" otherwise.
       twig = await collectTwigTemplates(page);
@@ -2484,6 +2521,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
     scenarios: outcome.steps,
     ...(outcome.baseline ? { baseline: outcome.baseline } : {}),
     capture: { page: url, capturedAt: new Date().toISOString(), selectorMatches },
+    ...(scriptReferences.length ? { scriptReferences } : {}),
     warnings: [
       ...acted.map(
         (a) =>
@@ -2502,15 +2540,20 @@ async function cmdDiagnose(args: Args): Promise<number> {
     ],
   };
   await attachTraces(args, config, result, [url], 'measure');
-  attachInventory(result);
-  attachInvestigation(result);
+  // A graph is needed to link the timeline's scripts to components; once the
+  // timeline and the script references exist, rebuild it so the graph carries
+  // the relations those two can support.
   if (outcome.timeline) {
+    attachInventory(result);
     const analysis = { ...outcome.timeline, page: url, selectorMatches };
     const left = acted.find((a) => a.measured && a.navigated);
     for (const a of acted) analysis.timeline.warnings.unshift(`${a.measured ? 'Measured run' : 'Warm-up run'}: ${a.why}`);
     if (!left) analysis.leads = linkSpikes(result, analysis, url);
     result.timelines = [analysis];
   }
+  attachInventory(result);
+  attachInvestigation(result);
+  attachRelationsToLeads(result);
 
   const base = await writeOutputs(result, config, async (stem) => {
     const t = result.timelines?.[0];
@@ -2556,7 +2599,16 @@ async function cmdDiagnose(args: Args): Promise<number> {
       if (split?.length) console.log(`    by process (measured): ${split.map((p) => `${PROCESS_LABEL[p.role] ?? p.role} ${(p.energyJ * 1000).toFixed(1)} mJ`).join(', ')}`);
       const lead = t.leads?.[i.id];
       for (const c of lead?.components.slice(0, 3) ?? []) console.log(`    component ${c.signature} (${c.classes.join(', ')}) ${c.selector}`);
-      for (const sc of lead?.scripts.slice(0, 3) ?? []) console.log(`    script ${sc.url}${sc.inline ? ' (inline, in the page’s HTML)' : sc.loadedBy.length ? '' : ' (no component loads it)'}`);
+      for (const sc of lead?.scripts.slice(0, 3) ?? []) {
+        const rel = sc.relatedComponents?.length
+          ? ` (${sc.relatedComponents.map((r) => `${r.kind === 'script-observed-with-component' ? 'observed with' : 'suspected relation to'} ${r.signature}; ${r.confidence} confidence, ${r.attributionStatus}, not ownership`).join('; ')})`
+          : sc.inline
+            ? ' (inline, in the page’s HTML)'
+            : sc.loadedBy.length
+              ? ''
+              : ' (page-level: no component relationship established)';
+        console.log(`    script ${sc.url}${rel}`);
+      }
       for (const a of lead?.activity.slice(0, 5) ?? []) console.log(`    ${a}`);
       for (const c of lead?.caveats.filter((x) => /Firefox’s own work|warm-up run/.test(x)) ?? []) console.log(`    note: ${c}`);
     }

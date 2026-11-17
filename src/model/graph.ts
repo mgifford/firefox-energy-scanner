@@ -27,12 +27,14 @@ import { pageKey } from '../collect/urls.js';
 import { median } from '../core/stats.js';
 import { pagesOf } from '../analysis/families.js';
 import { stableHash } from '../analysis/signature.js';
+import { buildRelations } from './relations.js';
+import { resourceIdentity } from './resource-identity.js';
 
 export const GRAPH_SCHEMA = 'component-graph/1';
 
 /** Where a figure came from. Metrics name a source by id instead of repeating it. */
 export interface Source {
-  id: 'firefox-dom' | 'firefox-network' | 'firefox-energy' | 'lighthouse' | 'chromium-trace' | 'co2js' | 'webnrg';
+  id: 'firefox-dom' | 'firefox-network' | 'firefox-energy' | 'same-run-gecko' | 'script-source' | 'lighthouse' | 'chromium-trace' | 'co2js' | 'webnrg';
   browser?: string;
   tool?: string;
   timestamp?: string;
@@ -114,6 +116,8 @@ export interface GraphInstance {
   resources: string[];
   /** Where to find the full record: scenario and instance index in this result. */
   ref: { scenario: number; instance: number };
+  /** Ids of elements inside it (itself included), at most 20: a script's static DOM references can be matched to these. */
+  domIds?: string[];
 }
 
 /** Owned counts with zeros left out: always the element count, then whatever is not zero. */
@@ -144,6 +148,42 @@ export interface GraphResource {
    * did not transfer it during the measured load: lazy, hidden or cached.
    */
   referencedWithoutTransfer?: number;
+}
+
+/**
+ * A relationship between two graph entities, with its provenance. It is not a
+ * claim of ownership: `script-observed-with-component` says a script was seen
+ * running with the component (same run, stack) and its source names an element
+ * the component contains. `suspected-association` is a static reference only.
+ */
+export type RelationKind =
+  | 'contains-dom'
+  | 'declares-resource'
+  | 'resource-used-on-page'
+  | 'script-observed-with-component'
+  | 'script-modifies-component'
+  | 'uses-template'
+  | 'suspected-association';
+
+export type AttributionStatus = 'owned' | 'supported' | 'suspected' | 'page-level' | 'unknown';
+
+export type RelationEvidenceClass = EvidenceClass | 'profiler-correlation';
+
+export interface GraphRelation {
+  id: string;
+  kind: RelationKind;
+  from: { type: 'page' | 'instance' | 'resource'; id: string };
+  to: { type: 'page' | 'instance' | 'resource'; id: string };
+  source: Source['id'];
+  evidenceClass: RelationEvidenceClass;
+  /** When the relationship was observed, from the result's environment. */
+  observedAt?: string;
+  /** Where the evidence is in this result: a path such as timelines[0].evidence[spike-1].scripts. */
+  artifactRef: string;
+  method: string;
+  confidence: 'high' | 'medium' | 'low';
+  attributionStatus: AttributionStatus;
+  limitations?: string[];
 }
 
 export type EvidenceClass =
@@ -182,6 +222,7 @@ export interface ComponentGraph {
   types: ComponentType[];
   instances: GraphInstance[];
   resources: GraphResource[];
+  relations?: GraphRelation[];
   findings: GraphFinding[];
   limitations: string[];
 }
@@ -203,26 +244,7 @@ const CONFIDENCE: Record<ComponentSignature['method'], ComponentType['confidence
 
 const keyOfPage = (url: string) => pageKey(url, { queryStrategy: 'keep' });
 
-/**
- * A resource's identity: host and path, keeping query values that name the
- * asset, dropping those that vary per page or per load (a page URL passed
- * along, a timestamp), so one script loaded on every page is one resource.
- * Third-party beacons and pings (anything but scripts, styles, fonts and
- * documents) are identified by endpoint alone: each hit's query differs.
- */
-export function resourceIdentity(url: string, kind?: string, thirdParty?: boolean): string {
-  try {
-    const u = new URL(url);
-    const base = `${u.hostname.toLowerCase()}${u.pathname}`;
-    if (thirdParty && kind && !['script', 'stylesheet', 'font', 'document'].includes(kind)) return base;
-    const kept = [...u.searchParams.entries()].filter(([, v]) => !/^https?:|%3A%2F%2F|^\d{10,}$/i.test(v) && !/^https?:\/\//i.test(decodeURIComponent(v)));
-    const q = kept.length ? `?${kept.map(([k, v]) => `${k}=${v}`).sort().join('&')}` : '';
-    const key = `${base}${q}`;
-    return key.length > 240 ? `${key.slice(0, 200)}…#${stableHash(key)}` : key;
-  } catch {
-    return url;
-  }
-}
+export { resourceIdentity } from './resource-identity.js';
 
 const tagFromPath = (path: string) => path.split(',').at(-1)?.toLowerCase();
 const isPrefix = (outer: string, inner: string) => inner.startsWith(`${outer},`);
@@ -307,6 +329,24 @@ function sourcesOf(result: BenchmarkResult): Source[] {
       boundary: 'Chromium lab, not the Firefox measurement',
     });
   }
+  if (result.scriptReferences?.length) {
+    out.push({
+      id: 'script-source',
+      tool: 'static script source',
+      timestamp: env?.timestamp,
+      method: 'Read the loaded script\'s source after the measured window and scanned it for getElementById/querySelector references',
+      boundary: 'static script text, diagnostic run; a reference is a lead, not a runtime event',
+    });
+  }
+  if (result.timelines?.some((t) => t.evidence)) {
+    out.push({
+      id: 'same-run-gecko',
+      browser: ff,
+      timestamp: env?.timestamp,
+      method: 'The same run\'s Firefox profile: stack samples and markers during a measured interval',
+      boundary: 'Firefox diagnostic run; stack sampling adds work, so not a benchmark',
+    });
+  }
   const firstTrace = result.traces?.find((t) => t.analysis);
   if (firstTrace) {
     out.push({
@@ -329,6 +369,20 @@ function nodeMatch(instances: { i: ComponentInstance; id: string }[], path: stri
   const depth = Math.max(...loose.map((x) => tags(x.i.nodePath).length));
   const deepest = loose.filter((x) => tags(x.i.nodePath).length === depth);
   return deepest.length === 1 ? { id: deepest[0]!.id, by: 'tag-path' } : undefined;
+}
+
+/**
+ * The network of the page's load. A diagnose or experiment stores load and
+ * idle as separate steps; the page's anatomy is captured on the last one, so
+ * that step's network is empty. Use the same scenario's step that actually
+ * transferred the resources.
+ */
+function pageNetwork(step: StepResult, all: StepResult[]): StepResult['network'] | undefined {
+  if (step.network?.resources?.length) return step.network;
+  const sibling = all.find(
+    (s) => !s.warmup && s.scenario === step.scenario && s.url === step.url && (s.network?.resources?.length ?? 0) > 0,
+  );
+  return sibling?.network ?? step.network;
 }
 
 /** Build the graph from a result. Undefined when no page recorded structure. */
@@ -355,6 +409,7 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
     const url = step.url!;
     const pid = `pg-${stableHash(keyOfPage(url))}`;
     const structure = step.anatomy!.structure!;
+    const network = pageNetwork(step, result.scenarios);
     const family = families?.pageFamily[url];
     const recorded = [...(structure.instances ?? [])].map((i, idx) => ({ i, idx })).sort((a, b) => comparePaths(a.i.nodePath, b.i.nodePath));
     if (recorded.length && !recorded[0]!.i.own) legacy++;
@@ -380,9 +435,9 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
     const pageResources = new Map<string, number>();
     // A resource's kind and party, for identity and for matching the elements that load it.
     const kindOf = new Map<string, { kind: string; thirdParty: boolean }>();
-    for (const r of step.network?.resources ?? []) kindOf.set(r.url, { kind: r.resourceType, thirdParty: r.thirdParty });
+    for (const r of network?.resources ?? []) kindOf.set(r.url, { kind: r.resourceType, thirdParty: r.thirdParty });
     const identity = (u: string) => resourceIdentity(u, kindOf.get(u)?.kind, kindOf.get(u)?.thirdParty);
-    for (const r of step.network?.resources ?? []) {
+    for (const r of network?.resources ?? []) {
       const key = identity(r.url);
       pageResources.set(key, Math.max(pageResources.get(key) ?? 0, r.transferBytes));
       const acc = resAcc.get(key) ?? { url: r.url, host: r.domain, kind: r.resourceType, thirdParty: r.thirdParty, pages: new Map(), families: new Set<string>(), loadedBy: new Set<string>(), referencedOn: new Set<string>() };
@@ -418,6 +473,7 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
         ownEstimated: !x.i.own,
         resources: resIds,
         ref: { scenario: scenarioIndex.get(step) ?? -1, instance: x.idx },
+        ...(x.i.domIds?.length ? { domIds: x.i.domIds } : {}),
       };
       instances.push(inst);
       pageInstanceIds.push(inst.id);
@@ -637,8 +693,8 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
       ...(result.sampling?.reasons?.[step.step] ? { sampleReason: result.sampling.reasons[step.step] } : {}),
       metrics: {
         domNodes: { value: step.anatomy!.domNodes, unit: 'count', source: 'firefox-dom', scope: 'page' },
-        ...(step.network ? { transferBytes: { value: step.network.transferBytes, unit: 'bytes', source: 'firefox-network', scope: 'page' } as Metric } : {}),
-        ...(step.network ? { requests: { value: step.network.requests, unit: 'count', source: 'firefox-network', scope: 'page' } as Metric } : {}),
+        ...(network ? { transferBytes: { value: network.transferBytes, unit: 'bytes', source: 'firefox-network', scope: 'page' } as Metric } : {}),
+        ...(network ? { requests: { value: network.requests, unit: 'count', source: 'firefox-network', scope: 'page' } as Metric } : {}),
       },
       ...(structure.unowned ? { unownedNodes: structure.unowned.nodes } : {}),
       instances: pageInstanceIds,
@@ -729,5 +785,6 @@ export function buildGraph(result: BenchmarkResult): ComponentGraph | undefined 
     ...(legacy ? [`${legacy} of ${N} pages were scanned before owned counts were recorded: their owned figures are estimated from inclusive ones.`] : []),
   ];
 
-  return { schema: GRAPH_SCHEMA, sources, pages, types, instances, resources, findings, limitations };
+  const relations = buildRelations(result, { pages, instances, resources, types });
+  return { schema: GRAPH_SCHEMA, sources, pages, types, instances, resources, relations, findings, limitations };
 }

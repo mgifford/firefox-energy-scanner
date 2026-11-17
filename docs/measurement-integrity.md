@@ -27,9 +27,10 @@ additive commits on top of `25ca6d5`.
 | `npm ci` | 156 packages installed, 0 vulnerabilities |
 | `npm run build` | pass |
 | `npm test` (typecheck + Vitest) | 816 passed, 19 skipped; 49 of 50 test files passed |
+| `WEB_ENERGY_TEST_ENGINE=chromium npm test` | **849 passed**, 53 test files; browser tests run in Chromium for structure only |
 | Firefox browser tests (3 suites in `tests/browser/dom-removal.test.ts`) | **failed to start**: `beforeAll` timed out while launching Playwright Firefox |
-| `node tests/e2e/remove-e2e.mjs` on port 8086 | exited 2 with the new clear `EADDRINUSE` message; the maintainer's fixture was already listening, and it was not killed |
-| One headless `experiment` against the running fixture | did not complete: Playwright Firefox could not start under the agent sandbox |
+| `WEB_ENERGY_TEST_ENGINE=chromium FIXTURE_PORT=18086 node tests/e2e/remove-e2e.mjs` | **all checks passed**; the same suite on 8086 exits 2 with the new clear `EADDRINUSE` message and does not kill the listener |
+| One headless Firefox `experiment` against the running fixture | did not complete: Playwright Firefox could not start under the agent sandbox |
 
 The browser failure is environmental, not a product assertion failure. Firefox
 prints `sandbox initialization failed: Operation not permitted` when launched
@@ -98,10 +99,40 @@ scenarios. From this audit on, stored measurements are re-read **without**
   `replication.status: not-replicated` (or `not-assessed` when there is nothing
   to replicate), and the Markdown/HTML say so.
 
+## Phase 1: attribution
+
+The graph now carries optional `relations` (see [component-graph.md](component-graph.md)) and
+each instance carries the `domIds` of elements inside it. A diagnostic run reads the loaded
+scripts' sources after the measured windows (same-origin, first 24, 256 KB each, 2 s per
+fetch) and stores `scriptReferences`. The graph then records:
+
+- `resource-used-on-page` and `declares-resource` for scripts that were inspected;
+- `suspected-association` when a script's source names an id inside a component but the
+  script was not on the stack in this result;
+- `script-observed-with-component` when that static reference and a same-run Firefox stack
+  hit both hold. The edge is a relationship, not ownership.
+
+On the fixture, a Chromium `diagnose` of `/articles/d` recorded
+`{ kind: "id", value: "chart" }` for `/js/chart.js`, kept `/js/chart.js` as a page resource
+and a `declares-resource` edge from `landmark:main`, and added a **low-confidence
+`suspected-association`** to `component:live-chart`. It did not add an observed edge, because
+Chromium does not produce the Firefox power profile. The synthetic same-run stack test adds
+the `script-observed-with-component` edge at medium confidence; the Firefox `diagnose` run
+that produces the real one is **pending Firefox**.
+
+The Chromium run also exposed and fixed a graph defect: for a load+idle run, the graph took
+the idle step's (empty) network instead of the load step's, so every page resource was lost.
+The graph now uses the same scenario's load network for the page.
+
+Tests: `tests/script-references.test.ts` (static scanner: references, dynamic-selector
+misses, bounds), `tests/relations.test.ts` (chart edge, unrelated script, shared script,
+container ambiguity, cross-origin/inline exclusion, stable ids), and the new
+`tests/browser/dom-removal.test.ts` case, which passes in Chromium.
+
 ## Still pending
 
-- Firefox browser tests and CLI e2e on a host where Playwright Firefox can
-  launch (maintainer terminal or CI).
+- Firefox browser tests and CLI e2e (including the real same-run stack edge) on a
+  host where Playwright Firefox can launch (maintainer terminal or CI).
 - The quiet-device median-baseline re-run of the two chart experiments, with
   null/A-A and negative controls.
 - Real-site candidate import, selective diagnostics and the later phases. None
