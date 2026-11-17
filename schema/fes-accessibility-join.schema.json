@@ -1,0 +1,589 @@
+{
+  "$id": "https://github.com/mgifford/firefox-energy-scanner/schema/fes-accessibility-join.schema.json",
+  "title": "FES Open Scans accessibility join",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "fes-accessibility-join/1"
+    },
+    "sourceContext": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "a11y-accessibility-context/1"
+        },
+        "generatedAt": {
+          "type": "string"
+        },
+        "site": {
+          "type": "object",
+          "properties": {
+            "origin": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "host": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "origin",
+            "host"
+          ],
+          "additionalProperties": false
+        },
+        "scan": {
+          "type": "object",
+          "properties": {
+            "issueNumber": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "issueUrl": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "scanTitle": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "scannedAt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "engines": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "scanContext": {}
+          },
+          "additionalProperties": {}
+        },
+        "summary": {},
+        "categoryLabels": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "schema"
+      ],
+      "additionalProperties": false
+    },
+    "matches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "observation": {
+            "type": "object",
+            "properties": {
+              "observationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "patternId": {
+                "type": "string"
+              },
+              "patternDisplayId": {
+                "type": "string"
+              },
+              "identitySource": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "engine": {
+                "type": "string"
+              },
+              "wcagSc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actRuleIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "impact": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pageUrl": {
+                "type": "string"
+              },
+              "selector": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "locator": {
+                "type": "string"
+              },
+              "locatorSource": {
+                "type": "string",
+                "enum": [
+                  "selector",
+                  "html",
+                  "none"
+                ]
+              },
+              "container": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "element": {
+                    "type": "string"
+                  },
+                  "basis": {
+                    "type": "string"
+                  },
+                  "confidence": {
+                    "type": "string"
+                  },
+                  "ownershipEstablished": {
+                    "type": "boolean",
+                    "const": false
+                  }
+                },
+                "required": [
+                  "ownershipEstablished"
+                ],
+                "additionalProperties": false
+              },
+              "sourceRef": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "observationId",
+              "rule",
+              "engine",
+              "wcagSc",
+              "actRuleIds",
+              "pageUrl",
+              "locatorSource"
+            ],
+            "additionalProperties": false
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "url"
+            ],
+            "additionalProperties": false
+          },
+          "component": {
+            "type": "object",
+            "properties": {
+              "instance": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              },
+              "selector": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "instance",
+              "type",
+              "signature",
+              "selector"
+            ],
+            "additionalProperties": false
+          },
+          "match": {
+            "type": "object",
+            "properties": {
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "page",
+                  "exact-selector",
+                  "component-id",
+                  "none"
+                ]
+              },
+              "selectorType": {
+                "type": "string",
+                "enum": [
+                  "css",
+                  "xpath",
+                  "html",
+                  "none",
+                  "unknown"
+                ]
+              },
+              "confidence": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low",
+                  "none"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "basis",
+              "selectorType",
+              "confidence"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "observation",
+          "match"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "unmatched": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "observation": {
+            "type": "object",
+            "properties": {
+              "observationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "patternId": {
+                "type": "string"
+              },
+              "patternDisplayId": {
+                "type": "string"
+              },
+              "identitySource": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "engine": {
+                "type": "string"
+              },
+              "wcagSc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actRuleIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "impact": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pageUrl": {
+                "type": "string"
+              },
+              "selector": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "locator": {
+                "type": "string"
+              },
+              "locatorSource": {
+                "type": "string",
+                "enum": [
+                  "selector",
+                  "html",
+                  "none"
+                ]
+              },
+              "container": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "element": {
+                    "type": "string"
+                  },
+                  "basis": {
+                    "type": "string"
+                  },
+                  "confidence": {
+                    "type": "string"
+                  },
+                  "ownershipEstablished": {
+                    "type": "boolean",
+                    "const": false
+                  }
+                },
+                "required": [
+                  "ownershipEstablished"
+                ],
+                "additionalProperties": false
+              },
+              "sourceRef": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "observationId",
+              "rule",
+              "engine",
+              "wcagSc",
+              "actRuleIds",
+              "pageUrl",
+              "locatorSource"
+            ],
+            "additionalProperties": false
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "url"
+            ],
+            "additionalProperties": false
+          },
+          "component": {
+            "type": "object",
+            "properties": {
+              "instance": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              },
+              "selector": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "instance",
+              "type",
+              "signature",
+              "selector"
+            ],
+            "additionalProperties": false
+          },
+          "match": {
+            "type": "object",
+            "properties": {
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "page",
+                  "exact-selector",
+                  "component-id",
+                  "none"
+                ]
+              },
+              "selectorType": {
+                "type": "string",
+                "enum": [
+                  "css",
+                  "xpath",
+                  "html",
+                  "none",
+                  "unknown"
+                ]
+              },
+              "confidence": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low",
+                  "none"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "basis",
+              "selectorType",
+              "confidence"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "observation",
+          "match"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "observations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "pageMatched": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "componentMatched": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "pageLevel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unmatched": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "byBasis": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "byEngine": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "required": [
+        "observations",
+        "pageMatched",
+        "componentMatched",
+        "pageLevel",
+        "unmatched",
+        "byBasis",
+        "byEngine"
+      ],
+      "additionalProperties": false
+    },
+    "limitations": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "sourceContext",
+    "matches",
+    "unmatched",
+    "summary",
+    "limitations"
+  ],
+  "additionalProperties": false
+}

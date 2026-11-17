@@ -441,6 +441,12 @@ export interface BenchmarkResult {
   graph?: import('../model/graph.js').ComponentGraph;
   /** What to look at first, in a stated order; never a score or an energy figure. */
   investigation?: import('../analysis/investigation.js').InvestigationQueue;
+  /**
+   * Optional Open Scans accessibility join, stored by `report
+   * --accessibility-context`. Accessibility evidence, never energy evidence
+   * or a WCAG conformance claim.
+   */
+  accessibilityContext?: import('../model/accessibility-join.js').AccessibilityJoin;
   /** Changes since the previous scan of the same site, when one was found. Indicative. */
   history?: import('../analysis/history.js').HistoryReport;
   /**

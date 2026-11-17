@@ -374,6 +374,10 @@ element is owned by its nearest component, so wrappers are not credited with the
 contents. Resources are placed by reach, so a script every page loads from `<head>`
 shows up even though no element owns it. See [docs/component-graph.md](docs/component-graph.md).
 
+An optional Open Scans accessibility context can be joined to a stored result with
+`report --accessibility-context`; it stays accessibility evidence, never energy evidence.
+See [docs/accessibility-context.md](docs/accessibility-context.md).
+
 The HTML report opens with **Investigate first**: a queue in a stated order (evidence,
 reach, remedy, workload; a sort, not a score), each item with where it is on the page, a
 remedy, its rationale and the measured comparison that would check it, plus page maps
