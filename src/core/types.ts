@@ -239,6 +239,18 @@ export interface SessionInfo {
   orderings?: string[];
 }
 
+/**
+ * Independent-replication status, kept separate from the within-session
+ * statistical verdict (`confidence`). A single quiet session can support a
+ * difference in that session; it is not an independent replication.
+ */
+export interface ReplicationRecord {
+  status: 'not-replicated' | 'replicated' | 'not-assessed';
+  /** Sessions that measured the same experiment, including this one. */
+  sessions: number;
+  note: string;
+}
+
 /** How a crawl chose its pages, so a reader knows what the sample stands for. */
 export interface CrawlSampling {
   /**
@@ -461,5 +473,12 @@ export interface BenchmarkResult {
   relatedExperiments?: { file: string; name: string; kind: string; selector?: string; applied: boolean; status: string; confidence?: string }[];
   /** The evidence record for a development issue, built from the experiment. */
   finding?: import('../report/evidence-record.js').EvidenceRecord;
+  /**
+   * Whether an energy result was independently replicated. A within-session
+   * statistical verdict is not an independent replication; this field keeps
+   * the two claims apart. Absent in older results and in a first session:
+   * read as not-replicated.
+   */
+  replication?: ReplicationRecord;
   warnings: string[];
 }

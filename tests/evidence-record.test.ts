@@ -49,6 +49,8 @@ describe('the evidence record', () => {
     expect(r.schema).toBe('energy-finding/1');
     expect(r.id).toMatch(/^fr-[0-9a-f]{8}$/);
     expect(r.outcome).toMatchObject({ status: 'reduction-shown', confidence: 'confirmatory' });
+    expect(r.outcome.replication).toMatchObject({ status: 'not-replicated', sessions: 1 });
+    expect(findingMarkdown(r)).toContain('not independently replicated');
     expect(r.outcome.steps.map((s) => [s.step, s.role, s.verdict])).toEqual([['load', 'negative-control', 'within-spread'], ['idle', 'attributable', 'lower']]);
     expect(r.recommendation.options).toEqual(['optimize', 'defer', 'redesign', 'replace', 'remove']);
     expect(r.recommendation.caution).toMatch(/does not show the component should be removed/);
@@ -83,7 +85,7 @@ describe('the evidence record', () => {
     expect(buildEvidenceRecord(same)!.outcome.status).toBe('no-difference-shown');
     const none = result(side(false, 2), side(true, 2), { a: series('b', [undefined, undefined], [undefined, undefined]), b: series('v', [undefined, undefined], [undefined, undefined]) });
     const n = buildEvidenceRecord(none)!;
-    expect(n.outcome).toMatchObject({ status: 'not-measured', confidence: 'none' });
+    expect(n.outcome).toMatchObject({ status: 'not-measured', confidence: 'none', replication: { status: 'not-assessed' } });
     expect(n.outcome.steps.every((s) => s.baseline === undefined && s.differenceMwh === undefined)).toBe(true);
     const few = result(side(false, 3), side(true, 3), { a: series('b', around(0.5, 3), around(0.1, 3)), b: series('v', around(0.5, 3), around(0.05, 3)) });
     expect(buildEvidenceRecord(few)!.outcome.confidence).toBe('indicative');
@@ -109,6 +111,13 @@ describe('the evidence record', () => {
     expect(md).toContain('(median baseline)');
     expect(md).toContain('median of the idle window’s bins');
     expect(md).toContain('the window’s mean was 120.0 / 118.0 mW');
+  });
+
+  it('a moved negative control is indicative, and says so', () => {
+    const steps = { a: series('baseline', around(0.2, 10), around(0.1, 10)), b: series('variant', around(0.1, 10), around(0.05, 10)) };
+    const r = buildEvidenceRecord(result(side(false, 10), side(true, 10), steps))!;
+    expect(r.outcome.confidence).toBe('indicative');
+    expect(r.outcome.statement).toMatch(/negative control moved too/);
   });
 
   it('a reduction from non-equivalent sides is indicative, and says why', () => {

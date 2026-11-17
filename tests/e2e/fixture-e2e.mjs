@@ -43,7 +43,13 @@ const exec = (args) =>
     });
   });
 
-const site = await startFixtureSite({ port: 8082 });
+let site;
+try {
+  site = await startFixtureSite({ port: Number(process.env.FIXTURE_PORT ?? 8082) });
+} catch (err) {
+  console.error(`\n${err.message}\n`);
+  process.exit(2);
+}
 try {
   const out = mkdtempSync(join(tmpdir(), 'fixture-'));
   // --trace: three pages traced in Chromium after Firefox closes (needs a Chrome; GitHub's runners have one).

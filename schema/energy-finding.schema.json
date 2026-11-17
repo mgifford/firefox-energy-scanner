@@ -162,6 +162,34 @@
             "none"
           ]
         },
+        "replication": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "not-replicated",
+                "replicated",
+                "not-assessed"
+              ]
+            },
+            "sessions": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "status",
+            "sessions",
+            "note"
+          ],
+          "additionalProperties": false
+        },
         "steps": {
           "type": "array",
           "items": {

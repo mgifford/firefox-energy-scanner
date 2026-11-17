@@ -18,7 +18,7 @@
  */
 
 import { stringify as toYaml } from 'yaml';
-import type { BenchmarkResult } from '../core/types.js';
+import type { BenchmarkResult, ReplicationRecord } from '../core/types.js';
 import type { ExperimentReport, StepDifference } from '../experiments/experiment.js';
 import { stableHash } from '../analysis/signature.js';
 import type { ComponentLead, ScriptLead, SpikeLead, TimelineAnalysis } from '../energy/spike-analysis.js';
@@ -75,7 +75,7 @@ export interface EvidenceRecord {
   /** 2. Why it was tested. */
   suspected: { statement: string; basis: string[] };
   /** 3. What the controlled comparison showed. */
-  outcome: { status: FindingStatus; statement: string; confidence: 'confirmatory' | 'indicative' | 'none'; steps: FindingStep[] };
+  outcome: { status: FindingStatus; statement: string; confidence: 'confirmatory' | 'indicative' | 'none'; replication?: ReplicationRecord; steps: FindingStep[] };
   /** 4. What to investigate next. */
   recommendation: { statement: string; options: ('optimize' | 'defer' | 'redesign' | 'replace' | 'remove')[]; caution: string };
   experiment: {
@@ -139,7 +139,14 @@ function topicsFor(x: ExperimentReport): string[] {
   return [...t];
 }
 
-function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
+function replicationOf(status: FindingStatus, provided?: ReplicationRecord): ReplicationRecord {
+  if (provided) return provided;
+  if (status === 'not-measured') return { status: 'not-assessed', sessions: 1, note: 'Energy was not measured, so there is no energy result to replicate.' };
+  if (status === 'intervention-failed') return { status: 'not-assessed', sessions: 1, note: 'The intervention failed, so there is no result to replicate.' };
+  return { status: 'not-replicated', sessions: 1, note: 'One session on this machine. The statistical verdict is within that session; it has not been independently replicated.' };
+}
+
+function outcomeOf(x: ExperimentReport, provided?: ReplicationRecord): EvidenceRecord['outcome'] {
   const steps: FindingStep[] = x.differences.map((d) => ({
     step: d.step,
     role: d.role ?? 'attributable',
@@ -156,7 +163,7 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
     reading: d.reading,
   }));
   if (!x.applied.ok) {
-    return { status: 'intervention-failed', confidence: 'none', steps, statement: `The change did not take effect, so nothing was compared: ${x.applied.note} This is not evidence that the change saves nothing.` };
+    return { status: 'intervention-failed', confidence: 'none', replication: replicationOf('intervention-failed', provided), steps, statement: `The change did not take effect, so nothing was compared: ${x.applied.note} This is not evidence that the change saves nothing.` };
   }
   const attributable = x.differences.filter((d) => (d.role ?? 'attributable') === 'attributable');
   const control = x.differences.find((d) => d.role === 'negative-control' && (d.verdict === 'lower' || d.verdict === 'higher'));
@@ -180,19 +187,20 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
   const names = (ds: StepDifference[]) => ds.map((d) => d.step).join(' and ');
   const stepsWord = (ds: StepDifference[]) => `${names(ds)} step${ds.length > 1 ? 's' : ''}`;
   if (attributable.length && attributable.every((d) => d.verdict === 'not-measured')) {
-    return { status: 'not-measured', confidence: 'none', steps, statement: 'Energy was not measured on this machine. The change applied; timing and transfer are shown, and the energy comparison needs hardware that measures it.' };
+    return { status: 'not-measured', confidence: 'none', replication: replicationOf('not-measured', provided), steps, statement: 'Energy was not measured on this machine. The change applied; timing and transfer are shown, and the energy comparison needs hardware that measures it.' };
   }
   if (lower.length && !higher.length) {
     const lfl = x.likeForLike?.ok !== false;
     return {
       status: lfl ? 'reduction-shown' : 'reduction-not-like-for-like',
       confidence: confidence(lower),
+      replication: replicationOf(lfl ? 'reduction-shown' : 'reduction-not-like-for-like', provided),
       steps,
       statement: `With the change, the ${stepsWord(lower)} used less energy on this machine, by more than either side’s run-to-run spread. ${where(lower)}${lfl ? '' : ` But the change also took away function or content: ${x.likeForLike!.reasons.join(' ')}`}${caveat ? ` ${caveat}` : ''}`,
     };
   }
   if (higher.length && !lower.length) {
-    return { status: 'increase-shown', confidence: confidence(higher), steps, statement: `With the change, the ${stepsWord(higher)} used more energy on this machine. ${where(higher)}${caveat ? ` ${caveat}` : ''}` };
+    return { status: 'increase-shown', confidence: confidence(higher), replication: replicationOf('increase-shown', provided), steps, statement: `With the change, the ${stepsWord(higher)} used more energy on this machine. ${where(higher)}${caveat ? ` ${caveat}` : ''}` };
   }
   if (attributable.some((d) => d.verdict === 'within-spread') || (lower.length && higher.length)) {
     const within = attributable.filter((d) => d.verdict === 'within-spread');
@@ -204,9 +212,9 @@ function outcomeOf(x: ExperimentReport): EvidenceRecord['outcome'] {
       controlBelow.length ? `The negative-control ${stepsWord(controlBelow)} was below resolution, so it cannot show the sides were alike.` : '',
       'That is not proof of no effect; a smaller effect than this setup resolves may remain.',
     ].filter(Boolean).join(' ');
-    return { status: 'no-difference-shown', confidence: 'none', steps, statement };
+    return { status: 'no-difference-shown', confidence: 'none', replication: replicationOf('no-difference-shown', provided), steps, statement };
   }
-  return { status: 'below-resolution', confidence: 'none', steps, statement: 'At least one side is below the resolution of this setup, so no difference can be read. Longer idle windows or more runs may resolve it.' };
+  return { status: 'below-resolution', confidence: 'none', replication: replicationOf('below-resolution', provided), steps, statement: 'At least one side is below the resolution of this setup, so no difference can be read. Longer idle windows or more runs may resolve it.' };
 }
 
 function recommendationOf(x: ExperimentReport, status: FindingStatus): EvidenceRecord['recommendation'] {
@@ -290,7 +298,7 @@ export function buildEvidenceRecord(result: BenchmarkResult, options: RecordOpti
   if (!x) return undefined;
   const spec = { name: x.name, url: x.url, kind: x.variant.kind, ...(x.variant.selector ? { selector: x.variant.selector } : {}), ...(x.variant.hosts ? { hosts: x.variant.hosts } : {}), ...(x.variant.urls ? { urls: x.variant.urls } : {}), ...(x.workload?.idleMs !== undefined ? { idle_ms: x.workload.idleMs } : {}), ...(x.workload?.settleMs !== undefined && x.variant.kind === 'remove' ? { settle_ms: x.workload.settleMs } : {}), ...(x.variant.maxMatches !== undefined ? { max_matches: x.variant.maxMatches } : {}), seed: x.seed };
   const warmups = (result.configuration as { benchmark?: { warmups?: number } } | undefined)?.benchmark?.warmups;
-  const outcome = outcomeOf(x);
+  const outcome = outcomeOf(x, result.replication);
   const found = leadFor(options.evidence, x.variant.selector);
   const ids = x.removal?.variant.identities.map((i) => i.componentId).filter((c): c is string => !!c) ?? [];
 
@@ -383,6 +391,9 @@ export function findingMarkdown(r: EvidenceRecord): string {
   const lines: string[] = [];
   lines.push(`# ${md(r.title)}`, '');
   lines.push(`**Outcome:** ${r.outcome.status.replace(/-/g, ' ')} (confidence: ${r.outcome.confidence}). **Page:** ${md(r.target.page)}${r.target.component?.selector ? `. **Selector:** \`${r.target.component.selector.replace(/`/g, "'")}\`` : ''}`, '');
+  const rep = r.outcome.replication ?? { status: 'not-assessed' as const, sessions: 0, note: 'This stored record predates the replication field.' };
+  const repLabel = rep.status === 'replicated' ? `independently replicated (${rep.sessions} sessions)` : rep.status === 'not-replicated' ? `not independently replicated (${rep.sessions} session${rep.sessions === 1 ? '' : 's'})` : 'not assessed';
+  lines.push(`**Replication:** ${repLabel}. ${md(rep.note)}`, '');
   lines.push('## 1. Observed activity', '');
   for (const s of r.observed.statements) lines.push(`- ${md(s)}`);
   for (const e of r.observed.evidence) lines.push(`- (${e.class}, ${e.source}) ${md(e.detail)}`);

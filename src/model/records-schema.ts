@@ -260,6 +260,14 @@ export const findingSchema = z
         status: z.enum(['reduction-shown', 'reduction-not-like-for-like', 'increase-shown', 'no-difference-shown', 'below-resolution', 'not-measured', 'intervention-failed']),
         statement: z.string().min(1),
         confidence: z.enum(['confirmatory', 'indicative', 'none']),
+        replication: z
+          .object({
+            status: z.enum(['not-replicated', 'replicated', 'not-assessed']),
+            sessions: z.number().int().min(0),
+            note: z.string().min(1),
+          })
+          .strict()
+          .optional(),
         steps: z.array(findingStep),
       })
       .strict()

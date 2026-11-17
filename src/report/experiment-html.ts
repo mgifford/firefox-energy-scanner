@@ -141,7 +141,7 @@ const STATUS: Record<EvidenceRecord['outcome']['status'], string> = {
 export function findingSection(r: EvidenceRecord | undefined): string {
   if (!r) return '';
   return `<section aria-labelledby="finding-h" class="boundary">
-  <h2 id="finding-h">Finding: ${esc(STATUS[r.outcome.status])} <span class="note">(confidence: ${esc(r.outcome.confidence)})</span></h2>
+  <h2 id="finding-h">Finding: ${esc(STATUS[r.outcome.status])} <span class="note">(confidence: ${esc(r.outcome.confidence)}; replication: ${esc((r.outcome.replication?.status === 'not-replicated' ? 'not independently replicated' : r.outcome.replication?.status === 'replicated' ? 'independently replicated' : 'not assessed'))})</span></h2>
   <h3>1. Observed activity</h3>
   <ul>${r.observed.statements.map((s) => `<li>${esc(s)}</li>`).join('')}${r.observed.evidence.map((e) => `<li><span class="note">${esc(e.class)}, ${esc(e.source)}:</span> ${esc(e.detail)}</li>`).join('')}</ul>
   <h3>2. Suspected cause</h3>

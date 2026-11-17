@@ -55,6 +55,13 @@ Each change is made in the browser, as a stand-in for the fix:
 Comparing two real builds, such as a preview with the fix against production, is
 `compare --a … --b … --journey …`, which these experiments are built on.
 
+### One session is not replication
+
+A run labels its statistical verdict `confirmatory` only when the within-session controls
+hold. That is not independent replication: the evidence record carries `replication.status`
+separately (`not-replicated` for a first session, `replicated` only when an equivalent
+session agrees). Keep the original run files; reinterpret them without `--write`.
+
 ### Fair by construction
 
 - **Symmetric.** The baseline goes through the same interception as the variant, with an

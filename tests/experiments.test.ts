@@ -119,6 +119,18 @@ describe('summarizeExperiment', () => {
     expect(d!.reading).toMatch(/0\.040 mWh less/);
   });
 
+  it('A/A: identical run distributions never report a saving or an increase', () => {
+    const values = around(0.1, 10);
+    const rotate = (xs: number[], n: number) => [...xs.slice(n), ...xs.slice(0, n)];
+    for (let seed = 0; seed < 20; seed++) {
+      const a = series('baseline', 'idle', rotate(values, seed % 10));
+      const b = series('variant', 'idle', rotate(values, (seed * 3) % 10));
+      const [d] = summarizeExperiment(a, b);
+      expect(d!.verdict).not.toBe('lower');
+      expect(d!.verdict).not.toBe('higher');
+    }
+  });
+
   it('says within spread, below resolution, and indicative when it should', () => {
     expect(summarizeExperiment(series('b', 'idle', around(0.1, 10)), series('v', 'idle', around(0.1005, 10)))[0]!.verdict).toBe('within-spread');
     expect(summarizeExperiment(series('b', 'idle', [0.01, -0.02, 0.03, -0.01]), series('v', 'idle', around(0.1, 4)))[0]!.verdict).toBe('below-resolution');

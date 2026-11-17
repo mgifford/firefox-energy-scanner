@@ -48,7 +48,13 @@ const records = (dir) => {
   return f ? JSON.parse(readFileSync(join(dir, f), 'utf8')).records : [];
 };
 
-const site = await startFixtureSite({ port: 8084 });
+let site;
+try {
+  site = await startFixtureSite({ port: Number(process.env.FIXTURE_PORT ?? 8084) });
+} catch (err) {
+  console.error(`\n${err.message}\n`);
+  process.exit(2);
+}
 try {
   const out = mkdtempSync(join(tmpdir(), 'trace-'));
   const paths = ['/compute', '/articles/d', '/spinner', '/embed', '/tiny-work', '/nope'];

@@ -36,6 +36,11 @@ at every checkpoint. Otherwise it is `indicative`, and the statement says why, o
 An experiment with no negative-control step (a pre-load removal, for example) cannot show
 that the sides were alike before the change, so it is `indicative` too.
 
+**Replication** is separate from confidence. `confidence` is a within-session statistical
+verdict; `replication` is `not-replicated` (one session), `replicated` (equivalent
+sessions), or `not-assessed` (there is no energy result to replicate). A single session is
+never exported as an independent replication, however small its within-session spread.
+
 A negative-control step (the load step of a post-load removal) is reported, but it never
 counts as a saving.
 

@@ -164,7 +164,10 @@ requestAnimationFrame(frame);`,
 const svg = (w, h) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#6a9"/>${'<circle cx="10" cy="10" r="5"/>'.repeat(Math.min(400, Math.round((w * h) / 20000)))}</svg>`;
 
 export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {}) {
-  const site = `http://www.site.test:${port}`;
+  // Set after listening: port 0 asks the OS for a free port, and an occupied
+  // port is reported, never silently taken over from another process.
+  let site = '';
+  let actualPort = port;
   const server = http.createServer((req, res) => {
     const reqHost = (req.headers.host || '').split(':')[0];
     const path = req.url.split('?')[0];
@@ -200,9 +203,33 @@ export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {})
       return send(200, 'text/html; charset=utf-8', page('Search', `<section aria-label="Search results" data-component-id="search-results"><ol>${results}</ol></section>`));
     }
     const html = PAGES[path] ?? LAB[path];
-    if (html) return send(200, 'text/html; charset=utf-8', html.replace('PORT', String(port)));
+    if (html) return send(200, 'text/html; charset=utf-8', html.replace('PORT', String(actualPort)));
     return send(404, 'text/html; charset=utf-8', page('Page not found', '<p>Nothing is at this address.</p>'));
   });
-  await new Promise((resolve) => server.listen(port, host, resolve));
-  return { url: site, port, pages: Object.keys(PAGES), close: () => new Promise((r) => server.close(r)) };
+  await new Promise((resolve, reject) => {
+    const onError = (err) => {
+      server.off('listening', onListening);
+      if (err && err.code === 'EADDRINUSE') {
+        reject(
+          new Error(
+            `Fixture port ${port} is already in use. If that is the fixture site, keep it and set FIXTURE_PORT to its port; ` +
+              `otherwise choose another port with FIXTURE_PORT (or pass port: 0). ` +
+              `Find the listener with: lsof -nP -iTCP:${port} -sTCP:LISTEN`,
+          ),
+        );
+        return;
+      }
+      reject(err);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, host);
+  });
+  actualPort = server.address().port;
+  site = `http://www.site.test:${actualPort}`;
+  return { url: site, port: actualPort, pages: Object.keys(PAGES), close: () => new Promise((r) => server.close(r)) };
 }

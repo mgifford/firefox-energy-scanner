@@ -51,9 +51,16 @@ const exec = (args) =>
     });
   });
 
-const site = await startFixtureSite({ port: 8086 });
+const port = Number(process.env.FIXTURE_PORT ?? 8086);
+let site;
+try {
+  site = await startFixtureSite({ port });
+} catch (err) {
+  console.error(`\n${err.message}\n`);
+  process.exit(2);
+}
 // The lab pages answer on any host; 127.0.0.1 needs no hosts-file entry.
-const base = 'http://127.0.0.1:8086';
+const base = `http://127.0.0.1:${site.port}`;
 
 async function experiment(path, selector, extra = [], kind = 'remove') {
   const out = mkdtempSync(join(tmpdir(), 'remove-'));
