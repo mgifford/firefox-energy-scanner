@@ -3,6 +3,7 @@ import type { CrawlSampling, SampleReason, StepResult, EnergyResult } from '../c
 import { BrowserSession, waitForStablePage, readTimings } from './session.js';
 import { normalizeUrl, matchesRules, pageKey, siteOf, sortUrls } from './urls.js';
 import { StepRunner, buildStepResults, greenHostingFor, type StepRecord } from '../core/runner.js';
+import { medianWindowPower } from '../energy/timeline.js';
 import { deriveBaseline, type Baseline } from '../core/baseline.js';
 import { parseRobotsSitemaps, sampleFromSitemaps, type Getter, type SiteSample } from './sitemap.js';
 import { loginDrupal, readDrupalCredentials } from '../drupal/helpers.js';
@@ -265,7 +266,13 @@ export async function crawl(options: CrawlOptions): Promise<CrawlOutcome> {
       );
     }
     const baselineEnergy = energyByLabel.get('__baseline__');
-    if (baselineEnergy) baseline = deriveBaseline(baselineEnergy);
+    if (baselineEnergy) {
+      // The idle floor: the median power of the window's bins, not its mean (see deriveBaseline).
+      const w = records.find((r) => r.label === '__baseline__');
+      const selection = session.energy?.powerSelection();
+      const robust = w && selection ? medianWindowPower(selection, w.startedAt, w.endedAt) : undefined;
+      baseline = deriveBaseline(baselineEnergy, robust);
+    }
 
     const green = await greenHostingFor(records, config, warnings);
     steps.push(...buildStepResults(records, energyByLabel, baseline, config, 'crawl', green));

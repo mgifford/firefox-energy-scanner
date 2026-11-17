@@ -14,7 +14,8 @@ import { tracesSection } from './traces-html.js';
 import { cruxPagesSection } from './crux-pages-html.js';
 import { focusableScrollRegions } from './scroll-regions.js';
 import { investigationSection, historySection } from './investigation-html.js';
-import { experimentSection } from './experiment-html.js';
+import { experimentSection, findingSection } from './experiment-html.js';
+import { timelineSection } from './timeline-html.js';
 
 const esc = (s: unknown): string =>
   String(s ?? '')
@@ -134,6 +135,7 @@ export function toHtml(result: BenchmarkResult): string {
   details { border: 1px solid var(--line); padding: .5rem .75rem; margin: .5rem 0; }
   summary { cursor: pointer; font-weight: 600; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  pre.cmd { overflow-x: auto; padding: .5rem .75rem; border: 1px solid var(--line); white-space: pre; }
   @media (forced-colors: active) { details, .boundary, .warning { border-color: CanvasText; } }
 </style>
 </head>
@@ -246,6 +248,8 @@ ${
 }
 
 ${experimentSection(result.experiment)}
+${findingSection(result.finding)}
+${timelineSection(result)}
 
 ${investigationSection(result)}
 

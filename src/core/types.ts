@@ -79,6 +79,10 @@ export interface EnergyResult {
 export interface EnergyWithBaseline {
   raw: EnergyResult;
   baselineWatts?: number;
+  /** How the baseline was found (see Baseline.method). Absent in older results: mean. */
+  baselineMethod?: 'median-of-bins' | 'mean';
+  /** The idle window's mean power, W, kept beside a median so a burst in it stays visible. */
+  baselineMeanWatts?: number;
   estimatedIdleJoules?: number;
   incrementalJoules?: number;
   /** True when incremental energy came out negative (measurement noise). */
@@ -229,10 +233,36 @@ export interface SessionInfo {
   id: string;
   startedAt: string;
   endedAt?: string;
-  mode: 'measure' | 'crawl' | 'journey' | 'baseline' | 'compare' | 'profile';
+  mode: 'measure' | 'crawl' | 'journey' | 'baseline' | 'compare' | 'profile' | 'diagnose';
   /** Seed used for interleaved A/B ordering, retained for reproducibility. */
   seed?: string;
   orderings?: string[];
+}
+
+/**
+ * Independent-replication status, kept separate from the within-session
+ * statistical verdict (`confidence`). A single quiet session can support a
+ * difference in that session; it is not an independent replication.
+ */
+export interface ReplicationRecord {
+  status: 'not-replicated' | 'replicated' | 'not-assessed';
+  /** Sessions that measured the same experiment, including this one. */
+  sessions: number;
+  note: string;
+}
+
+/** A script inspected after a diagnostic run's measured windows; refs are static leads. */
+export interface ScriptReferenceRecord {
+  url: string;
+  /** The page the script was inspected on. */
+  page: string;
+  inline?: boolean;
+  status: 'scanned' | 'cross-origin' | 'unavailable' | 'too-large' | 'not-fetched';
+  /** Only the first 256 KB of a large script was scanned. */
+  truncated?: boolean;
+  bytes?: number;
+  refs: { kind: 'id' | 'selector'; value: string }[];
+  error?: string;
 }
 
 /** How a crawl chose its pages, so a reader knows what the sample stands for. */
@@ -365,6 +395,8 @@ export interface BenchmarkResult {
     durationMs: number;
     samples: number;
     adapterId: string;
+    method?: 'median-of-bins' | 'mean';
+    meanWatts?: number;
   };
   /**
    * The grid assumption used to derive Class C carbon from observed energy.
@@ -430,5 +462,39 @@ export interface BenchmarkResult {
   notHtml?: { url: string; contentType?: string }[];
   /** An energy experiment: baseline against one change, as a measured difference only. */
   experiment?: import('../experiments/experiment.js').ExperimentReport;
+  /**
+   * Energy timelines, when asked for (diagnose, or --timeline): the power
+   * counters in time bins, intervals of elevated power, and the leads for
+   * each. Intervals are where to look; leads are what to test. Neither is an
+   * energy figure for a component.
+   */
+  timelines?: import('../energy/spike-analysis.js').TimelineAnalysis[];
+  /**
+   * diagnose: the page as captured after its measured windows: a screenshot
+   * (a file beside the result) and how many elements each component's
+   * selector matched then. A selector that matched other than one element
+   * is ambiguous, and is not treated as verified.
+   */
+  capture?: {
+    page: string;
+    capturedAt: string;
+    selectorMatches: Record<string, number>;
+    screenshot?: { file: string; width: number; height: number };
+    /** This result's own file name, for commands that cite it as evidence. */
+    resultFile?: string;
+  };
+  /** Experiments run on this result's components, linked with `report --with`. Summaries only. */
+  relatedExperiments?: { file: string; name: string; kind: string; selector?: string; applied: boolean; status: string; confidence?: string }[];
+  /** The evidence record for a development issue, built from the experiment. */
+  finding?: import('../report/evidence-record.js').EvidenceRecord;
+  /** diagnose: script sources read after the measured windows, for static DOM-reference leads. */
+  scriptReferences?: ScriptReferenceRecord[];
+  /**
+   * Whether an energy result was independently replicated. A within-session
+   * statistical verdict is not an independent replication; this field keeps
+   * the two claims apart. Absent in older results and in a first session:
+   * read as not-replicated.
+   */
+  replication?: ReplicationRecord;
   warnings: string[];
 }

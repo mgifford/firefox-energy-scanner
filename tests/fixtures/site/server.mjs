@@ -17,6 +17,21 @@
  * 11. /tiny-work       a timer doing negligible work: removing it changes little
  * 12. /spinner         a CSS-only spinner: pausing it saves work without changing transfer
  *
+ * Isolation lab pages, for removal experiments (not in the sitemap, so crawls
+ * do not change):
+ *
+ *  /lab/ticker      a recurring timer that keeps running after its element is removed
+ *  /lab/polite      a timer that stops itself once its element is gone
+ *  /lab/remount     a component the page puts back after it is removed
+ *  /lab/static      a large static subtree beside a small animated badge
+ *  /lab/ensure      a script that creates the component when the markup lacks it
+ *  /lab/moved       a redirect to /lab/static
+ *  /lab/wanderer    a page that navigates itself to /light after a second
+ *
+ * And /articles/d (requestAnimationFrame), /spinner (CSS animation), /embed
+ * (an iframe), /articles/a (nested cards sharing cards.js) and /table (a
+ * control people need) serve the other removal cases.
+ *
  * And /assets, for Lighthouse's resource findings: a render-blocking
  * stylesheet whose rules are mostly unused, and a large, mostly unused script.
  *
@@ -88,6 +103,41 @@ const PAGES = {
   }),
 };
 
+/** Isolation lab pages: served, but not listed in the sitemap. */
+const LAB = {
+  '/lab/ticker': page(
+    'Ticker',
+    '<section aria-label="Ticker" data-component-id="ticker"><h2>Live count</h2><p id="tick">0</p></section><p>Text that stays.</p>',
+    { bodyEnd: '<script src="/js/ticker.js"></script>' },
+  ),
+  '/lab/polite': page(
+    'Polite ticker',
+    '<section aria-label="Polite ticker" data-component-id="polite-ticker"><p id="polite">0</p></section>',
+    { bodyEnd: '<script src="/js/polite.js"></script>' },
+  ),
+  '/lab/remount': page(
+    'Remount',
+    '<aside aria-label="Promotion" data-component-id="promo"><p>A promotion that will not go away.</p></aside><p>Main text.</p>',
+    { bodyEnd: '<script src="/js/remount.js"></script>' },
+  ),
+  '/lab/ensure': page(
+    'Ensure',
+    '<aside aria-label="Notice" data-component-id="notice"><p>Notice.</p></aside><p>Main text.</p>',
+    { bodyEnd: '<script src="/js/ensure.js"></script>' },
+  ),
+  '/lab/wanderer': page(
+    'Wanderer',
+    '<section aria-label="Notice" data-component-id="wander-notice"><p>Leaving soon.</p></section>',
+    { bodyEnd: '<script>setTimeout(() => { location.href = "/light"; }, 1000);</script>' },
+  ),
+  '/lab/static': page(
+    'Static subtree',
+    `<section aria-label="Archive" data-component-id="archive"><ul>${Array.from({ length: 1500 }, (_, i) => `<li>Entry ${i + 1}</li>`).join('')}</ul></section>
+     <div class="badge" data-component-id="badge" aria-hidden="true"></div>`,
+    { head: '<style>.badge{width:20px;height:20px;background:#036;animation:blink 0.6s steps(2) infinite}@keyframes blink{to{opacity:.2}}</style>' },
+  ),
+};
+
 /** Listed in the sitemap, but not pages. */
 const FILES = {
   '/files/document/annual-reportpdf': ['application/pdf', '%PDF-1.4\n% synthetic fixture file, not a real PDF\n%%EOF\n'],
@@ -102,6 +152,10 @@ const SCRIPTS = {
 function render(list) { document.getElementById('rows').innerHTML = list.map((r) => '<tr><td>' + r.name + '</td><td>' + r.value + '</td></tr>').join(''); }
 render(rows);
 document.getElementById('sort').addEventListener('click', () => { for (let k = 0; k < 5; k++) render([...rows].sort((a, b) => a.value - b.value)); document.getElementById('sort').setAttribute('aria-pressed', 'true'); });`,
+  '/js/ticker.js': 'let n = 0; setInterval(() => { n++; const el = document.getElementById("tick"); if (el) el.textContent = String(n); window.tickerCount = n; }, 100);',
+  '/js/polite.js': 'const el = document.getElementById("polite"); let n = 0; const id = setInterval(() => { if (!el.isConnected) { clearInterval(id); window.politeStopped = true; return; } n++; el.textContent = String(n); }, 100);',
+  '/js/remount.js': 'const keep = document.querySelector("[data-component-id=promo]"); setInterval(() => { if (!keep.isConnected) document.getElementById("main").append(keep); }, 200);',
+  '/js/ensure.js': 'if (!document.querySelector("[data-component-id=notice]")) { const a = document.createElement("aside"); a.setAttribute("data-component-id", "notice"); a.textContent = "Notice, recreated."; document.getElementById("main").append(a); }',
   '/js/chart.js': `const c = document.getElementById('chart'); const g = c.getContext('2d'); let t = 0;
 function frame() { t++; g.clearRect(0, 0, c.width, c.height); g.beginPath(); for (let x = 0; x < c.width; x++) g.lineTo(x, 100 + 80 * Math.sin((x + t) / 30)); g.stroke(); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);`,
@@ -110,7 +164,10 @@ requestAnimationFrame(frame);`,
 const svg = (w, h) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#6a9"/>${'<circle cx="10" cy="10" r="5"/>'.repeat(Math.min(400, Math.round((w * h) / 20000)))}</svg>`;
 
 export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {}) {
-  const site = `http://www.site.test:${port}`;
+  // Set after listening: port 0 asks the OS for a free port, and an occupied
+  // port is reported, never silently taken over from another process.
+  let site = '';
+  let actualPort = port;
   const server = http.createServer((req, res) => {
     const reqHost = (req.headers.host || '').split(':')[0];
     const path = req.url.split('?')[0];
@@ -122,6 +179,10 @@ export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {})
       if (path === '/widget') return send(200, 'text/html; charset=utf-8', '<!doctype html><html lang="en"><head><title>Widget</title><script src="/widget.js"></script></head><body><p>Third-party widget</p></body></html>');
       if (path === '/widget.js') return send(200, 'text/javascript', 'setInterval(() => { document.body.dataset.tick = String(Date.now()); }, 500);');
       return send(404, 'text/plain', 'not found');
+    }
+    if (path === '/lab/moved') {
+      res.writeHead(301, { Location: '/lab/static', 'Cache-Control': 'no-store' });
+      return res.end();
     }
     if (path === '/robots.txt') return send(200, 'text/plain', `User-agent: *\nAllow: /\nSitemap: ${site}/sitemap.xml\n`);
     if (path === '/sitemap.xml') {
@@ -141,10 +202,34 @@ export async function startFixtureSite({ port = 8082, host = '127.0.0.1' } = {})
       const results = q ? Array.from({ length: 10 }, (_, i) => `<li><a href="/articles/a">Result ${i + 1} for ${q.replace(/[<>&"]/g, '')}</a></li>`).join('') : '';
       return send(200, 'text/html; charset=utf-8', page('Search', `<section aria-label="Search results" data-component-id="search-results"><ol>${results}</ol></section>`));
     }
-    const html = PAGES[path];
-    if (html) return send(200, 'text/html; charset=utf-8', html.replace('PORT', String(port)));
+    const html = PAGES[path] ?? LAB[path];
+    if (html) return send(200, 'text/html; charset=utf-8', html.replace('PORT', String(actualPort)));
     return send(404, 'text/html; charset=utf-8', page('Page not found', '<p>Nothing is at this address.</p>'));
   });
-  await new Promise((resolve) => server.listen(port, host, resolve));
-  return { url: site, port, pages: Object.keys(PAGES), close: () => new Promise((r) => server.close(r)) };
+  await new Promise((resolve, reject) => {
+    const onError = (err) => {
+      server.off('listening', onListening);
+      if (err && err.code === 'EADDRINUSE') {
+        reject(
+          new Error(
+            `Fixture port ${port} is already in use. If that is the fixture site, keep it and set FIXTURE_PORT to its port; ` +
+              `otherwise choose another port with FIXTURE_PORT (or pass port: 0). ` +
+              `Find the listener with: lsof -nP -iTCP:${port} -sTCP:LISTEN`,
+          ),
+        );
+        return;
+      }
+      reject(err);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, host);
+  });
+  actualPort = server.address().port;
+  site = `http://www.site.test:${actualPort}`;
+  return { url: site, port: actualPort, pages: Object.keys(PAGES), close: () => new Promise((r) => server.close(r)) };
 }

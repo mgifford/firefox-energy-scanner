@@ -141,6 +141,12 @@ export interface ComponentInstance {
   own?: OwnCounts;
   /** Images, video, iframes and external scripts it owns directly: at most 6. */
   ownResources?: { url: string; kind: 'image' | 'video' | 'iframe' | 'script' }[];
+  /**
+   * Ids of elements inside the instance (itself included), at most 20. A
+   * loaded script's static getElementById/querySelector('#id') references can
+   * be matched to these, as a lead, not as ownership.
+   */
+  domIds?: string[];
 }
 
 /**
@@ -624,6 +630,7 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
           if (s) ancestry.unshift(s.signature);
         }
         const inlineScripts = Array.from(el.querySelectorAll('script:not([src])')).length;
+        const domIds = [...new Set([el, ...Array.from(el.querySelectorAll('[id]'))].map((n) => n.id).filter(Boolean))].slice(0, 20);
         const role = roleOf(el);
         const name = nameOf(el);
         const live = el.matches(LIVE) || !!el.querySelector(LIVE);
@@ -642,6 +649,7 @@ export async function collectPageAnatomy(page: Page): Promise<PageAnatomy | unde
           ...(Object.values(media).some((v) => v > 0) ? { media } : {}),
           ...(urls.length ? { resources: urls.slice(0, 6), resourceCount: urls.length } : {}),
           ...(inlineScripts ? { inlineScripts } : {}),
+          ...(domIds.length ? { domIds } : {}),
           ...(inside.length
             ? {
                 animations: {

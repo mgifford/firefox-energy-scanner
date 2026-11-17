@@ -1,0 +1,1191 @@
+{
+  "$id": "https://github.com/mgifford/firefox-energy-scanner/schema/energy-timeline.schema.json",
+  "title": "Firefox Energy Scanner energy timeline, intervals and leads",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "timeline": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "energy-timeline/1"
+        },
+        "originEpochMs": {
+          "type": "number"
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "binMs": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "requestedBinMs": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "resolution": {
+          "type": "object",
+          "properties": {
+            "sampleIntervalMs": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "counterUpdateMs": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "minimumBinMs": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "supportedBinsMs": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          },
+          "required": [
+            "sampleIntervalMs",
+            "counterUpdateMs",
+            "minimumBinMs",
+            "supportedBinsMs"
+          ],
+          "additionalProperties": false
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "process",
+            "cpu-package",
+            "system"
+          ]
+        },
+        "basis": {
+          "type": "string"
+        },
+        "counters": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "samples": {
+          "type": "object",
+          "properties": {
+            "used": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "excluded": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          "required": [
+            "used",
+            "excluded"
+          ],
+          "additionalProperties": false
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "startMs": {
+                "type": "number"
+              },
+              "endMs": {
+                "type": "number"
+              },
+              "counter": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "startMs",
+              "endMs",
+              "counter"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "baseline",
+                  "loading",
+                  "stabilizing",
+                  "idle",
+                  "interaction",
+                  "unmeasured"
+                ]
+              },
+              "step": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "run": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "warmup": {
+                "type": "boolean"
+              },
+              "startMs": {
+                "type": "number"
+              },
+              "endMs": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "step",
+              "label",
+              "warmup",
+              "startMs",
+              "endMs"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "bins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "startMs": {
+                "type": "number"
+              },
+              "endMs": {
+                "type": "number"
+              },
+              "samples": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "energyJ": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Energy read in the bin, J. Null when no sample was read: never zero for \"not measured\"."
+              },
+              "averagePowerW": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Energy over the bin width, W. Null when there is no energy, or it reaches back beyond the bin."
+              },
+              "phase": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "flags": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "no-samples",
+                    "lumped",
+                    "unit-missing",
+                    "phase-boundary",
+                    "first-sample"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "index",
+              "startMs",
+              "endMs",
+              "samples",
+              "energyJ",
+              "averagePowerW"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "profilerFeatures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "samplingIntervalMs": {
+          "type": "number"
+        },
+        "scenario": {
+          "type": "string"
+        },
+        "run": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "method": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "originEpochMs",
+        "durationMs",
+        "binMs",
+        "requestedBinMs",
+        "resolution",
+        "scope",
+        "basis",
+        "counters",
+        "samples",
+        "gaps",
+        "phases",
+        "bins",
+        "profilerFeatures",
+        "warnings",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "spikes": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string",
+          "const": "robust-threshold-v1"
+        },
+        "statement": {
+          "type": "string"
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "reference": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "baseline",
+                "quiet",
+                "rolling"
+              ]
+            },
+            "k": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "minDurationMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "mergeGapMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "sustainedMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "quietFraction": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            },
+            "rollingWindowMs": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "minRiseW": {
+              "type": "number",
+              "minimum": 0
+            },
+            "minReferenceBins": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "binMs": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "reference",
+            "k",
+            "minDurationMs",
+            "mergeGapMs",
+            "sustainedMs",
+            "quietFraction",
+            "rollingWindowMs",
+            "minRiseW",
+            "minReferenceBins",
+            "binMs"
+          ],
+          "additionalProperties": false
+        },
+        "reference": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "baseline-window",
+                "quiet-bins",
+                "rolling-median"
+              ]
+            },
+            "powerW": {
+              "type": "number"
+            },
+            "spreadW": {
+              "type": "number",
+              "minimum": 0
+            },
+            "spreadFrom": {
+              "type": "string",
+              "enum": [
+                "mad",
+                "quantum",
+                "none"
+              ]
+            },
+            "bins": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "kind",
+            "powerW",
+            "spreadW",
+            "spreadFrom",
+            "bins"
+          ],
+          "additionalProperties": false
+        },
+        "intervals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^spike-\\d+$"
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "startMs": {
+                "type": "number"
+              },
+              "endMs": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number",
+                "minimum": 0
+              },
+              "bins": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "peakPowerW": {
+                "type": "number",
+                "minimum": 0
+              },
+              "peakAtMs": {
+                "type": "number"
+              },
+              "meanPowerW": {
+                "type": "number",
+                "minimum": 0
+              },
+              "energyJ": {
+                "type": "number",
+                "minimum": 0
+              },
+              "excessEnergyJ": {
+                "type": "number",
+                "minimum": 0
+              },
+              "referenceW": {
+                "type": "number"
+              },
+              "thresholdW": {
+                "type": "number"
+              },
+              "shape": {
+                "type": "string",
+                "enum": [
+                  "brief-peak",
+                  "sustained"
+                ]
+              },
+              "phases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "flags": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "outside-measured-steps",
+                    "crosses-phase-boundary",
+                    "includes-lumped-bins",
+                    "warmup",
+                    "machine-wide-scope",
+                    "during-baseline",
+                    "whole-phase"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "rank",
+              "startMs",
+              "endMs",
+              "durationMs",
+              "bins",
+              "peakPowerW",
+              "meanPowerW",
+              "energyJ",
+              "excessEnergyJ",
+              "referenceW",
+              "thresholdW",
+              "shape",
+              "phases",
+              "steps",
+              "flags"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "topBins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "startMs": {
+                "type": "number"
+              },
+              "powerW": {
+                "type": "number"
+              },
+              "phase": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "index",
+              "startMs",
+              "powerW"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "method",
+        "statement",
+        "settings",
+        "reference",
+        "intervals",
+        "topBins",
+        "warnings"
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "const": "same-run-gecko"
+          },
+          "available": {
+            "type": "object",
+            "properties": {
+              "markers": {
+                "type": "boolean"
+              },
+              "stacks": {
+                "type": "boolean"
+              },
+              "cpuTime": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "markers",
+              "stacks",
+              "cpuTime"
+            ],
+            "additionalProperties": false
+          },
+          "activity": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "process": {
+                  "type": "string",
+                  "enum": [
+                    "browser",
+                    "page",
+                    "gpu",
+                    "other",
+                    "unknown"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Time within the interval covered by at least one such marker: overlaps counted once."
+                },
+                "names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "count",
+                "ms",
+                "names"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "scripts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "functionName": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "number"
+                },
+                "samples": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "process": {
+                  "type": "string",
+                  "enum": [
+                    "browser",
+                    "page",
+                    "gpu",
+                    "other",
+                    "unknown"
+                  ]
+                }
+              },
+              "required": [
+                "url",
+                "samples"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "url",
+                "count"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "domEvents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "count"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string"
+                },
+                "cpuMs": {
+                  "type": "number"
+                },
+                "share": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "sessionShare": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": [
+                "category",
+                "cpuMs",
+                "share"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "categoryBasis": {
+            "type": "string",
+            "enum": [
+              "cpu-time",
+              "sample-count"
+            ]
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "available",
+          "activity",
+          "scripts",
+          "requests",
+          "domEvents",
+          "categories",
+          "notes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "leads": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "spike": {
+            "type": "string"
+          },
+          "observed": {
+            "type": "string"
+          },
+          "activity": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "instance": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "selector": {
+                  "type": "string"
+                },
+                "page": {
+                  "type": "string"
+                },
+                "reach": {
+                  "type": "object",
+                  "properties": {
+                    "pages": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "families": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "pages",
+                    "families"
+                  ],
+                  "additionalProperties": false
+                },
+                "scripts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "resources": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "evidence": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "class": {
+                        "type": "string",
+                        "enum": [
+                          "observed-window",
+                          "profiler-correlation",
+                          "resource-association",
+                          "cross-run-trace",
+                          "direct-node",
+                          "inferred",
+                          "unattributed"
+                        ]
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "same-run-gecko",
+                          "chromium-trace",
+                          "firefox-dom",
+                          "component-graph",
+                          "lighthouse"
+                        ]
+                      },
+                      "detail": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "class",
+                      "source",
+                      "detail"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "classes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "observed-window",
+                      "profiler-correlation",
+                      "resource-association",
+                      "cross-run-trace",
+                      "direct-node",
+                      "inferred",
+                      "unattributed"
+                    ]
+                  }
+                },
+                "lighthouse": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "selectorMatches": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "experiments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "available": {
+                        "type": "boolean"
+                      },
+                      "why": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "available",
+                      "why"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "instance",
+                "type",
+                "signature",
+                "selector",
+                "page",
+                "reach",
+                "scripts",
+                "resources",
+                "evidence",
+                "classes",
+                "lighthouse",
+                "experiments"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "scripts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "inline": {
+                  "type": "boolean"
+                },
+                "resource": {
+                  "type": "string"
+                },
+                "loadedBy": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "functions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "line": {
+                        "type": "number"
+                      },
+                      "samples": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "samples"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "class": {
+                        "type": "string",
+                        "enum": [
+                          "observed-window",
+                          "profiler-correlation",
+                          "resource-association",
+                          "cross-run-trace",
+                          "direct-node",
+                          "inferred",
+                          "unattributed"
+                        ]
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "same-run-gecko",
+                          "chromium-trace",
+                          "firefox-dom",
+                          "component-graph",
+                          "lighthouse"
+                        ]
+                      },
+                      "detail": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "class",
+                      "source",
+                      "detail"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "relatedComponents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "instance": {
+                        "type": "string"
+                      },
+                      "signature": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "evidenceClass": {
+                        "type": "string"
+                      },
+                      "confidence": {
+                        "type": "string"
+                      },
+                      "attributionStatus": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "instance",
+                      "signature",
+                      "kind",
+                      "evidenceClass",
+                      "confidence",
+                      "attributionStatus"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "url",
+                "loadedBy",
+                "functions",
+                "evidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "unattributed": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "what": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "what",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "caveats": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "spike",
+          "observed",
+          "activity",
+          "components",
+          "scripts",
+          "unattributed",
+          "caveats"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "page": {
+      "type": "string"
+    },
+    "selectorMatches": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "processEnergy": {
+      "description": "Per interval: energy read by each kind of Firefox process. Measured per process (Apple Silicon), never apportioned.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "enum": [
+                "browser",
+                "page",
+                "gpu",
+                "other",
+                "unknown"
+              ]
+            },
+            "energyJ": {
+              "type": "number",
+              "minimum": 0
+            },
+            "counters": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "role",
+            "energyJ",
+            "counters"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "required": [
+    "timeline",
+    "spikes"
+  ],
+  "additionalProperties": false
+}

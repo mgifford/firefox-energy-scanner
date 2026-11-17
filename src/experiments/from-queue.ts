@@ -10,11 +10,22 @@ import type { ExperimentSpec } from './experiment.js';
 import { parseSpec } from './experiment.js';
 import { safeSelector } from './variants.js';
 
-export function specFromQueue(result: BenchmarkResult, rank: number): { spec: ExperimentSpec; note: string } {
+/** Kinds that need only the item's selector, so any component item can be given them. */
+const SELECTOR_KINDS = ['remove', 'hide', 'pause-animations'] as const;
+
+export function specFromQueue(result: BenchmarkResult, rank: number, kind?: string): { spec: ExperimentSpec; note: string } {
   const item = result.investigation?.items.find((i) => i.rank === rank);
   if (!item) throw new Error(`No item ${rank} in this result's investigation queue.`);
   const where = item.where[0];
   if (!where) throw new Error(`Item ${rank} has no page to run on.`);
+  if (kind !== undefined) {
+    // A kind asked for by name: scoped to the item's selector.
+    if (!(SELECTOR_KINDS as readonly string[]).includes(kind)) throw new Error(`--kind with --from takes ${SELECTOR_KINDS.join(', ')}; write a spec file for other kinds.`);
+    const sel = safeSelector(where.selector);
+    if (!sel) throw new Error(`Item ${rank} has no usable selector for a ${kind} experiment.`);
+    const spec = parseSpec({ name: `${kind}-${item.id}`.slice(0, 80), url: where.page, kind, selector: sel, idle_ms: 10_000, assertions: [] });
+    return { spec, note: `${kind === 'remove' ? 'Remove' : kind === 'hide' ? 'Hide' : 'Pause CSS animations in'} ${sel}, on ${where.page}.` };
+  }
   const remedy = item.remediation.find((r) => r.experiment);
   if (!remedy) throw new Error(`No experiment fits item ${rank} (${item.title}). Write one with --kind, or a spec file.`);
   const record = result.components?.components.find((c) => c.id === item.id);

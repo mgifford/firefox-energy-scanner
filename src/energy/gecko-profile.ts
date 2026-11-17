@@ -40,6 +40,39 @@ interface GeckoProcess {
   meta: { startTime: number; processType?: number };
   counters?: GeckoCounter[];
   processes?: GeckoProcess[];
+  threads?: { name?: string; processType?: string; processName?: string; pid?: number | string }[];
+}
+
+/**
+ * What a Firefox process is for, from its profile:
+ *
+ * - browser: the parent process (Firefox's own interface and services:
+ *   update checks, remote settings, and on macOS also compositing);
+ * - page: web content processes, where the page's scripts, style, layout
+ *   and painting run;
+ * - gpu: the GPU process, where it exists;
+ * - other: socket, utility, media decoding, extensions, preallocated ones;
+ * - unknown: a child process the profile does not describe.
+ *
+ * The root of a profile is always the parent. Children are told apart by
+ * their threads' processType and processName. A content process that is not
+ * showing the page (a preallocated or about:blank one) can still count as
+ * page here; the label says what the process is, not whose work it did.
+ */
+export type ProcessRole = 'browser' | 'page' | 'gpu' | 'other' | 'unknown';
+
+export function processRole(node: { threads?: GeckoProcess['threads'] } | undefined, isRoot: boolean): ProcessRole {
+  if (isRoot) return 'browser';
+  const threads = node?.threads ?? [];
+  const names = threads.map((t) => t.processName ?? '').join(' ');
+  const types = threads.map((t) => t.processType ?? '').join(' ');
+  if (/WebExtensions|Privileged|Preallocated|Extension/i.test(names)) return 'other';
+  if (/Web Content|Isolated Web Content|Isolated Web Co|Isolated/i.test(names)) return 'page';
+  if (/GPU/i.test(names) || /\bgpu\b/i.test(types)) return 'gpu';
+  if (/\btab\b|\bcontent\b/i.test(types)) return 'page';
+  if (/Socket|Utility|RDD|Media|GMP|Fork|VR/i.test(names) || /\b(socket|utility|rdd|gmplugin|vr|forkserver)\b/i.test(types)) return 'other';
+  if (/\bdefault\b/i.test(types)) return 'browser';
+  return 'unknown';
 }
 
 export interface PowerUnit {
@@ -48,6 +81,8 @@ export interface PowerUnit {
   /** Absolute epoch ms corresponding to this process's sample time 0. */
   processStartTime: number;
   samples: CounterSamples;
+  /** The process the counter was recorded in, and what it is for. */
+  process?: { role: ProcessRole; name?: string; pid?: string };
 }
 
 /**
@@ -61,18 +96,24 @@ export interface PowerUnit {
 export function collectPowerUnits(profile: unknown): PowerUnit[] {
   const units: PowerUnit[] = [];
 
-  const visit = (node: GeckoProcess | undefined): void => {
+  const visit = (node: GeckoProcess | undefined, isRoot: boolean): void => {
     if (!node || typeof node !== 'object' || !node.meta) return;
     const processStartTime = node.meta.startTime;
+    const main = node.threads?.find((t) => t.name === 'GeckoMain') ?? node.threads?.[0];
+    const process = {
+      role: processRole(node, isRoot),
+      ...(main?.processName ? { name: main.processName } : {}),
+      ...(main?.pid !== undefined ? { pid: String(main.pid) } : {}),
+    };
     for (const counter of node.counters ?? []) {
       if (counter?.category === 'power' && counter.samples?.data) {
-        units.push({ name: counter.name ?? '', processStartTime, samples: counter.samples });
+        units.push({ name: counter.name ?? '', processStartTime, samples: counter.samples, process });
       }
     }
-    for (const child of node.processes ?? []) visit(child);
+    for (const child of node.processes ?? []) visit(child, false);
   };
 
-  visit(profile as GeckoProcess);
+  visit(profile as GeckoProcess, true);
   return units;
 }
 
@@ -193,4 +234,25 @@ export function energyInWindow(
   }
 
   return { joules: pwhToJoules(pwh), sampleCount };
+}
+
+/**
+ * Energy in a window by process role. Only meaningful for per-process
+ * counters (Apple Silicon): each process has its own counter, so this is a
+ * measurement per process, not an apportionment. Empty for RAPL scopes,
+ * whose counters are the whole machine's.
+ */
+export function energyByProcess(selection: PowerSelection, startEpochMs: number, endEpochMs: number): { role: ProcessRole; energyJ: number; counters: number }[] {
+  if (selection.scope !== 'process') return [];
+  const by = new Map<ProcessRole, { role: ProcessRole; energyJ: number; counters: number }>();
+  for (const u of selection.units) {
+    const role = u.process?.role ?? 'unknown';
+    const { joules, sampleCount } = energyInWindow([u], startEpochMs, endEpochMs);
+    if (!sampleCount) continue;
+    const x = by.get(role) ?? { role, energyJ: 0, counters: 0 };
+    x.energyJ += joules;
+    x.counters++;
+    by.set(role, x);
+  }
+  return [...by.values()].sort((a, b) => b.energyJ - a.energyJ);
 }

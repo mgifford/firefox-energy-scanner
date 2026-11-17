@@ -19,6 +19,8 @@
               "firefox-dom",
               "firefox-network",
               "firefox-energy",
+              "same-run-gecko",
+              "script-source",
               "lighthouse",
               "chromium-trace",
               "co2js",
@@ -99,6 +101,8 @@
                       "firefox-dom",
                       "firefox-network",
                       "firefox-energy",
+                      "same-run-gecko",
+                      "script-source",
                       "lighthouse",
                       "chromium-trace",
                       "co2js",
@@ -149,6 +153,8 @@
                       "firefox-dom",
                       "firefox-network",
                       "firefox-energy",
+                      "same-run-gecko",
+                      "script-source",
                       "lighthouse",
                       "chromium-trace",
                       "co2js",
@@ -199,6 +205,8 @@
                       "firefox-dom",
                       "firefox-network",
                       "firefox-energy",
+                      "same-run-gecko",
+                      "script-source",
                       "lighthouse",
                       "chromium-trace",
                       "co2js",
@@ -528,6 +536,14 @@
               "pattern": "^rs-[0-9a-f]{8}$"
             }
           },
+          "domIds": {
+            "description": "Ids of elements inside the instance, for matching a script's static DOM references.",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "ref": {
             "type": "object",
             "properties": {
@@ -655,6 +671,146 @@
         "additionalProperties": false
       }
     },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^rel-[0-9a-f]{8}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "contains-dom",
+              "declares-resource",
+              "resource-used-on-page",
+              "script-observed-with-component",
+              "script-modifies-component",
+              "uses-template",
+              "suspected-association"
+            ]
+          },
+          "from": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "page",
+                  "instance",
+                  "resource"
+                ]
+              },
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "to": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "page",
+                  "instance",
+                  "resource"
+                ]
+              },
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "firefox-dom",
+              "firefox-network",
+              "firefox-energy",
+              "same-run-gecko",
+              "script-source",
+              "lighthouse",
+              "chromium-trace",
+              "co2js",
+              "webnrg"
+            ]
+          },
+          "evidenceClass": {
+            "type": "string",
+            "enum": [
+              "direct-observation",
+              "direct-node",
+              "resource-association",
+              "trace-supported",
+              "cross-page-correlation",
+              "structural-heuristic",
+              "profiler-correlation"
+            ]
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "artifactRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "attributionStatus": {
+            "type": "string",
+            "enum": [
+              "owned",
+              "supported",
+              "suspected",
+              "page-level",
+              "unknown"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "from",
+          "to",
+          "source",
+          "evidenceClass",
+          "artifactRef",
+          "method",
+          "confidence",
+          "attributionStatus"
+        ],
+        "additionalProperties": false
+      }
+    },
     "findings": {
       "type": "array",
       "items": {
@@ -728,6 +884,8 @@
                     "firefox-dom",
                     "firefox-network",
                     "firefox-energy",
+                    "same-run-gecko",
+                    "script-source",
                     "lighthouse",
                     "chromium-trace",
                     "co2js",
@@ -772,6 +930,8 @@
                   "firefox-dom",
                   "firefox-network",
                   "firefox-energy",
+                  "same-run-gecko",
+                  "script-source",
                   "lighthouse",
                   "chromium-trace",
                   "co2js",

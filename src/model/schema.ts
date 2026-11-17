@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 const id = (prefix: string) => z.string().regex(new RegExp(`^${prefix}-[0-9a-f]{8}$`), `an id starting ${prefix}-`);
 
-const sourceId = z.enum(['firefox-dom', 'firefox-network', 'firefox-energy', 'lighthouse', 'chromium-trace', 'co2js', 'webnrg']);
+const sourceId = z.enum(['firefox-dom', 'firefox-network', 'firefox-energy', 'same-run-gecko', 'script-source', 'lighthouse', 'chromium-trace', 'co2js', 'webnrg']);
 
 export const metricSchema = z
   .object({
@@ -109,6 +109,7 @@ export const graphSchema = z
           own: ownSchema,
           ownEstimated: z.boolean(),
           resources: z.array(id('rs')),
+          domIds: z.array(z.string()).max(20).optional().describe('Ids of elements inside the instance, for matching a script\'s static DOM references.'),
           ref: z.object({ scenario: z.number().int(), instance: z.number().int() }).strict(),
         })
         .strict(),
@@ -138,6 +139,42 @@ export const graphSchema = z
         })
         .strict(),
     ),
+    relations: z
+      .array(
+        z
+          .object({
+            id: id('rel'),
+            kind: z.enum([
+              'contains-dom',
+              'declares-resource',
+              'resource-used-on-page',
+              'script-observed-with-component',
+              'script-modifies-component',
+              'uses-template',
+              'suspected-association',
+            ]),
+            from: z.object({ type: z.enum(['page', 'instance', 'resource']), id: z.string() }).strict(),
+            to: z.object({ type: z.enum(['page', 'instance', 'resource']), id: z.string() }).strict(),
+            source: sourceId,
+            evidenceClass: z.enum([
+              'direct-observation',
+              'direct-node',
+              'resource-association',
+              'trace-supported',
+              'cross-page-correlation',
+              'structural-heuristic',
+              'profiler-correlation',
+            ]),
+            observedAt: z.string().optional(),
+            artifactRef: z.string().min(1),
+            method: z.string().min(1),
+            confidence: z.enum(['high', 'medium', 'low']),
+            attributionStatus: z.enum(['owned', 'supported', 'suspected', 'page-level', 'unknown']),
+            limitations: z.array(z.string()).optional(),
+          })
+          .strict(),
+      )
+      .optional(),
     findings: z.array(
       z
         .object({
@@ -186,6 +223,10 @@ export const graphSchema = z
       if (f.target.id) check(f.target.id, ['findings', n, 'target', 'id']);
     });
     g.resources.forEach((r, n) => r.loadedBy.forEach((c, k) => check(c, ['resources', n, 'loadedBy', k])));
+    (g.relations ?? []).forEach((r, n) => {
+      check(r.from.id, ['relations', n, 'from', 'id']);
+      check(r.to.id, ['relations', n, 'to', 'id']);
+    });
   });
 
 export type GraphSchema = z.infer<typeof graphSchema>;

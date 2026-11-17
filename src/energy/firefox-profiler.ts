@@ -50,6 +50,11 @@ export interface FirefoxProfilerOptions {
   features?: string[];
   /** Keep the raw .json profile after parsing. */
   retainProfile?: boolean;
+  /**
+   * Keep the parsed profile in memory after finalize(), for evidence beyond
+   * the power counters (markers, stacks). Release it with releaseProfile().
+   */
+  keepParsedProfile?: boolean;
 }
 
 export async function createProfileOutputPath(): Promise<string> {
@@ -88,6 +93,7 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
 
   private units: PowerUnit[] | null = null;
   private selection: PowerSelection | null = null;
+  private parsed: unknown = undefined;
   private windows = new Map<string, { label: string; start: number; end?: number }>();
   private counter = 0;
 
@@ -194,6 +200,7 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
     this.units = collectPowerUnits(profile);
     const selection = selectPowerUnits(this.units);
     this.selection = selection;
+    if (this.options.keepParsedProfile) this.parsed = profile;
 
     const meta = this.metadata();
     for (const [id, w] of this.windows) {
@@ -250,5 +257,19 @@ export class FirefoxProfilerAdapter implements EnergyAdapter {
   /** What the reported energy covers, once finalize() has run. */
   powerSelection(): PowerSelection | null {
     return this.selection;
+  }
+
+  /** The parsed profile, when keepParsedProfile was set and finalize() has run. */
+  parsedProfile(): unknown {
+    return this.parsed;
+  }
+
+  releaseProfile(): void {
+    this.parsed = undefined;
+  }
+
+  /** The profiler features this run was launched with. */
+  features(): string[] {
+    return [...new Set(['power', ...(this.options.features ?? [])])];
   }
 }

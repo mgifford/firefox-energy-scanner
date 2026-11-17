@@ -49,7 +49,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - run: npm ci --omit=optional
+      # Full install: Vitest's Rolldown native binding is an optional
+      # dependency, and --omit=optional removes it, so the browser-test step
+      # cannot start. The same reason is stated in the test job above.
+      - run: npm ci
       - run: npx playwright install --with-deps firefox
       - run: npm run build
 
@@ -62,6 +65,13 @@ jobs:
       # Both trace in Chrome, which GitHub's Ubuntu runners have at /usr/bin/google-chrome.
       - run: node tests/e2e/fixture-e2e.mjs
       - run: node tests/e2e/trace-e2e.mjs
+      # Removal experiments through the CLI, in Firefox, without energy hardware:
+      # removed and verified, put back by the page, refused, and not like-for-like.
+      - run: node tests/e2e/remove-e2e.mjs
+      # The in-page removal code, in Firefox (the unit job runs it in Chromium when one is present).
+      - run: npx vitest run tests/browser
+        env:
+          WEB_ENERGY_TEST_ENGINE: firefox
 
   # The component inventory across two browsers: Firefox records components
   # and their node paths, Lighthouse audits in Chrome, and its element
