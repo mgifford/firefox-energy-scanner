@@ -18,7 +18,7 @@ performance aggregation in `src/aggregate.js`, and
 (generated 2026-11-17, 20 candidates).
 
 The audited snapshot is saved locally for this review as
-`results/vital-cms-snapshot-2026-11-16.json` (SHA-256
+`results/vital-cms-snapshot-2026-11-17.json` (SHA-256
 `3db47717ce6d7ce7453d4de1d511cc75f590c5ed5bc760a77c49b71407aae0d1`).
 The full snapshot is kept locally for this review (not committed, because it
 is 4 MB and repeats many page URLs). The unit fixtures under

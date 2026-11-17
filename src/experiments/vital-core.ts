@@ -136,6 +136,11 @@ export function parseVitalDocument(raw: unknown, source: VitalSource): VitalDocu
   const standalone = root.schema_version === 'performance-investigation/1' && Array.isArray(root.candidates);
   const investigations = snapshotInvestigations ?? (standalone ? root : undefined);
   if (!investigations) {
+    if (Array.isArray(root.candidates)) {
+      throw new VitalHandoffError(
+        'This looks like a performance-investigation document but has no schema_version; expected performance-investigation/1.',
+      );
+    }
     throw new VitalHandoffError(
       'This is neither a Vital Core snapshot (no performance.investigations) nor a performance-investigation/1 document. Pass the saved snapshot.json or the investigation document itself.',
     );

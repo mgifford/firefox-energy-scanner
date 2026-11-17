@@ -95,6 +95,7 @@ describe('the Vital Core handoff', () => {
   it('rejects a malformed document before producing a spec', () => {
     expect(() => parseVitalDocument({}, source)).toThrow(/neither a Vital Core snapshot/);
     expect(() => parseVitalDocument({ performance: { investigations: { candidates: [] } } }, source)).toThrow(/schema/);
+    expect(() => parseVitalDocument({ candidates: [] }, source)).toThrow(/no schema_version/);
     expect(() =>
       parseVitalDocument({ performance: { investigations: { schema_version: 'performance-investigation/2', candidates: [] } } }, source),
     ).toThrow(/Unsupported/);
