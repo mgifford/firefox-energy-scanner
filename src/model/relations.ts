@@ -92,7 +92,7 @@ export function buildRelations(result: BenchmarkResult, graph: GraphParties): Gr
 
   const relations: GraphRelation[] = [];
   const add = (rel: Omit<GraphRelation, 'id'>) => {
-    relations.push({ id: `rel-${stableHash(`${rel.kind}|${rel.from.type}:${rel.from.id}|${rel.to.type}:${rel.to.id}|${rel.method}`)}`, ...rel });
+    relations.push({ id: `rel-${stableHash(`${rel.kind}|${rel.from.type}:${rel.from.id}|${rel.to.type}:${rel.to.id}`)}`, ...rel });
   };
 
   // An element inside the component loads the resource.
@@ -145,6 +145,9 @@ export function buildRelations(result: BenchmarkResult, graph: GraphParties): Gr
     if (!resource) continue;
     for (const page of graph.pages) {
       if (!page.resources.includes(resource.id)) continue;
+      // The scan read this page's script; do not apply its references to
+      // another page that happens to load the same script path.
+      if (pageKey(record.page, { queryStrategy: 'keep' }) !== pageKey(page.url, { queryStrategy: 'keep' })) continue;
       const instances = instancesByPage.get(page.id) ?? [];
       // For each referenced element, the most specific recorded component that
       // contains it; a page wrapper that also contains the element is not the
