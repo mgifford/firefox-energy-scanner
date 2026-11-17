@@ -10,6 +10,7 @@ import { webnrgSection } from './webnrg-html.js';
 import { familiesSection } from './families-html.js';
 import { componentsSection } from './components-html.js';
 import { accessibilityContextSection } from './accessibility-context-html.js';
+import { patternsSection } from './patterns-html.js';
 import { resourcesSection } from './resources-html.js';
 import { tracesSection } from './traces-html.js';
 import { cruxPagesSection } from './crux-pages-html.js';
@@ -261,6 +262,7 @@ ${familiesSection(result.families, result.sampling)}
 
 ${resourcesSection(result.graph)}
 
+${patternsSection(result.patterns)}
 ${componentsSection(result.components)}
 
 <section aria-labelledby="compare-h">

@@ -54,6 +54,7 @@ import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
 import { AccessibilityJoinError, buildAccessibilityJoin, loadAccessibilityContext } from '../analysis/accessibility.js';
+import { buildSitePatterns } from '../analysis/patterns.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
 import { RemovalRefused, RunInterrupted, buildReport, refreshDifferences, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
 import { specFromQueue } from '../experiments/from-queue.js';
@@ -121,6 +122,7 @@ Usage:
   web-energy report <result.json>      [--with <experiment.json>] [--accessibility-context <file>]
   web-energy families <result.json>    [--json] [--write]
   web-energy components <result.json>  [--json] [--write]
+  web-energy patterns <result.json>    [--json] [--write]
   web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
   web-energy graph <result.json>       [--json] [--write]
   web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> [--kind remove|hide|pause-animations]
@@ -781,6 +783,7 @@ async function cmdMeasure(args: Args): Promise<number> {
   await attachWebnrg(args, result, urls, 'measure');
   attachInventory(result);
   attachInvestigation(result);
+  attachPatterns(result);
   for (const t of result.timelines ?? []) if (t.page) t.leads = linkSpikes(result, t, t.page);
   attachRelationsToLeads(result);
   if (!has(args, 'no-history')) await attachHistory(result, resolve(config.output.directory));
@@ -908,6 +911,7 @@ async function cmdCrawl(args: Args): Promise<number> {
   await attachWebnrg(args, result, [start], 'crawl');
   attachInventory(result);
   attachInvestigation(result);
+  attachPatterns(result);
   if (!has(args, 'no-history')) await attachHistory(result, resolve(config.output.directory));
   const base = await writeOutputs(result, config);
   printSummary(outcome.steps, grid);
@@ -1029,6 +1033,31 @@ function attachInvestigation(result: BenchmarkResult): void {
   if (queue) result.investigation = queue;
 }
 
+/** Recurring site patterns: findings by component type, resource, page or reason. */
+function attachPatterns(result: BenchmarkResult): void {
+  const patterns = buildSitePatterns(result);
+  if (patterns) result.patterns = patterns;
+}
+
+function printPatterns(patterns: BenchmarkResult['patterns']): void {
+  if (!patterns) return;
+  console.log(`\nSite patterns (${patterns.patterns.length} over ${patterns.pages} pages, ${patterns.families} families; observations, not energy):`);
+  for (const p of patterns.patterns.slice(0, 10)) {
+    console.log(`  ${p.rank}. ${p.kind} -> ${p.target.type} ${p.target.label}  ${p.pages} page${p.pages === 1 ? '' : 's'}, ${p.families} famil${p.families === 1 ? 'y' : 'ies'}  [${p.evidenceClass}]`);
+    console.log(`      ${p.representative.page}${p.representative.selector ? `  ${p.representative.selector}` : ''}`);
+  }
+  const components = patterns.components.filter((c) => c.findings.length).slice(0, 8);
+  if (components.length) {
+    console.log('\nComponents with findings:');
+    for (const c of components) console.log(`  ${c.signature}  ${c.pages} page${c.pages === 1 ? '' : 's'}, ${c.findings.length} finding kind${c.findings.length === 1 ? '' : 's'}`);
+  }
+  const resources = patterns.resources.filter((r) => r.findings.length).slice(0, 8);
+  if (resources.length) {
+    console.log('\nResources with findings:');
+    for (const r of resources) console.log(`  ${r.key}  ${r.scope}, ${r.pages} page${r.pages === 1 ? '' : 's'}${r.componentTypes.length ? `, ${r.componentTypes.map((c) => c.signature).join(', ')}` : ', no component loads it'}`);
+  }
+}
+
 /** Changes since the previous scan of the same site in the output directory. */
 async function attachHistory(result: BenchmarkResult, dir: string): Promise<void> {
   const previous = await findPrevious(dir, result);
@@ -1095,6 +1124,7 @@ async function cmdGraph(args: Args): Promise<number> {
   if (has(args, 'write') && !problems.length) {
     attachInventory(result);
     attachInvestigation(result);
+    attachPatterns(result);
     const stem = resolve(file).replace(/\.json$/, '');
     await writeFile(resolve(file), JSON.stringify(result, null, 2));
     await writeFile(`${stem}.html`, toHtml(result));
@@ -1118,6 +1148,7 @@ async function cmdInvestigate(args: Args): Promise<number> {
   }
   attachInventory(result);
   attachInvestigation(result);
+  attachPatterns(result);
   const previousFile = one(args, 'previous');
   if (previousFile) {
     const previous = JSON.parse(await readFile(resolve(previousFile), 'utf8')) as BenchmarkResult;
@@ -1421,7 +1452,35 @@ async function cmdJourneyCheck(args: Args): Promise<number> {
   return errors ? 1 : 0;
 }
 
-/** Build the component inventory of a stored result. */
+/** Rebuild the site patterns of a stored result. */
+async function cmdPatterns(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('patterns requires a result.json');
+    return 1;
+  }
+  const result = JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult;
+  if (!result.families) {
+    const families = buildFamilies(result.scenarios, result.sampling?.listed !== undefined ? { listed: result.sampling.listed } : {});
+    if (families) result.families = families;
+  }
+  if (!result.graph) attachInventory(result);
+  attachPatterns(result);
+  if (has(args, 'json')) {
+    console.log(JSON.stringify(result.patterns, null, 2));
+  } else {
+    printPatterns(result.patterns);
+  }
+  if (has(args, 'write')) {
+    const stem = resolve(file).replace(/\.json$/, '');
+    await writeFile(resolve(file), JSON.stringify(result, null, 2));
+    await writeFile(`${stem}.html`, toHtml(result));
+    if (has(args, 'json')) console.log(`\nWrote the patterns into ${file} and regenerated its HTML.`);
+    else console.log(`\nWrote the patterns into ${file} and regenerated its HTML.`);
+  }
+  return 0;
+}
+
 async function cmdComponents(args: Args): Promise<number> {
   const file = args._[1];
   if (!file) {
@@ -2591,6 +2650,7 @@ async function cmdDiagnose(args: Args): Promise<number> {
   }
   attachInventory(result);
   attachInvestigation(result);
+  attachPatterns(result);
   attachRelationsToLeads(result);
 
   const base = await writeOutputs(result, config, async (stem) => {
@@ -2992,6 +3052,7 @@ async function main(): Promise<number> {
       case 'families': return await cmdFamilies(args);
       case 'components': return await cmdComponents(args);
       case 'investigate': return await cmdInvestigate(args);
+      case 'patterns': return await cmdPatterns(args);
       case 'graph': return await cmdGraph(args);
       case 'experiment': return await cmdExperiment(args);
       case 'journey-check': return await cmdJourneyCheck(args);

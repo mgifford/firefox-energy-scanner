@@ -442,6 +442,12 @@ export interface BenchmarkResult {
   /** What to look at first, in a stated order; never a score or an energy figure. */
   investigation?: import('../analysis/investigation.js').InvestigationQueue;
   /**
+   * Recurring findings grouped by component type, resource, page or
+   * unattributed reason, with both directions. Observations only; never a
+   * per-component energy figure.
+   */
+  patterns?: import('../analysis/patterns.js').SitePatterns;
+  /**
    * Optional Open Scans accessibility join, stored by `report
    * --accessibility-context`. Accessibility evidence, never energy evidence
    * or a WCAG conformance claim.

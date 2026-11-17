@@ -153,7 +153,9 @@ Each finding has:
 - **HTML report:** a _Resources_ section listing what nearly every page loads, what a
   family loads, and the heaviest things only one page loads. The components table marks
   containers and shows owned elements. With `--trace`, a _Chromium traces_ section lists
-  the work on each traced page and what each observation is tied to.
+  the work on each traced page and what each observation is tied to. A _Site patterns_
+  section groups recurring findings by component type and resource; see
+  [site-patterns.md](site-patterns.md).
 
 ## Lighthouse and trace findings
 
