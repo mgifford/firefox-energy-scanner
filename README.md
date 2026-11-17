@@ -368,6 +368,11 @@ Lighthouse findings that fall inside each one, matched by DOM node path. It is e
 for where to look, never a component's energy. See
 [docs/component-inventory.md](docs/component-inventory.md).
 
+A **site patterns** view groups recurring findings by component type and resource, in both
+directions, without merging different implementations or adding a score.
+`web-energy patterns <result.json>` rebuilds it for any stored result. See
+[docs/site-patterns.md](docs/site-patterns.md).
+
 Every scan also writes a **component graph**: pages, component types and instances,
 resources and findings, by stable id, validated against a published JSON Schema. Every
 element is owned by its nearest component, so wrappers are not credited with their

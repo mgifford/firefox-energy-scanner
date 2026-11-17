@@ -62,6 +62,7 @@ try {
   check(!!g, 'the crawl wrote a component graph');
   check(result?.schemaVersion === 2, `the result is schema version 2 (${result?.schemaVersion})`);
   check(!!g && validateGraph(g).length === 0, `the graph validates (${g ? validateGraph(g).slice(0, 2).join('; ') : 'none'})`);
+  check(!!result?.patterns && result.patterns.patterns.some((p) => p.kind === 'endless-animation'), 'the crawl groups recurring findings into site patterns');
 
   const types = (sig) => (g?.types ?? []).filter((t) => t.signature === sig);
   const inst = (sig) => (g?.instances ?? []).filter((i) => types(sig).some((t) => t.id === i.type));
