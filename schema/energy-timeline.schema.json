@@ -1042,6 +1042,41 @@
                     ],
                     "additionalProperties": false
                   }
+                },
+                "relatedComponents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "instance": {
+                        "type": "string"
+                      },
+                      "signature": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "evidenceClass": {
+                        "type": "string"
+                      },
+                      "confidence": {
+                        "type": "string"
+                      },
+                      "attributionStatus": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "instance",
+                      "signature",
+                      "kind",
+                      "evidenceClass",
+                      "confidence",
+                      "attributionStatus"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [

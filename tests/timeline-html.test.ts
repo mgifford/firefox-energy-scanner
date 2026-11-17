@@ -9,6 +9,7 @@ import { timelineCsv } from '../src/report/timeline-csv.js';
 import { toHtml } from '../src/report/html.js';
 import { buildFamilies } from '../src/analysis/families.js';
 import { buildGraph } from '../src/model/graph.js';
+import { validateTimelineAnalysis } from '../src/model/records-schema.js';
 import type { BenchmarkResult } from '../src/core/types.js';
 
 const T0 = 1_700_000_000_000;
@@ -74,9 +75,10 @@ describe('the timeline in the report', () => {
           },
         ],
         unattributed: [],
-        caveats: [],
+        caveats: ['Synthetic lead for the rendering test.'],
       },
     };
+    expect(validateTimelineAnalysis(a2)).toEqual([]);
     const html = timelineSection({ ...r, timelines: [a2] });
     expect(html).toContain('observed with component:live-chart');
     expect(html).toContain('not ownership');

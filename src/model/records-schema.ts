@@ -191,6 +191,20 @@ const leadSchema = z
           loadedBy: z.array(z.string()),
           functions: z.array(z.object({ name: z.string().optional(), line: z.number().optional(), samples: z.number().int().min(0) }).strict()),
           evidence: z.array(leadEvidence),
+          relatedComponents: z
+            .array(
+              z
+                .object({
+                  instance: z.string(),
+                  signature: z.string(),
+                  kind: z.string(),
+                  evidenceClass: z.string(),
+                  confidence: z.string(),
+                  attributionStatus: z.string(),
+                })
+                .strict(),
+            )
+            .optional(),
         })
         .strict(),
     ),
