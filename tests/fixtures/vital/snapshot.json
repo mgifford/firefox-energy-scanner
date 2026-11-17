@@ -1,0 +1,141 @@
+{
+  "schema_version": "1",
+  "domain": "example.gov",
+  "key": "example.gov",
+  "generated_at": "2026-11-16T00:00:00.000Z",
+  "latest_week": "2026-W46",
+  "performance": {
+    "resources": {
+      "schema_version": "performance-resource-inventory/1",
+      "pages_with_evidence": 10,
+      "total_resources": 4,
+      "resources": [
+        {
+          "key": "https://cdn.example.net/widget.js",
+          "type": "script",
+          "third_party": true,
+          "origin": "cdn.example.net",
+          "pages": 3,
+          "examples": ["https://example.gov/a"],
+          "transfer_bytes": 1234,
+          "render_blocking_pages": 0
+        },
+        {
+          "key": "https://example.gov/css/site.css",
+          "type": "link",
+          "third_party": false,
+          "origin": "example.gov",
+          "pages": 4,
+          "examples": ["https://example.gov/b"],
+          "transfer_bytes": 2000,
+          "render_blocking_pages": 4
+        },
+        {
+          "key": "https://example.gov/js/shared.js",
+          "type": "script",
+          "third_party": false,
+          "origin": "example.gov",
+          "pages": 3,
+          "examples": ["https://example.gov/c"],
+          "transfer_bytes": 5000,
+          "render_blocking_pages": 0
+        },
+        {
+          "key": "https://example.gov/no-example.js",
+          "type": "script",
+          "third_party": false,
+          "origin": "example.gov",
+          "pages": 3,
+          "examples": [],
+          "transfer_bytes": 100,
+          "render_blocking_pages": 3
+        }
+      ]
+    },
+    "investigations": {
+      "schema_version": "performance-investigation/1",
+      "rank_basis": "synthetic fixture",
+      "candidates": [
+        {
+          "id": "third-party-resource:https://cdn.example.net/widget.js",
+          "category": "third-party-resource-concern",
+          "status": "investigation-candidate",
+          "evidence_strength": "direct-observation",
+          "resource": { "key": "https://cdn.example.net/widget.js", "type": "script", "origin": "cdn.example.net", "pages": 3, "transfer_bytes": 1234 },
+          "evidence": { "source": "performance-resource-inventory/1", "denominator": 10, "limitations": ["Presence is not proof of a defect."] },
+          "hypothesis": "The widget may add transfer or blocking cost.",
+          "alternatives": ["Another resource may be responsible."],
+          "proposed_test": "Block the host under matched conditions."
+        },
+        {
+          "id": "render-blocking:https://example.gov/css/site.css",
+          "category": "potential-render-blocking-resource",
+          "status": "investigation-candidate",
+          "resource": { "key": "https://example.gov/css/site.css", "type": "link", "pages": 4, "render_blocking_pages": 4 },
+          "evidence": { "source": "performance-resource-inventory/1", "denominator": 10 },
+          "hypothesis": "The stylesheet may delay first paint."
+        },
+        {
+          "id": "shared-resource:https://example.gov/js/shared.js",
+          "category": "shared-expensive-resource",
+          "status": "investigation-candidate",
+          "resource": { "key": "https://example.gov/js/shared.js", "type": "script", "pages": 3, "transfer_bytes": 5000 },
+          "evidence": { "source": "performance-resource-inventory/1", "denominator": 10, "examples": ["https://example.gov/c"] },
+          "hypothesis": "The shared script may add work."
+        },
+        {
+          "id": "component:hero",
+          "category": "shared-expensive-resource",
+          "status": "investigation-candidate",
+          "subject": { "selector": "[data-component-id=\"hero\"]", "representative_url": "https://example.gov/d" },
+          "page": { "url": "https://example.gov/d" },
+          "evidence": { "source": "manual", "denominator": 1 }
+        },
+        {
+          "id": "slow-page:example",
+          "category": "slow-representative-page",
+          "status": "investigation-candidate",
+          "page": { "url": "https://example.gov/slow" },
+          "evidence": { "source": "lighthouse lab run", "denominator": 10 },
+          "hypothesis": "This page is slow."
+        },
+        {
+          "id": "page-family:example",
+          "category": "page-family-performance-pattern",
+          "status": "investigation-candidate",
+          "page": { "examples": ["https://example.gov/f1", "https://example.gov/f2"] },
+          "evidence": { "source": "declared page family", "denominator": 10 }
+        },
+        {
+          "id": "regression:example",
+          "category": "possible-matched-page-regression",
+          "status": "possible-regression",
+          "page": { "url": "https://example.gov/regressed" },
+          "evidence": { "source": "Lighthouse lab runs from two periods", "denominator": 10 }
+        },
+        {
+          "id": "lighthouse-recommendation:unused-css",
+          "category": "repeated-lighthouse-recommendation",
+          "status": "investigation-candidate",
+          "recommendation": { "id": "unused-css", "title": "Reduce unused CSS", "pages": 5, "savings_ms": 100 },
+          "evidence": { "source": "lighthouse lab audit", "denominator": 10 }
+        },
+        {
+          "id": "render-blocking:https://example.gov/no-example.js",
+          "category": "potential-render-blocking-resource",
+          "status": "investigation-candidate",
+          "resource": { "key": "https://example.gov/no-example.js", "type": "script", "pages": 3, "render_blocking_pages": 3 },
+          "evidence": { "source": "performance-resource-inventory/1", "denominator": 10 }
+        },
+        {
+          "id": "future:unknown",
+          "category": "future-category",
+          "status": "investigation-candidate",
+          "page": { "url": "https://example.gov/future" },
+          "evidence": { "source": "future", "denominator": 1 }
+        }
+      ],
+      "limitations": ["Synthetic fixture for the Firefox adapter tests."]
+    }
+  }
+}

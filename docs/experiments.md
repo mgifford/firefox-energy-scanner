@@ -37,6 +37,14 @@ committed: it is the versioned record of what was compared. It holds:
 The command exits 0 when the change applied, and 2 when it did not, so a script can tell
 an experiment that measured nothing from one that measured no difference.
 
+## From a Vital Core investigation
+
+Vital Core can hand over one of its performance-investigation candidates as a
+spec, but only when the candidate has a representative page and a specific
+resource URL/host or component selector. See
+[vital-core-handoff.md](vital-core-handoff.md) for what is imported, what is
+rejected, and the evidence boundaries.
+
 ## Kinds of change
 
 Each change is made in the browser, as a stand-in for the fix:

@@ -51,7 +51,7 @@ export const has = (args: Args, key: string): boolean => args.flags.has(key);
  */
 export const KNOWN_FLAGS = new Set([
   ...BOOLEAN_FLAGS,
-  'a', 'also', 'also-file', 'assert-role', 'assert-text', 'b', 'bin', 'block-url', 'config', 'crux-form-factor', 'crux-key', 'crux-max', 'dir', 'evidence', 'exclude', 'file', 'from',
+  'a', 'also', 'also-file', 'assert-role', 'assert-text', 'b', 'bin', 'block-url', 'config', 'crux-form-factor', 'crux-key', 'crux-max', 'dir', 'evidence', 'exclude', 'file', 'from', 'from-vital', 'candidate',
   'grid-intensity', 'grid-kind', 'grid-source', 'grid-year', 'grid-zone', 'host', 'idle', 'include', 'item', 'journey',
   'keep-eager', 'kind', 'label-a', 'label-b', 'lighthouse-categories', 'lighthouse-form-factor', 'lighthouse-reports',
   'lighthouse-runs', 'lighthouse-top', 'markdown', 'max-depth', 'max-matches', 'max-pages', 'name', 'out', 'path', 'previous', 'release', 'runs',

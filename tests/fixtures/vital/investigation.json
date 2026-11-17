@@ -1,0 +1,14 @@
+{
+  "schema_version": "performance-investigation/1",
+  "rank_basis": "synthetic fixture",
+  "candidates": [
+    {
+      "id": "third-party-resource:https://cdn.example.net/widget.js",
+      "category": "third-party-resource-concern",
+      "status": "investigation-candidate",
+      "resource": { "key": "https://cdn.example.net/widget.js", "type": "script", "origin": "cdn.example.net", "pages": 3 },
+      "page": { "url": "https://example.gov/standalone" },
+      "evidence": { "source": "performance-resource-inventory/1", "denominator": 10 }
+    }
+  ]
+}

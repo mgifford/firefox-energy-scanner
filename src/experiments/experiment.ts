@@ -88,6 +88,8 @@ export const experimentSpecSchema = z
     runs: z.number().int().min(1).max(60).optional(),
     warmups: z.number().int().min(0).max(20).optional(),
     seed: z.string().optional(),
+    /** Why this experiment follows from its source, and what remains uncertain. Documentation, not a measurement. */
+    note: z.string().max(4000).optional(),
   })
   .strict();
 
@@ -535,6 +537,8 @@ export interface ExperimentReport {
   url: string;
   variant: VariantSpec;
   description: string;
+  /** Why this experiment exists, from its spec: provenance for a Vital Core or queue handoff. */
+  note?: string;
   sides: { baseline: string; variant: string };
   /** Did the change take effect? A difference is only reported when it did. */
   applied: { ok: boolean; note: string };
@@ -626,6 +630,7 @@ export function buildReport(
     url: spec.url,
     variant,
     description: describeVariant(variant),
+    ...(spec.note ? { note: spec.note } : {}),
     sides: { baseline: 'the page as served', variant: describeVariant(variant) },
     applied,
     assertions: { checked: spec.assertions.length, baseline: failedA, variant: failedB },

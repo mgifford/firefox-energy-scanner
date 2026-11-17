@@ -1,0 +1,191 @@
+# Vital Core investigation handoff
+
+Vital Core publishes **observations and hypotheses**, not experiment
+instructions. This handoff turns one of its `performance-investigation/1`
+candidates into a Firefox experiment spec **only when the candidate contains a
+representative page and a specific resource URL/host or component selector**.
+It never runs the experiment itself.
+
+## What was audited
+
+Firefox Energy Scanner: `main` at `34b4615` (the PR #51 merge), current
+`ExperimentSpec` and `--from` queue path.
+
+Vital Core: `main` at `6179a92` (audited 17 November 2026), `API.md`, the
+performance aggregation in `src/aggregate.js`, and
+`src/lib/performance-investigations.js`. Published snapshot:
+`https://mgifford.github.io/vital-core/api/v1/www.cms.gov/snapshot.json`
+(generated 2026-11-17, 20 candidates).
+
+The audited snapshot is saved locally for this review as
+`results/vital-cms-snapshot-2026-11-16.json` (SHA-256
+`3db47717ce6d7ce7453d4de1d511cc75f590c5ed5bc760a77c49b71407aae0d1`).
+The full snapshot is kept locally for this review (not committed, because it
+is 4 MB and repeats many page URLs). The unit fixtures under
+`tests/fixtures/vital/` are synthetic; the real candidate below is the
+reproducible handoff.
+
+### The real shape
+
+A full snapshot has `performance.investigations`:
+
+```json
+{
+  "performance": {
+    "resources": {
+      "schema_version": "performance-resource-inventory/1",
+      "pages_with_evidence": 99,
+      "resources": [
+        { "key": "https://cdn.jsdelivr.net/npm/driver.js@latest/dist/driver.js.iife.js",
+          "type": "script", "third_party": true, "origin": "jsdelivr.net",
+          "pages": 44, "examples": ["https://www.cms.gov/..."],
+          "transfer_bytes": 28212, "render_blocking_pages": 0 }
+      ]
+    },
+    "investigations": {
+      "schema_version": "performance-investigation/1",
+      "candidates": [
+        { "id": "third-party-resource:https://cdn.jsdelivr.net/npm/driver.js@latest/dist/driver.js.iife.js",
+          "category": "third-party-resource-concern",
+          "resource": { "key": "...", "type": "script", "origin": "jsdelivr.net",
+                        "pages": 44, "transfer_bytes": 28212 },
+          "evidence": { "source": "performance-resource-inventory/1", "denominator": 99 } }
+      ]
+    }
+  }
+}
+```
+
+The actual audited CMS snapshot has only two candidate categories:
+`potential-render-blocking-resource` and `third-party-resource-concern`.
+**All 20 candidates map** from that snapshot: 12 render-blocking URL blocks
+and 8 third-party host blocks (several share a host). The implementation also
+handles `shared-expensive-resource` and future component-selector candidates.
+This is a compatibility check, not a recommendation to run all 20.
+
+**Important:** resource candidates do **not** carry `page.url` or a
+machine-readable `experiment` object. Their representative pages are in
+`performance.resources.resources[].examples`, matched by the exact
+`resource.key`. The adapter uses the first `https:` example and records that
+provenance in the spec note. It does not substitute another page.
+
+### What Firefox requires
+
+`ExperimentSpec` requires `name`, `url` and `kind`, plus `hosts`/`urls` for
+`block`, or a selector for `hide`/`remove`/`pause-animations`. `idle_ms`,
+`assertions`, `runs` and `warmups` make the spec repeatable. A new optional
+`note` carries the provenance into the result.
+
+## Mapping
+
+| Vital Core candidate | Result | Why |
+| --- | --- | --- |
+| `third-party-resource-concern` with `resource.origin` and a page example | `block` with `hosts: [origin]` | exact host; blocks every request to it, an upper bound |
+| `potential-render-blocking-resource` with an absolute `resource.key` and page example | `block` with `urls: [key]` | exact URL; script/link only |
+| `shared-expensive-resource` with an absolute `resource.key` and page example | `block` with `urls: [key]` | exact URL |
+| candidate with `subject.selector`, `selector` or `component.selector` | `hide` (default), or the stated `intervention.kind` (`hide`, `remove`, `remove-before-load`, `pause-animations`) | only a published selector; never fabricated |
+| `slow-representative-page` | rejected | page score, no specific intervention |
+| `page-family-performance-pattern` | rejected | family, not one testable page/intervention |
+| `possible-matched-page-regression` | rejected | score change, no specific intervention |
+| `repeated-lighthouse-recommendation` | rejected | aggregate recommendation, no page/resource/selector |
+| unknown category | rejected | do not guess |
+
+The generated spec always includes `runs: 10`, `warmups: 2`, `idle_ms: 10000`
+and a conservative `assertions: [{ role: main }]` survival check. The note says
+that the assertion is a starting point and the spec must be reviewed before
+running; a stronger functional assertion should be added when the page's
+feature is known.
+
+## Commands
+
+Generate (no browser):
+
+```bash
+node dist/cli/index.js experiment \
+  --from-vital path/to/snapshot.json \
+  --candidate "third-party-resource:https://cdn.jsdelivr.net/npm/driver.js@latest/dist/driver.js.iife.js" \
+  --save-spec experiments/vital-driver-js.yaml \
+  --dry-run
+```
+
+Read the spec, then run it separately:
+
+```bash
+node dist/cli/index.js experiment --spec experiments/vital-driver-js.yaml
+```
+
+`--from-vital` accepts a saved full `snapshot.json`, a standalone
+`performance-investigation/1` document, or an **explicit** `https://` snapshot
+URL. It never crawls and never launches a browser. `http://` URLs are refused.
+The import command always exits after writing/printing the spec; measurement is
+a separate `--spec` command.
+
+## Real candidate reviewed
+
+| Field | Value |
+| --- | --- |
+| Source | `https://mgifford.github.io/vital-core/api/v1/www.cms.gov/snapshot.json` |
+| Candidate | `third-party-resource:https://cdn.jsdelivr.net/npm/driver.js@latest/dist/driver.js.iife.js` |
+| Category | `third-party-resource-concern` |
+| Page | `https://www.cms.gov/medicare-coverage-database/search.aspx?error=Document+in+Archive&lcdid=38337&ver=10` (first page example for the key) |
+| Intervention | block `jsdelivr.net` |
+| Spec | [examples/experiments/vital-cms-driver-js-block.yaml](../examples/experiments/vital-cms-driver-js-block.yaml) |
+
+The page is public, has a `<main>` landmark, and loads both
+`driver.js@latest/dist/driver.css` and `driver.js.iife.js`. Blocking
+`jsdelivr.net` is a host-level upper bound for removing/deferring the driver.js
+tour; it can affect other resources from that host. The spec was generated with
+`--dry-run` and parsed again with `--spec ... --dry-run`.
+
+A structural smoke test with a temporary one-run copy (`runs: 1`, `warmups: 0`)
+and Chromium, **not energy**, confirmed the spec runs:
+
+```text
+Applied: yes. 2 requests refused, over all runs.
+Checks: baseline passed; variant passed.
+load: energy not measured
+idle: energy not measured
+Finding: not measured (confidence: none).
+```
+
+The result carries the candidate/source note as `experiment.note`; the finding's
+`replication.status` is `not-assessed` because there is no energy result. The
+structural result is kept locally as
+`results/vital-cms-driver-js-smoke-structural.json` (SHA-256
+`a7d5316e0cd339286b4192dd5c9687b9e3409e430868ef8e42cf0b2c4c6c6bae`).
+**No energy run was made in this session**: Firefox measurement must run on the
+physical Apple M2 host with the Mac quiet, not in CI.
+
+Run it on the measurement host:
+
+```bash
+node dist/cli/index.js experiment --spec examples/experiments/vital-cms-driver-js-block.yaml
+```
+
+Record the candidate ID, source URL/hash, page, intervention, Firefox version,
+host, runs/warmups, medians and spreads, whether the block applied, whether the
+assertion held and every inconclusive result. The result carries the spec's
+`note` as `experiment.note`, so it can be traced back to this candidate and
+source hash. A successful block is an upper-bound intervention test, not proof
+that the same change helps every page or user.
+
+## What Vital Core still needs to publish
+
+- A machine-readable `experiment` field per candidate: `kind`, `selector` /
+  `host` / `url`, representative `page.url`, workload (`idle_ms` or journey),
+  and functional assertions. Without it, page-family, regression, slow-page and
+  Lighthouse-recommendation candidates cannot be tested.
+- A representative page URL **on the candidate** (not only in the inventory
+  example list), so the handoff does not rely on an example lookup.
+- For component candidates, an explicit implementation/component identity and
+  selector, with ownership status. The current contract has no selector.
+- A clear distinction between a resource being present and a resource being a
+  cause; the note preserves Vital Core's own limitations.
+
+## Evidence boundaries
+
+Vital Core Lighthouse scores, Resource Timing observations, CO2.js modelled
+carbon/energy and Firefox observed client energy are separate. This handoff
+puts only the first three in the spec's provenance note. The experiment result
+reports Firefox energy, if any, and never converts Vital Core bytes or scores
+into an energy figure. Missing energy remains `not-measured`, never zero.

@@ -56,6 +56,7 @@ import { buildInvestigation } from '../analysis/investigation.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
 import { RemovalRefused, RunInterrupted, buildReport, refreshDifferences, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
 import { specFromQueue } from '../experiments/from-queue.js';
+import { loadVitalDocument, specFromVitalCandidate, VitalHandoffError } from '../experiments/vital-core.js';
 import { checkJourneySource } from '../experiments/journey-lint.js';
 import { experimentCsv } from '../report/experiment-csv.js';
 import { stringify as toYaml } from 'yaml';
@@ -122,6 +123,7 @@ Usage:
   web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
   web-energy graph <result.json>       [--json] [--write]
   web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> [--kind remove|hide|pause-animations]
+                         | --from-vital <snapshot.json|https://…> --candidate <id>
                          | <url> --kind <kind> [--selector <css>] [--host <h>] [--block-url <u>]
                          [--journey <file>] [--idle <ms>] [--settle <ms>] [--max-matches <n>] [--assert-role <role>] [--assert-text <text>]
                          [--dry-run] [--save-spec <file.yaml>] [--timeline] [--bin <ms>]
@@ -1153,6 +1155,41 @@ async function cmdExperiment(args: Args): Promise<number> {
   let from: { file: string; rank: number; id: string; title: string } | undefined;
   const specFile = one(args, 'spec');
   const fromFile = one(args, 'from');
+  const vitalFile = one(args, 'from-vital');
+  const vitalCandidate = one(args, 'candidate');
+  if (vitalFile) {
+    if (specFile || fromFile) {
+      console.error('Use one of --spec, --from or --from-vital, not more than one.');
+      return 1;
+    }
+    if (!vitalCandidate) {
+      console.error('--from-vital needs --candidate <id>.');
+      return 1;
+    }
+    try {
+      const doc = await loadVitalDocument(vitalFile);
+      const built = specFromVitalCandidate(doc, vitalCandidate);
+      // Importing is a spec-generation step only: never start a browser here.
+      const saveTo = one(args, 'save-spec');
+      if (saveTo) {
+        await writeFile(resolve(saveTo), toYaml(built.spec));
+        console.log(`Wrote the experiment to ${saveTo}`);
+      }
+      console.log(`Vital Core: ${built.reason}`);
+      console.log(toYaml(built.spec));
+      return 0;
+    } catch (e) {
+      if (e instanceof VitalHandoffError) {
+        console.error(`Vital Core handoff: ${e.message}`);
+        return 1;
+      }
+      throw e;
+    }
+  }
+  if (vitalCandidate) {
+    console.error('--candidate needs --from-vital <snapshot.json|https://…>.');
+    return 1;
+  }
   if (specFile) {
     spec = await loadSpec(resolve(specFile));
   } else if (fromFile) {

@@ -1,0 +1,24 @@
+name: vital-cdn-jsdelivr-net-npm-driver-js-latest-dist-driver-js-iife-js
+url: https://www.cms.gov/medicare-coverage-database/search.aspx?error=Document+in+Archive&lcdid=38337&ver=10
+kind: block
+hosts:
+  - jsdelivr.net
+settle_ms: 2000
+idle_ms: 10000
+assertions:
+  - role: main
+runs: 10
+warmups: 2
+seed: vital-77ffe9ae0c41
+note: |-
+  Vital Core candidate third-party-resource:https://cdn.jsdelivr.net/npm/driver.js@latest/dist/driver.js.iife.js (third-party-resource-concern).
+  Source: https://mgifford.github.io/vital-core/api/v1/www.cms.gov/snapshot.json (sha256 3db47717ce6d7ce7453d4de1d511cc75f590c5ed5bc760a77c49b71407aae0d1).
+  Vital Core evidence: performance-resource-inventory/1, denominator 99.
+  Vital Core observed reach: 44 sampled page(s).
+  Vital Core transfer observation: 28212 bytes (a transfer estimate, not measured energy).
+  Representative page: https://www.cms.gov/medicare-coverage-database/search.aspx?error=Document+in+Archive&lcdid=38337&ver=10 (the first page example for this resource in performance.resources).
+  Proposed intervention: block host jsdelivr.net
+  What this tests: Refusing requests to jsdelivr.net tests what the page’s third-party resources from that host cost, as an upper bound for a facade, deferral or removal. It can affect more than the named resource.
+  This is a controlled upper bound, not a measured saving or a production recommendation. Check the functional assertion and the page’s real behaviour before running; a successful block does not prove the same change helps every page or user.
+  Vital Core hypothesis: This third-party resource is loaded on multiple sampled pages and may contribute transfer or blocking cost.
+  Vital Core limitations: Third-party presence and transfer are not proof of a defect or causation.

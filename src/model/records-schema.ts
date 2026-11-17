@@ -301,6 +301,7 @@ export const findingSchema = z
         name: z.string(),
         kind: z.string(),
         description: z.string(),
+        note: z.string().max(4000).optional(),
         mode: z.enum(['post-load', 'pre-load']).optional(),
         workload: z.unknown().optional(),
         seed: z.string(),
