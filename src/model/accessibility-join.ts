@@ -14,11 +14,15 @@ export const ACCESSIBILITY_CONTEXT_SCHEMA = 'a11y-accessibility-context/1';
 
 const containerSchema = z
   .object({
-    category: z.string().optional(),
-    label: z.string().optional(),
-    element: z.string().optional(),
-    basis: z.string().optional(),
-    confidence: z.string().optional(),
+    category: z.string().nullable().optional(),
+    label: z.string().nullable().optional(),
+    element: z.string().nullable().optional(),
+    basis: z.string().nullable().optional(),
+    confidence: z.string().nullable().optional(),
+    /** Explicit Open Scans ids, if a future scan carries them. Never a FES id. */
+    componentId: z.string().nullable().optional(),
+    componentTypeId: z.string().nullable().optional(),
+    componentLabel: z.string().nullable().optional(),
     /** Open Scans never establishes ownership; FES must not promote this. */
     ownershipEstablished: z.literal(false),
   })

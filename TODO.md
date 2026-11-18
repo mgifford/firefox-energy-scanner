@@ -44,6 +44,24 @@ experiment, with every step traceable and every null result kept.
 
 Protocol and commands: [docs/public-site-pilot.md](docs/public-site-pilot.md).
 
+## P1 — A real Open Scans artifact
+
+- [x] Use issue #391's latest real artifact (5,486 observations, 20 pages) and
+  crawl the same 20 URLs with FES.
+- [x] Join all 5,486: 100% page-level matches, 8 exact-CSS occurrences (4
+  unique), 0 unmatched pages, 362 HTML-only and 1 reflowRisk left visible.
+- [x] Fix the null `container.element` validator bug; allow nullable container
+  fields and preserve explicit Open Scans component ids without using them.
+- [x] Add a trimmed real-artifact fixture/regression and a per-page summary to
+  the HTML section.
+- [ ] Broaden component matching: a published `selectorType` plus DOM-validated
+  ancestor/descendant matching, or an explicit shared component id. Exact CSS
+  alone is 0.15% of the real artifact.
+- [ ] Repeat with an artifact from a site that has both a FES energy result and
+  an Open Scans scan of the same run/viewport; this join is page-level only.
+
+See [docs/real-open-scans-artifact.md](docs/real-open-scans-artifact.md).
+
 ## Evaluation tools to assess for the pilot
 
 These are **external evaluation aids**, not FES evidence. Do not merge their

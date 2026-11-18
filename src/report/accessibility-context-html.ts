@@ -38,14 +38,39 @@ export function accessibilityContextSection(join: AccessibilityJoin | undefined)
   const rows = join.matches;
   const unmatched = join.unmatched;
   const source = join.sourceContext;
+  const pageRows = new Map<string, { observations: number; components: number; pageLevel: number; htmlOnly: number; engines: Set<string> }>();
+  for (const m of [...rows, ...unmatched]) {
+    const url = m.page?.url ?? m.observation.pageUrl;
+    const row = pageRows.get(url) ?? { observations: 0, components: 0, pageLevel: 0, htmlOnly: 0, engines: new Set<string>() };
+    row.observations += 1;
+    if (m.component) row.components += 1;
+    else row.pageLevel += 1;
+    if (m.match.selectorType === 'html') row.htmlOnly += 1;
+    row.engines.add(m.observation.engine);
+    pageRows.set(url, row);
+  }
   return `<section aria-labelledby="a11y-h" class="boundary">
   <h2 id="a11y-h">Related accessibility evidence</h2>
   <p class="note"><strong>This is accessibility evidence from Open Scans, not an energy finding and not a WCAG conformance claim.</strong></p>
   <p>${join.summary.observations} observation${join.summary.observations === 1 ? '' : 's'} from Open Scans: ${join.summary.pageMatched} matched to a measured page (${join.summary.componentMatched} to a recorded component instance, ${join.summary.pageLevel} page-level) and ${join.summary.unmatched} unmatched. Components are matched only by exact CSS selector text where the engine is known to use CSS; a container candidate is never treated as ownership.</p>
   <p>Source: ${link(join)}${source.scan?.scanTitle ? ` — ${esc(source.scan.scanTitle)}` : ''}${source.scan?.scannedAt ? ` <span class="note">(scanned ${esc(source.scan.scannedAt)})</span>` : ''}</p>
   ${
+    pageRows.size
+      ? `<h3>Summary by page</h3><div class="scroll"><table>
+    <caption>Accessibility observations by measured page</caption>
+    <thead><tr><th scope="col">Page</th><th scope="col">Observations</th><th scope="col">Component matches</th><th scope="col">Page-level</th><th scope="col">HTML-only</th><th scope="col">Engines</th></tr></thead>
+    <tbody>${[...pageRows.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([url, r]) =>
+          `<tr><th scope="row" class="text">${esc(url)}</th><td>${r.observations}</td><td>${r.components}</td><td>${r.pageLevel}</td><td>${r.htmlOnly}</td><td class="text">${[...r.engines].sort().map(esc).join(', ')}</td></tr>`,
+      )
+      .join('')}</tbody></table></div>`
+      : ''
+  }
+  ${
     rows.length
-      ? `<div class="scroll"><table>
+      ? `<h3>All matched observations</h3><div class="scroll"><table>
     <caption>Accessibility observations matched to a measured page</caption>
     <thead><tr><th scope="col">Observation</th><th scope="col">Page</th><th scope="col">Component</th><th scope="col">Selector</th><th scope="col">Match</th><th scope="col">WCAG / ACT</th><th scope="col">Pattern</th><th scope="col">Container candidate</th><th scope="col">Source</th></tr></thead>
     <tbody>${rows

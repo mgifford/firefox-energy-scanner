@@ -58,6 +58,18 @@ describe('the Open Scans accessibility join', () => {
     expect(unmatched.match).toMatchObject({ basis: 'none', reason: 'page-not-in-scan' });
   });
 
+  it('accepts the real artifact null container fields and preserves explicit ids', async () => {
+    const join = buildAccessibilityJoin(fixture(), await loadAccessibilityContext('tests/fixtures/accessibility/context-real-nulls.json'));
+    expect(validateAccessibilityJoin(join)).toEqual([]);
+    const nullElement = join.matches.find((m) => m.observation.observationId === 'real-null-element')!;
+    expect(nullElement.observation.container?.element).toBeNull();
+    const ids = join.matches.find((m) => m.observation.observationId === 'real-open-scans-ids')!;
+    expect(ids.observation.container?.componentTypeId).toBe('open-scans-component-type-1');
+    expect(ids.component).toBeUndefined();
+    const html = join.matches.find((m) => m.observation.observationId === 'real-html-only')!;
+    expect(html.match).toMatchObject({ selectorType: 'html', basis: 'page' });
+  });
+
   it('preserves duplicate observations rather than deduplicating them', async () => {
     const join = buildAccessibilityJoin(fixture(), await loadAccessibilityContext(CONTEXT));
     expect(join.matches.filter((m) => m.observation.observationId === 'obs-exact-figure')).toHaveLength(2);
@@ -87,6 +99,8 @@ describe('the Open Scans accessibility join', () => {
     const html = accessibilityContextSection(join);
     expect(html).toContain('<h2 id="a11y-h">Related accessibility evidence</h2>');
     expect(html).toContain('This is accessibility evidence from Open Scans, not an energy finding and not a WCAG conformance claim.');
+    expect(html).toContain('<h3>Summary by page</h3>');
+    expect(html).toContain('<caption>Accessibility observations by measured page</caption>');
     expect(html).toContain('<caption>Accessibility observations matched to a measured page</caption>');
     expect(html).toContain('<th scope="row"');
     expect(html).not.toMatch(/<script|<img\s/i);

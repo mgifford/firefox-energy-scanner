@@ -1,0 +1,110 @@
+{
+  "schema": "a11y-accessibility-context/1",
+  "generatedAt": "2026-11-17T19:11:54.869Z",
+  "site": { "origin": "https://huggingface.co", "host": "huggingface.co" },
+  "scan": {
+    "issueNumber": 391,
+    "issueUrl": "https://github.com/mgifford/open-scans/issues/391",
+    "scanTitle": "https://huggingface.co",
+    "scannedAt": "2026-11-17T19:11:54.869Z",
+    "engines": ["accesslint", "axe", "semantica11y"],
+    "scanContext": { "viewport": { "width": 1024, "height": 768 }, "browser": "firefox" }
+  },
+  "summary": {
+    "observations": 3,
+    "pages": 1,
+    "patterns": 3,
+    "withSelector": 2,
+    "htmlOnly": 1,
+    "withoutLocator": 0,
+    "byCategory": { "unknown": 1, "navigation": 1, "document": 1 },
+    "ownershipEstablished": false,
+    "note": "Trimmed from the real issue-391 artifact; the page URL is the fixture page."
+  },
+  "categoryLabels": { "unknown": "Unassigned", "navigation": "Navigation", "document": "Document/page-level" },
+  "observations": [
+    {
+      "observationId": "real-null-element",
+      "patternId": "real-null-element-pattern",
+      "patternDisplayId": "A11Y-PAT-REALNULL",
+      "identitySource": "canonical",
+      "rule": "color-contrast",
+      "engine": "axe",
+      "wcagSc": ["143"],
+      "actRuleIds": [],
+      "impact": "serious",
+      "pageUrl": "https://www.site.test:8082/articles/d",
+      "selector": ".form-input-alt > .truncate",
+      "locator": ".form-input-alt > .truncate",
+      "locatorSource": "selector",
+      "container": {
+        "category": "unknown",
+        "label": "Unassigned",
+        "element": null,
+        "basis": "none",
+        "confidence": "unknown",
+        "componentId": null,
+        "componentTypeId": null,
+        "componentLabel": null,
+        "ownershipEstablished": false,
+        "uncertainty": ["No container candidate."]
+      },
+      "sourceRef": "results[0].axe.failures[1]"
+    },
+    {
+      "observationId": "real-open-scans-ids",
+      "patternId": "real-open-scans-ids-pattern",
+      "patternDisplayId": "A11Y-PAT-REALIDS",
+      "identitySource": "canonical",
+      "rule": "landmarks/landmark-unique",
+      "engine": "accesslint",
+      "wcagSc": ["131"],
+      "actRuleIds": [],
+      "impact": "moderate",
+      "pageUrl": "https://www.site.test:8082/articles/d",
+      "selector": ".topnav",
+      "locator": ".topnav",
+      "locatorSource": "selector",
+      "container": {
+        "category": "navigation",
+        "label": "Navigation",
+        "element": "navigation",
+        "basis": "selector-token",
+        "confidence": "low",
+        "componentId": null,
+        "componentTypeId": "open-scans-component-type-1",
+        "componentLabel": "Open Scans navigation",
+        "ownershipEstablished": false
+      },
+      "sourceRef": "results[1].accesslint.failures[0]"
+    },
+    {
+      "observationId": "real-html-only",
+      "patternId": "real-html-only-pattern",
+      "patternDisplayId": "A11Y-PAT-REALHTML",
+      "identitySource": "canonical",
+      "rule": "heading-order",
+      "engine": "semantica11y",
+      "wcagSc": ["2410"],
+      "actRuleIds": [],
+      "impact": null,
+      "pageUrl": "https://www.site.test:8082/articles/d",
+      "selector": null,
+      "locator": "<main><h2>Heading</h2></main>",
+      "locatorSource": "html",
+      "container": {
+        "category": "document",
+        "label": "Document/page-level",
+        "element": null,
+        "basis": "html",
+        "confidence": "low",
+        "componentId": null,
+        "componentTypeId": null,
+        "componentLabel": null,
+        "ownershipEstablished": false
+      },
+      "sourceRef": "results[2].semantica11y"
+    }
+  ],
+  "limitations": ["Trimmed real-artifact regression fixture; not a complete scan."]
+}

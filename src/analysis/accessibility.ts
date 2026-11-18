@@ -26,11 +26,14 @@ export class AccessibilityJoinError extends Error {
 
 const containerSchema = z
   .object({
-    category: z.string().optional(),
-    label: z.string().optional(),
-    element: z.string().optional(),
-    basis: z.string().optional(),
-    confidence: z.string().optional(),
+    category: z.string().nullable().optional(),
+    label: z.string().nullable().optional(),
+    element: z.string().nullable().optional(),
+    basis: z.string().nullable().optional(),
+    confidence: z.string().nullable().optional(),
+    componentId: z.string().nullable().optional(),
+    componentTypeId: z.string().nullable().optional(),
+    componentLabel: z.string().nullable().optional(),
     ownershipEstablished: z.literal(false).optional(),
   })
   .passthrough();
@@ -174,6 +177,9 @@ export function buildAccessibilityJoin(result: BenchmarkResult, context: Accessi
               ...(input.container.element !== undefined ? { element: input.container.element } : {}),
               ...(input.container.basis !== undefined ? { basis: input.container.basis } : {}),
               ...(input.container.confidence !== undefined ? { confidence: input.container.confidence } : {}),
+              ...(input.container.componentId !== undefined ? { componentId: input.container.componentId } : {}),
+              ...(input.container.componentTypeId !== undefined ? { componentTypeId: input.container.componentTypeId } : {}),
+              ...(input.container.componentLabel !== undefined ? { componentLabel: input.container.componentLabel } : {}),
               ownershipEstablished: false as const,
             },
           }
