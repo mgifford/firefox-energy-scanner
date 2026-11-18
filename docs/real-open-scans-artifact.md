@@ -85,9 +85,16 @@ matches; they are not ownership claims.
 4. **The selector gap is measurable.** Only 8 of 5,486 observations (0.15%)
    matched a component by exact selector. This artifact predates the additive
    `selectorType`/`reportUrl` fields; FES therefore inferred CSS from the
-   engines. With a published `selectorType`, the language is no longer guessed,
-   but ancestor matching still needs the actual DOM. The conservative result
-   stands for this artifact.
+   engines.
+5. **The opt-in DOM pass is broad but low-confidence on this artifact.** With
+   `--validate-dom --dom-max-observations 5000`, 4,838 observations received a
+   nearest recorded ancestor and 640 stayed page-level (8 exact matches remain
+   separate). Because the source was 1,024×768 and FES ran at 1440×900, every
+   ancestor match is `confidence: low`. Most land on structural class
+   heuristics (`class:relative`, `class:not-prose`, `class:blog-content`) — an
+   association, not component ownership. `--dom-semantic-only` and
+   `--dom-min-own-nodes` narrow it; a same-viewport artifact is the next real
+   validation.
 
 ## Limits
 
@@ -100,13 +107,14 @@ matches; they are not ownership claims.
 - The artifact carries no energy, performance or WCAG conformance claim; the
   join adds none.
 - Duplicate observations are preserved, not deduplicated.
-- The sidecar and report are large (7.6 MB / 4.7 MB); the per-page summary is
-  the entry point, with the full table for audit.
+- The original sidecar and report are large (7.6 MB / 4.7 MB); the DOM-validated
+  sidecar is 9.1 MB (SHA-256 `d6e9ec710b0cde2a1fa3606ac90d9e18f2d8c32dd2fd068890eb12caab3b28af`).
+  The per-page summary is the entry point, with the full table for audit.
 - This artifact predates `selectorType`; `reflowRisk` stays unknown and the
   other languages are inferred. FES now uses a published `selectorType` first
-  and records whether it was published or inferred. No ancestor/descendant
-  matching is attempted without DOM validation; a per-report URL is preferred
-  when present.
+  and records whether it was published or inferred. A per-report URL is
+  preferred when present. Ancestor matching runs only with the opt-in DOM pass
+  and is low-confidence across different viewports.
 
 ## Ready?
 
@@ -115,7 +123,9 @@ component matches.** The real artifact loads, validates, joins all 20 pages,
 keeps HTML-only and unknown-selector evidence visible, and produces a usable
 per-page summary.
 
-**Not yet, for broad component attribution.** That needs either a published
-`selectorType` plus DOM-validated ancestor matching, or an explicit shared
-component id. Until then, 99.85% of this real artifact remains page-level, and
-that is the honest result.
+**Partially, for broad component association.** The opt-in DOM pass associates
+4,838 observations with a nearest recorded ancestor, but this artifact's
+viewport differs and most matches are structural wrappers. That is a broad
+association with low confidence, not component ownership. Broad *confident*
+attribution still needs a same-viewport artifact and a component-specificity
+policy, or an explicit shared component id.

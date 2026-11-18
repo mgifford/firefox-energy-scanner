@@ -47,18 +47,24 @@ a stored join, `report` renders it again without another context file.
 1. **Page** — `observation.pageUrl` is matched with FES's own `pageKey` (the
    graph's normalization, including its explicit `www`/scheme handling). A page
    not in the measured sample is kept as **unmatched**, with the Open Scans URL.
-2. **Component** — only when the selector language is confidently **CSS** and
+2. **Exact component** — when the selector language is confidently **CSS** and
    the selector text matches a recorded component instance **exactly**. That
    gives `basis: exact-selector`, `confidence: medium`; it is a text match, not
    ownership.
-3. **Everything else stays page-level and visible**:
+3. **Opt-in DOM ancestor** — with `--validate-dom`, FES opens the FES page at
+   the FES viewport, resolves a single CSS/XPath element, and walks to the
+   nearest recorded component ancestor with at least `--dom-min-own-nodes`
+   owned nodes. This gives `basis: ancestor-selector`, `domValidated: true`
+   and low confidence when the Open Scans and FES viewports differ. Structural
+   class heuristics are included by default but are guesses, not ownership;
+   `--dom-semantic-only` excludes them.
+4. **Everything else stays page-level and visible**:
    - `locatorSource: html` → HTML-only;
    - no selector → no selector;
-   - Equal Access → XPath (not compared with CSS);
+   - XPath → page-level unless `--validate-dom` resolves it;
    - unknown engine → selector language unknown;
-   - no exact match → not matched; ancestor/descendant matching needs DOM
-     validation and is deliberately not attempted;
-   - several instances with the same selector → ambiguous.
+   - no exact or DOM-validated match → page-level;
+   - several elements or instances → ambiguous.
 4. **Labels are never identity.** A container label such as "Navigation" is
    displayed, but it is not used to choose a component.
 5. **Container candidates are never promoted.** Every observation keeps
@@ -86,18 +92,38 @@ The expected additive fields are:
 ```
 
 `scan.reportUrl` is preferred for the source link; `scan.issueUrl` is the
-fallback. A published `selectorType` removes the CSS/XPath ambiguity, but it
-does **not** validate ancestor/descendant relationships. Those still need the
-actual DOM or a deliberate resolver; exact CSS text is still the only component
-match FES attempts.
+fallback. A published `selectorType` removes the CSS/XPath ambiguity. It does
+not, by itself, validate ancestor/descendant relationships; the optional
+`--validate-dom` pass does that in a real DOM.
+
+### Opt-in DOM validation
+
+```bash
+node dist/cli/index.js report results/crawl-….json \
+  --accessibility-context accessibility-context.json \
+  --validate-dom --dom-max-observations 5000
+```
+
+- Opens each matched FES page once in Chromium at the FES viewport.
+- Resolves only a selector that matches exactly one element.
+- Walks to the nearest recorded component ancestor with at least
+  `--dom-min-own-nodes` owned nodes (default 2), so page containers and
+  utility wrappers are skipped.
+- Includes structural class heuristics by default; `--dom-semantic-only`
+  restricts to semantic/explicit components.
+- Records `domValidated`, the source/FES viewport match, and low confidence
+  when the viewports differ.
+- Leaves page-load failures, ambiguous selectors and observations over the cap
+  visible as page-level, with a reason.
+- Is opt-in; ordinary joins remain browser-free.
 
 ### Other contract gaps
 
 - There is no explicit FES component id on either side. `patternId` is an Open
   Scans pattern, not a FES component; `container.label` is a candidate, not an
   identity. FES therefore never matches by label or pattern id.
-- `scan.issueUrl` is the only report link published; the join uses it for the
-  source link. A per-report URL would be additive.
+- `scan.reportUrl` is preferred when published; `scan.issueUrl` remains the
+  fallback.
 - The context has one record per occurrence, which FES preserves; duplicate
   `observationId` values are not deduplicated.
 

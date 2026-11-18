@@ -55,6 +55,8 @@ import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
 import { AccessibilityJoinError, buildAccessibilityJoin, loadAccessibilityContext } from '../analysis/accessibility.js';
 import { buildCandidateQueue, parseAllowlist } from '../analysis/candidate-queue.js';
+import { validateAccessibilityJoinDom } from '../analysis/accessibility-dom.js';
+import { findChromium } from '../trace/run.js';
 import { buildSitePatterns } from '../analysis/patterns.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
 import { RemovalRefused, RunInterrupted, buildReport, refreshDifferences, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
@@ -120,7 +122,7 @@ Usage:
   web-energy journey <file>            [options]
   web-energy baseline                  [options]
   web-energy compare --a <url> --b <url> --journey <file> [options]
-  web-energy report <result.json>      [--with <experiment.json>] [--accessibility-context <file>]
+  web-energy report <result.json>      [--with <experiment.json>] [--accessibility-context <file>] [--validate-dom] [--dom-semantic-only] [--dom-min-own-nodes <n>]
   web-energy families <result.json>    [--json] [--write]
   web-energy components <result.json>  [--json] [--write]
   web-energy patterns <result.json>    [--json] [--write]
@@ -3008,6 +3010,36 @@ async function cmdReport(args: Args): Promise<number> {
       const message = e instanceof AccessibilityJoinError ? e.message : (e as Error).message;
       console.error(`Accessibility context: ${message}`);
       return 1;
+    }
+  }
+  if (has(args, 'validate-dom')) {
+    if (!accessibilityJoin) {
+      console.error('--validate-dom needs --accessibility-context.');
+      return 1;
+    }
+    const raw = one(args, 'dom-max-observations');
+    const maxObservations = raw === undefined ? 5_000 : Number.parseInt(raw, 10);
+    if (!Number.isInteger(maxObservations) || maxObservations < 1) {
+      console.error('--dom-max-observations must be a positive integer.');
+      return 1;
+    }
+    const { chromium } = await import('playwright');
+    const executablePath = await findChromium();
+    let browser;
+    try {
+      browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
+      const minOwnRaw = one(args, 'dom-min-own-nodes');
+      const minOwnNodes = minOwnRaw === undefined ? 2 : Number.parseInt(minOwnRaw, 10);
+      if (!Number.isInteger(minOwnNodes) || minOwnNodes < 1) {
+        console.error('--dom-min-own-nodes must be a positive integer.');
+        return 1;
+      }
+      accessibilityJoin = await validateAccessibilityJoinDom(result, accessibilityJoin, { browser, maxObservations, minOwnNodes, includeStructural: !has(args, 'dom-semantic-only') });
+    } catch (e) {
+      console.error(`DOM validation: ${(e as Error).message}`);
+      return 1;
+    } finally {
+      await browser?.close().catch(() => {});
     }
   }
   // --with <experiment.json>: experiments run on this result's components, shown beside them.

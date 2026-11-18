@@ -54,9 +54,13 @@ Protocol and commands: [docs/public-site-pilot.md](docs/public-site-pilot.md).
   fields and preserve explicit Open Scans component ids without using them.
 - [x] Add a trimmed real-artifact fixture/regression and a per-page summary to
   the HTML section.
-- [ ] Broaden component matching: a published `selectorType` plus DOM-validated
-  ancestor/descendant matching, or an explicit shared component id. Exact CSS
-  alone is 0.15% of the real artifact.
+- [x] Add optional DOM-validated ancestor matching (`report --validate-dom`,
+  `--dom-semantic-only`, `--dom-min-own-nodes`, `--dom-max-observations`).
+  On the real #391 artifact it associates 4,838 observations, but the source
+  viewport differs and most are low-confidence structural wrappers; it is not
+  component ownership.
+- [ ] Validate on a same-viewport artifact and tighten component specificity;
+  exact CSS remains the only medium-confidence component match.
 - [ ] Repeat with an artifact from a site that has both a FES energy result and
   an Open Scans scan of the same run/viewport; this join is page-level only.
 

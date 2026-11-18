@@ -13,7 +13,7 @@ export interface Args {
  */
 export const BOOLEAN_FLAGS = new Set([
   'adaptive', 'authenticated', 'dry-run', 'crux', 'crux-url', 'green-hosting', 'headed', 'headless', 'help', 'json',
-  'crux-pages', 'describe', 'keep-profile', 'lighthouse', 'lookup-only', 'low-overhead', 'no-energy', 'no-history', 'no-key-pages', 'no-screenshot', 'popular', 'public-only',
+  'crux-pages', 'describe', 'keep-profile', 'lighthouse', 'lookup-only', 'low-overhead', 'no-energy', 'no-history', 'no-key-pages', 'no-screenshot', 'popular', 'public-only', 'validate-dom', 'dom-semantic-only',
   'sample', 'timeline', 'trace', 'triage-only', 'webnrg', 'webnrg-lookup-only', 'write',
 ]);
 
@@ -57,7 +57,7 @@ export const KNOWN_FLAGS = new Set([
   'keep-eager', 'kind', 'label-a', 'label-b', 'lighthouse-categories', 'lighthouse-form-factor', 'lighthouse-reports',
   'lighthouse-runs', 'lighthouse-top', 'markdown', 'max-depth', 'max-matches', 'max-pages', 'name', 'out', 'path', 'previous', 'release', 'runs',
   'save-spec', 'seed', 'selector', 'settle', 'spec', 'spike-k', 'spike-min-ms', 'spike-min-rise', 'spike-reference', 'title-file', 'trace-idle', 'trace-keep', 'trace-max-mb',
-  'trace-pages', 'url', 'viewport', 'wait', 'warmups', 'with', 'webnrg-top', 'webnrg-wait',
+  'dom-max-observations', 'dom-min-own-nodes', 'trace-pages', 'url', 'viewport', 'wait', 'warmups', 'with', 'webnrg-top', 'webnrg-wait',
 ]);
 
 /** Edit distance, for suggesting the option someone meant. */
