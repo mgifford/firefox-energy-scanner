@@ -9,6 +9,7 @@ import { cruxSection } from './crux-html.js';
 import { webnrgSection } from './webnrg-html.js';
 import { familiesSection } from './families-html.js';
 import { componentsSection } from './components-html.js';
+import { accessibilityContextSection } from './accessibility-context-html.js';
 import { patternsSection } from './patterns-html.js';
 import { resourcesSection } from './resources-html.js';
 import { tracesSection } from './traces-html.js';
@@ -251,6 +252,7 @@ ${
 ${experimentSection(result.experiment)}
 ${findingSection(result.finding)}
 ${timelineSection(result)}
+${accessibilityContextSection(result.accessibilityContext)}
 
 ${investigationSection(result)}
 

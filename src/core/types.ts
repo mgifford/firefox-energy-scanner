@@ -447,6 +447,12 @@ export interface BenchmarkResult {
    * per-component energy figure.
    */
   patterns?: import('../analysis/patterns.js').SitePatterns;
+  /**
+   * Optional Open Scans accessibility join, stored by `report
+   * --accessibility-context`. Accessibility evidence, never energy evidence
+   * or a WCAG conformance claim.
+   */
+  accessibilityContext?: import('../model/accessibility-join.js').AccessibilityJoin;
   /** Changes since the previous scan of the same site, when one was found. Indicative. */
   history?: import('../analysis/history.js').HistoryReport;
   /**

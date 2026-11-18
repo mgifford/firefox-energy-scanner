@@ -53,6 +53,7 @@ import { resourcesCsv } from '../report/resources-csv.js';
 import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
+import { AccessibilityJoinError, buildAccessibilityJoin, loadAccessibilityContext } from '../analysis/accessibility.js';
 import { buildSitePatterns } from '../analysis/patterns.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
 import { RemovalRefused, RunInterrupted, buildReport, refreshDifferences, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
@@ -118,7 +119,7 @@ Usage:
   web-energy journey <file>            [options]
   web-energy baseline                  [options]
   web-energy compare --a <url> --b <url> --journey <file> [options]
-  web-energy report <result.json>      [--with <experiment.json>]
+  web-energy report <result.json>      [--with <experiment.json>] [--accessibility-context <file>]
   web-energy families <result.json>    [--json] [--write]
   web-energy components <result.json>  [--json] [--write]
   web-energy patterns <result.json>    [--json] [--write]
@@ -2936,6 +2937,19 @@ async function cmdReport(args: Args): Promise<number> {
   // Older results are read through migration, so the report shows what they support.
   const { result } = migrateResult(JSON.parse(await readFile(resolve(file), 'utf8')) as BenchmarkResult);
   refreshDifferences(result);
+  const accessibilityFile = one(args, 'accessibility-context');
+  let accessibilityJoin: ReturnType<typeof buildAccessibilityJoin> | undefined;
+  if (accessibilityFile) {
+    if (!result.graph) attachInventory(result);
+    try {
+      const context = await loadAccessibilityContext(resolve(accessibilityFile));
+      accessibilityJoin = buildAccessibilityJoin(result, context);
+    } catch (e) {
+      const message = e instanceof AccessibilityJoinError ? e.message : (e as Error).message;
+      console.error(`Accessibility context: ${message}`);
+      return 1;
+    }
+  }
   // --with <experiment.json>: experiments run on this result's components, shown beside them.
   const related = args.flags.get('with') ?? [];
   if (related.length) {
@@ -2956,7 +2970,14 @@ async function cmdReport(args: Args): Promise<number> {
     }
     await writeFile(resolve(file), JSON.stringify(result, null, 2));
   }
-  const outPath = resolve(file).replace(/\.json$/, '') + '.html';
+  const stem = resolve(file).replace(/\.json$/, '');
+  if (accessibilityJoin) {
+    // The sidecar is the artifact; the measured result is not rewritten.
+    await writeFile(`${stem}.accessibility-context.json`, JSON.stringify(accessibilityJoin, null, 2));
+    result.accessibilityContext = accessibilityJoin;
+    console.log(`Wrote ${stem}.accessibility-context.json`);
+  }
+  const outPath = `${stem}.html`;
   await writeFile(outPath, toHtml(result));
   await writeFile(resolve(file).replace(/\.json$/, '') + '.csv', toCsv(result));
   console.log(`Regenerated ${outPath}`);
