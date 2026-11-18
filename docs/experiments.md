@@ -233,7 +233,7 @@ still starting up), incremental energy cannot be read, and the verdict uses wind
 and says so; both sides measured the same window, so the difference needs no baseline.
 The baseline subtracted on each side is shown too.
 
-Fewer than 10 runs per side is marked **indicative**, as everywhere in this tool, and no
+Fewer than 10 usable energy measurements per side is marked **indicative**, as everywhere in this tool, and no
 significance is claimed. Duration and transfer are shown beside energy, in their own
 units, and never combined with it.
 
