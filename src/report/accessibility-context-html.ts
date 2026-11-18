@@ -34,11 +34,21 @@ const component = (m: AccessibilityMatch): string =>
 const match = (m: AccessibilityMatch): string =>
   `${esc(m.match.basis)} (${esc(m.match.confidence)}; selector: ${esc(m.match.selectorType)}${m.match.selectorTypeSource ? `, ${esc(m.match.selectorTypeSource)}` : ''})${m.match.reason ? `<br><span class="note">${esc(m.match.reason)}</span>` : ''}`;
 
-export function accessibilityContextSection(join: AccessibilityJoin | undefined): string {
+export function accessibilityContextSection(join: AccessibilityJoin | undefined, fesViewport?: { width: number; height: number }): string {
   if (!join) return '';
   const rows = join.matches;
   const unmatched = join.unmatched;
   const source = join.sourceContext;
+  const scanContext = source.scan?.scanContext;
+  const sourceViewport =
+    scanContext && typeof scanContext === 'object' && 'viewport' in scanContext
+      ? (scanContext as { viewport?: { width?: unknown; height?: unknown } }).viewport
+      : undefined;
+  const sourceVp =
+    sourceViewport && typeof sourceViewport.width === 'number' && typeof sourceViewport.height === 'number'
+      ? { width: sourceViewport.width, height: sourceViewport.height }
+      : undefined;
+  const viewportMatch = sourceVp && fesViewport ? (sourceVp.width === fesViewport.width && sourceVp.height === fesViewport.height ? 'same' : 'different') : 'unknown';
   const pageRows = new Map<string, { observations: number; components: number; pageLevel: number; htmlOnly: number; engines: Set<string> }>();
   for (const m of [...rows, ...unmatched]) {
     const url = m.page?.url ?? m.observation.pageUrl;
@@ -55,6 +65,7 @@ export function accessibilityContextSection(join: AccessibilityJoin | undefined)
   <p class="note"><strong>This is accessibility evidence from Open Scans, not an energy finding and not a WCAG conformance claim.</strong></p>
   <p>${join.summary.observations} observation${join.summary.observations === 1 ? '' : 's'} from Open Scans: ${join.summary.pageMatched} matched to a measured page (${join.summary.componentMatched} to a recorded component instance, ${join.summary.pageLevel} page-level) and ${join.summary.unmatched} unmatched. Components are matched only by exact CSS selector text where the engine is known to use CSS; a container candidate is never treated as ownership.</p>
   <p>Source: ${link(join)}${source.scan?.scanTitle ? ` — ${esc(source.scan.scanTitle)}` : ''}${source.scan?.scannedAt ? ` <span class="note">(scanned ${esc(source.scan.scannedAt)})</span>` : ''}</p>
+  <p><strong>Run pairing:</strong> this is accessibility evidence from an Open Scans scan, not the FES run. Source scan viewport ${sourceVp ? `${sourceVp.width}×${sourceVp.height}` : 'not published'}; FES run viewport ${fesViewport ? `${fesViewport.width}×${fesViewport.height}` : 'not recorded'}; viewport match: <strong>${viewportMatch}</strong>. Page URLs are matched; component selectors are exact CSS text and are not DOM-validated across viewports.</p>
   ${
     pageRows.size
       ? `<h3>Summary by page</h3><div class="scroll"><table>
