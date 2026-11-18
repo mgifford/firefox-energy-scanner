@@ -59,6 +59,8 @@ Protocol and commands: [docs/public-site-pilot.md](docs/public-site-pilot.md).
   On the real #391 artifact it associates 4,838 observations, but the source
   viewport differs and most are low-confidence structural wrappers; it is not
   component ownership.
+- [x] Require a same viewport for DOM ancestor matching by default;
+  `--dom-allow-different-viewport` is the explicit low-confidence opt-in.
 - [ ] Validate on a same-viewport artifact and tighten component specificity;
   exact CSS remains the only medium-confidence component match.
 - [ ] Repeat with an artifact from a site that has both a FES energy result and

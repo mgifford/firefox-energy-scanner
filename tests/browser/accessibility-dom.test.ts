@@ -128,4 +128,44 @@ run(`accessibility DOM validation in ${ENGINE ?? 'no browser'}`, () => {
     expect(join.summary.componentMatched).toBe(2);
     expect(join.limitations.join(' ')).toMatch(/DOM validation opened the FES page/);
   }, 60_000);
+
+  it('requires a same viewport by default and permits the broad match only on request', async () => {
+    const pageUrl = `${site.url}/articles/d`;
+    const context = parseAccessibilityContext({
+      schema: 'a11y-accessibility-context/1',
+      site: { origin: site.url, host: 'www.site.test' },
+      scan: {
+        issueNumber: 2,
+        issueUrl: 'https://github.com/mgifford/open-scans/issues/2',
+        scannedAt: '2026-11-18T00:00:00.000Z',
+        engines: ['axe'],
+        scanContext: { viewport: { width: 1024, height: 768 } },
+      },
+      observations: [
+        {
+          observationId: 'different-viewport',
+          rule: 'image-alt',
+          engine: 'axe',
+          wcagSc: ['111'],
+          actRuleIds: [],
+          impact: 'critical',
+          pageUrl,
+          selector: 'canvas',
+          selectorType: 'css',
+          locator: 'canvas',
+          locatorSource: 'selector',
+          container: { category: 'chart', label: 'Chart', element: 'figure', basis: 'selector-token', confidence: 'low', ownershipEstablished: false },
+          sourceRef: 'results[0].axe',
+        },
+      ],
+    });
+    const join = buildAccessibilityJoin(result, context);
+    const gated = await validateAccessibilityJoinDom(result, join, { browser, maxObservations: 10 });
+    expect(gated.matches.find((m) => m.observation.observationId === 'different-viewport')!.component).toBeUndefined();
+    expect(gated.limitations.join(' ')).toMatch(/DOM ancestor matching skipped/);
+    const broad = await validateAccessibilityJoinDom(result, gated, { browser, maxObservations: 10, allowDifferentViewport: true });
+    expect(broad.matches.find((m) => m.observation.observationId === 'different-viewport')!.component).toMatchObject({ signature: 'component:live-chart' });
+    expect(broad.matches.find((m) => m.observation.observationId === 'different-viewport')!.match).toMatchObject({ basis: 'ancestor-selector', confidence: 'low', domValidated: true });
+  }, 60_000);
+
 });

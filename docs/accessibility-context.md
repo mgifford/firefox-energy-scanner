@@ -105,14 +105,16 @@ node dist/cli/index.js report results/crawl-….json \
 ```
 
 - Opens each matched FES page once in Chromium at the FES viewport.
+- **Requires the source and FES viewports to be the same** by default. If they differ or the source viewport is unknown, no ancestor is assigned; `--dom-allow-different-viewport` opts into the explicitly low-confidence broad association.
 - Resolves only a selector that matches exactly one element.
 - Walks to the nearest recorded component ancestor with at least
   `--dom-min-own-nodes` owned nodes (default 2), so page containers and
   utility wrappers are skipped.
 - Includes structural class heuristics by default; `--dom-semantic-only`
   restricts to semantic/explicit components.
-- Records `domValidated`, the source/FES viewport match, and low confidence
-  when the viewports differ.
+- Records `domValidated`, the source/FES viewport match, and confidence. A
+  same-viewport match is `medium`; an explicitly allowed different viewport is
+  `low`.
 - Leaves page-load failures, ambiguous selectors and observations over the cap
   visible as page-level, with a reason.
 - Is opt-in; ordinary joins remain browser-free.

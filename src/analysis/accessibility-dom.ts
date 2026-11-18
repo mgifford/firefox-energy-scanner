@@ -19,6 +19,8 @@ export interface DomValidationOptions {
   includeStructural?: boolean;
   /** Require this many owned nodes, so page containers/wrappers are skipped. */
   minOwnNodes?: number;
+  /** Permit ancestor matching when source/FES viewports differ or are unknown. */
+  allowDifferentViewport?: boolean;
   pageTimeoutMs?: number;
   settleMs?: number;
 }
@@ -69,6 +71,13 @@ export async function validateAccessibilityJoinDom(
       : 'different'
     : 'unknown';
   const confidence = viewportMatch === 'same' ? 'medium' : 'low';
+  if (viewportMatch !== 'same' && !options.allowDifferentViewport) {
+    next.limitations = [
+      ...next.limitations,
+      `DOM ancestor matching skipped: source viewport ${sourceViewport ? `${sourceViewport.width}×${sourceViewport.height}` : 'not published'} vs FES ${fesViewport.width}×${fesViewport.height} (${viewportMatch}). Exact CSS matches remain; use --dom-allow-different-viewport only for explicitly low-confidence broad association.`,
+    ];
+    return next;
+  }
   const graphPages = new Map(graph.pages.map((p) => [p.id, p]));
   const instances = new Map(graph.instances.map((i) => [i.id, i]));
   const types = new Map(graph.types.map((t) => [t.id, t]));

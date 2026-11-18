@@ -122,7 +122,7 @@ Usage:
   web-energy journey <file>            [options]
   web-energy baseline                  [options]
   web-energy compare --a <url> --b <url> --journey <file> [options]
-  web-energy report <result.json>      [--with <experiment.json>] [--accessibility-context <file>] [--validate-dom] [--dom-semantic-only] [--dom-min-own-nodes <n>]
+  web-energy report <result.json>      [--with <experiment.json>] [--accessibility-context <file>] [--validate-dom] [--dom-semantic-only] [--dom-min-own-nodes <n>] [--dom-allow-different-viewport]
   web-energy families <result.json>    [--json] [--write]
   web-energy components <result.json>  [--json] [--write]
   web-energy patterns <result.json>    [--json] [--write]
@@ -3034,7 +3034,7 @@ async function cmdReport(args: Args): Promise<number> {
         console.error('--dom-min-own-nodes must be a positive integer.');
         return 1;
       }
-      accessibilityJoin = await validateAccessibilityJoinDom(result, accessibilityJoin, { browser, maxObservations, minOwnNodes, includeStructural: !has(args, 'dom-semantic-only') });
+      accessibilityJoin = await validateAccessibilityJoinDom(result, accessibilityJoin, { browser, maxObservations, minOwnNodes, includeStructural: !has(args, 'dom-semantic-only'), allowDifferentViewport: has(args, 'dom-allow-different-viewport') });
     } catch (e) {
       console.error(`DOM validation: ${(e as Error).message}`);
       return 1;
