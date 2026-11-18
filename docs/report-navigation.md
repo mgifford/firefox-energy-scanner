@@ -43,10 +43,12 @@ tier. The **Related accessibility evidence** section now states:
 - the FES run viewport;
 - whether they are **same**, **different** or **unknown**.
 
-A different viewport is not hidden. Page URLs are matched; exact CSS component
-matches are text matches and are not DOM-validated across viewports. A published
-`selectorType` is labelled `published`; an engine fallback is labelled
-`inferred`.
+A different viewport is not hidden. Page URLs are matched. Exact CSS component
+matches are text matches and are not re-checked across viewports; opt-in
+DOM-validated ancestor matches are labelled `ancestor-selector` and reported as
+associations, not ownership. The summary keeps the two counts separate. A
+published `selectorType` is labelled `published`; an engine fallback is
+labelled `inferred`.
 
 The candidate queue's pairing key (`siteOrigin|pageKey|widthxheight`) uses the
 same context for later run/viewport-aware joins.

@@ -60,17 +60,38 @@ export function accessibilityContextSection(join: AccessibilityJoin | undefined,
     row.engines.add(m.observation.engine);
     pageRows.set(url, row);
   }
+  // Exact selector matches and DOM-validated ancestor matches are different
+  // evidence. Reporting one total would let a broad ancestor association read
+  // as an exact component match, which is the overstatement this join forbids.
+  const exactMatches = rows.filter((m) => m.match.basis === 'exact-selector').length;
+  const ancestorMatches = rows.filter((m) => m.match.basis === 'ancestor-selector').length;
+  const componentCount =
+    join.summary.componentMatched === 0
+      ? 'no component-instance match'
+      : ancestorMatches > 0
+        ? `${join.summary.componentMatched} to a recorded component instance (${exactMatches} by exact CSS selector text, ${ancestorMatches} by DOM-validated ancestor)`
+        : `${join.summary.componentMatched} to a recorded component instance, all by exact CSS selector text`;
+  const basisNote =
+    ancestorMatches > 0
+      ? 'Exact selector matches compare selector text. DOM-validated ancestor matches are relationships checked in the live page at the FES viewport, not proof that the component caused the finding. Neither is component ownership.'
+      : join.summary.componentMatched > 0
+        ? 'Component matches compare exact CSS selector text where the engine is known to use CSS; they are text matches, not ownership.'
+        : 'No component-instance match was made.';
+  const runPairingNote =
+    ancestorMatches > 0
+      ? 'Page URLs are matched. Ancestor associations were checked in the FES page at the FES viewport; exact selector matches remain text matches and are not re-checked across viewports.'
+      : 'Page URLs are matched; component selectors are exact CSS text and are not DOM-validated across viewports.';
   return `<section aria-labelledby="a11y-h" class="boundary">
   <h2 id="a11y-h">Related accessibility evidence</h2>
   <p class="note"><strong>This is accessibility evidence from Open Scans, not an energy finding and not a WCAG conformance claim.</strong></p>
-  <p>${join.summary.observations} observation${join.summary.observations === 1 ? '' : 's'} from Open Scans: ${join.summary.pageMatched} matched to a measured page (${join.summary.componentMatched} to a recorded component instance, ${join.summary.pageLevel} page-level) and ${join.summary.unmatched} unmatched. Components are matched only by exact CSS selector text where the engine is known to use CSS; a container candidate is never treated as ownership.</p>
+  <p>${join.summary.observations} observation${join.summary.observations === 1 ? '' : 's'} from Open Scans: ${join.summary.pageMatched} matched to a measured page (${componentCount}; ${join.summary.pageLevel} page-level) and ${join.summary.unmatched} unmatched. ${basisNote} A container candidate is never treated as ownership.</p>
   <p>Source: ${link(join)}${source.scan?.scanTitle ? ` — ${esc(source.scan.scanTitle)}` : ''}${source.scan?.scannedAt ? ` <span class="note">(scanned ${esc(source.scan.scannedAt)})</span>` : ''}</p>
-  <p><strong>Run pairing:</strong> this is accessibility evidence from an Open Scans scan, not the FES run. Source scan viewport ${sourceVp ? `${sourceVp.width}×${sourceVp.height}` : 'not published'}; FES run viewport ${fesViewport ? `${fesViewport.width}×${fesViewport.height}` : 'not recorded'}; viewport match: <strong>${viewportMatch}</strong>. Page URLs are matched; component selectors are exact CSS text and are not DOM-validated across viewports.</p>
+  <p><strong>Run pairing:</strong> this is accessibility evidence from an Open Scans scan, not the FES run. Source scan viewport ${sourceVp ? `${sourceVp.width}×${sourceVp.height}` : 'not published'}; FES run viewport ${fesViewport ? `${fesViewport.width}×${fesViewport.height}` : 'not recorded'}; viewport match: <strong>${viewportMatch}</strong>. ${runPairingNote}</p>
   ${
     pageRows.size
       ? `<h3>Summary by page</h3><div class="scroll"><table>
     <caption>Accessibility observations by measured page</caption>
-    <thead><tr><th scope="col">Page</th><th scope="col">Observations</th><th scope="col">Component matches</th><th scope="col">Page-level</th><th scope="col">HTML-only</th><th scope="col">Engines</th></tr></thead>
+    <thead><tr><th scope="col">Page</th><th scope="col">Observations</th><th scope="col">Component associations</th><th scope="col">Page-level</th><th scope="col">HTML-only</th><th scope="col">Engines</th></tr></thead>
     <tbody>${[...pageRows.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(
