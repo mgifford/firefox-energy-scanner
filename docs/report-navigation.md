@@ -67,5 +67,6 @@ same context for later run/viewport-aware joins.
 
 - A manual `workflow_dispatch` operation path that cannot crawl or trigger the
   physical runner, with the physical runner isolated from untrusted PRs.
-- Broader accessibility component mapping: DOM-validated ancestor matching or
-  an explicit shared component id.
+- The optional DOM ancestor pass is implemented (`report --validate-dom`); a
+  same-viewport real artifact and a stronger component-specificity policy are
+  still needed before calling it confident component attribution.

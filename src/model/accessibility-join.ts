@@ -60,11 +60,13 @@ const matchSchema = z
     component: componentSchema.optional(),
     match: z
       .object({
-        basis: z.enum(['page', 'exact-selector', 'component-id', 'none']),
+        basis: z.enum(['page', 'exact-selector', 'ancestor-selector', 'component-id', 'none']),
         /** How the selector was read, or why it was not compared. */
         selectorType: z.enum(['css', 'xpath', 'html', 'none', 'unknown']),
         /** Whether selectorType came from Open Scans or was inferred from the engine. */
         selectorTypeSource: z.enum(['published', 'inferred']).optional(),
+        /** True only when the ancestor relationship was checked in a live DOM. */
+        domValidated: z.boolean().optional(),
         confidence: z.enum(['high', 'medium', 'low', 'none']),
         reason: z.string().optional(),
       })

@@ -309,6 +309,7 @@
                 "enum": [
                   "page",
                   "exact-selector",
+                  "ancestor-selector",
                   "component-id",
                   "none"
                 ]
@@ -329,6 +330,9 @@
                   "published",
                   "inferred"
                 ]
+              },
+              "domValidated": {
+                "type": "boolean"
               },
               "confidence": {
                 "type": "string",
@@ -556,6 +560,7 @@
                 "enum": [
                   "page",
                   "exact-selector",
+                  "ancestor-selector",
                   "component-id",
                   "none"
                 ]
@@ -576,6 +581,9 @@
                   "published",
                   "inferred"
                 ]
+              },
+              "domValidated": {
+                "type": "boolean"
               },
               "confidence": {
                 "type": "string",
