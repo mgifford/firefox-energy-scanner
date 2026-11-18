@@ -83,9 +83,11 @@ matches; they are not ownership claims.
    HTML section now starts with a per-page table: observations, component
    matches, page-level, HTML-only and engines, before the occurrence table.
 4. **The selector gap is measurable.** Only 8 of 5,486 observations (0.15%)
-   matched a component by exact selector. Ancestor matching would require the
-   actual DOM or a published selector type; the artifact has neither. This is
-   the expected conservative result, not a failure.
+   matched a component by exact selector. This artifact predates the additive
+   `selectorType`/`reportUrl` fields; FES therefore inferred CSS from the
+   engines. With a published `selectorType`, the language is no longer guessed,
+   but ancestor matching still needs the actual DOM. The conservative result
+   stands for this artifact.
 
 ## Limits
 
@@ -100,8 +102,11 @@ matches; they are not ownership claims.
 - Duplicate observations are preserved, not deduplicated.
 - The sidecar and report are large (7.6 MB / 4.7 MB); the per-page summary is
   the entry point, with the full table for audit.
-- No `selectorType` field; `reflowRisk` stays unknown. No ancestor/descendant
-  matching is attempted without DOM validation.
+- This artifact predates `selectorType`; `reflowRisk` stays unknown and the
+  other languages are inferred. FES now uses a published `selectorType` first
+  and records whether it was published or inferred. No ancestor/descendant
+  matching is attempted without DOM validation; a per-report URL is preferred
+  when present.
 
 ## Ready?
 

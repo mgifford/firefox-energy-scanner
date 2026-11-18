@@ -70,6 +70,23 @@ describe('the Open Scans accessibility join', () => {
     expect(html.match).toMatchObject({ selectorType: 'html', basis: 'page' });
   });
 
+  it('uses a published selectorType over engine inference and prefers reportUrl', async () => {
+    const join = buildAccessibilityJoin(fixture(), await loadAccessibilityContext('tests/fixtures/accessibility/context-selector-type.json'));
+    expect(validateAccessibilityJoin(join)).toEqual([]);
+    const css = join.matches.find((m) => m.observation.observationId === 'published-css')!;
+    expect(css.component).toMatchObject({ signature: 'component:live-chart' });
+    expect(css.match).toMatchObject({ selectorType: 'css', selectorTypeSource: 'published', basis: 'exact-selector' });
+    const xpath = join.matches.find((m) => m.observation.observationId === 'published-xpath')!;
+    expect(xpath.component).toBeUndefined();
+    expect(xpath.match).toMatchObject({ selectorType: 'xpath', selectorTypeSource: 'published', basis: 'page' });
+    const legacy = join.matches.find((m) => m.observation.observationId === 'legacy-inferred')!;
+    expect(legacy.component).toMatchObject({ signature: 'component:live-chart' });
+    expect(legacy.match).toMatchObject({ selectorType: 'css', selectorTypeSource: 'inferred' });
+    const html = accessibilityContextSection(join);
+    expect(html).toContain('Open Scans report');
+    expect(html).toContain('https://mgifford.github.io/open-scans/reports/issues/issue-391/2026-11-17T19-12-18-987Z/report.html');
+  });
+
   it('preserves duplicate observations rather than deduplicating them', async () => {
     const join = buildAccessibilityJoin(fixture(), await loadAccessibilityContext(CONTEXT));
     expect(join.matches.filter((m) => m.observation.observationId === 'obs-exact-figure')).toHaveLength(2);

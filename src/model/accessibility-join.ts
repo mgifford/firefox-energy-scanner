@@ -41,6 +41,8 @@ const observationSchema = z
     impact: z.string().nullable().optional(),
     pageUrl: z.string(),
     selector: z.string().nullable().optional(),
+    /** Published by Open Scans once available; absent means FES inferred it from the engine. */
+    selectorType: z.string().optional(),
     locator: z.string().optional(),
     locatorSource: z.enum(['selector', 'html', 'none']),
     container: containerSchema.optional(),
@@ -61,6 +63,8 @@ const matchSchema = z
         basis: z.enum(['page', 'exact-selector', 'component-id', 'none']),
         /** How the selector was read, or why it was not compared. */
         selectorType: z.enum(['css', 'xpath', 'html', 'none', 'unknown']),
+        /** Whether selectorType came from Open Scans or was inferred from the engine. */
+        selectorTypeSource: z.enum(['published', 'inferred']).optional(),
         confidence: z.enum(['high', 'medium', 'low', 'none']),
         reason: z.string().optional(),
       })
@@ -77,6 +81,7 @@ const sourceContextSchema = z
       .object({
         issueNumber: z.number().int().nullable().optional(),
         issueUrl: z.string().nullable().optional(),
+        reportUrl: z.string().nullable().optional(),
         scanTitle: z.string().nullable().optional(),
         scannedAt: z.string().nullable().optional(),
         engines: z.array(z.string()).optional(),

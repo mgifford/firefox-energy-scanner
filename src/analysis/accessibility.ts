@@ -51,6 +51,7 @@ const inputObservation = z
     impact: z.string().nullable().optional(),
     pageUrl: z.string().min(1),
     selector: z.string().nullable().optional(),
+    selectorType: z.string().optional(),
     locator: z.string().optional(),
     locatorSource: z.enum(['selector', 'html', 'none']),
     container: containerSchema.optional(),
@@ -67,6 +68,7 @@ const contextSchema = z
       .object({
         issueNumber: z.number().int().nullable().optional(),
         issueUrl: z.string().nullable().optional(),
+        reportUrl: z.string().nullable().optional(),
         scanTitle: z.string().nullable().optional(),
         scannedAt: z.string().nullable().optional(),
         engines: z.array(z.string()).optional(),
@@ -121,19 +123,40 @@ export async function loadAccessibilityContext(path: string, maxBytes = MAX_CONT
 
 const CSS_ENGINES = new Set(['axe', 'axe-core', 'accesslint', 'alfa', 'qualweb', 'htmlcs', 'ibm', 'wave']);
 const XPATH_ENGINES = new Set(['equalaccess']);
+const SELECTOR_TYPES = new Set(['css', 'xpath', 'html', 'none', 'unknown']);
+
+export interface SelectorTypeDecision {
+  type: AccessibilityMatch['match']['selectorType'];
+  source: 'published' | 'inferred';
+}
 
 /**
- * Selector language from the engine, because the context does not publish a
- * selectorType. This is an inference, recorded on every match; unknown engines
- * never reach selector matching.
+ * Use Open Scans' published selectorType when present; otherwise infer from the
+ * engine for older artifacts. An unrecognised published value is unknown, not
+ * guessed.
  */
-export function selectorTypeOf(observation: AccessibilityObservation): AccessibilityMatch['match']['selectorType'] {
-  if (observation.locatorSource === 'html') return 'html';
-  if (observation.locatorSource !== 'selector' || !observation.selector) return 'none';
+export function selectorTypeDecision(observation: AccessibilityObservation): SelectorTypeDecision {
+  if (observation.selectorType !== undefined) {
+    const published = observation.selectorType.toLowerCase();
+    if (SELECTOR_TYPES.has(published) && published !== 'unknown') {
+      if ((published === 'css' || published === 'xpath') && (!observation.selector || observation.locatorSource !== 'selector')) {
+        return { type: observation.locatorSource === 'html' ? 'html' : 'none', source: 'published' };
+      }
+      return { type: published as SelectorTypeDecision['type'], source: 'published' };
+    }
+    return { type: 'unknown', source: 'published' };
+  }
+  if (observation.locatorSource === 'html') return { type: 'html', source: 'inferred' };
+  if (observation.locatorSource !== 'selector' || !observation.selector) return { type: 'none', source: 'inferred' };
   const engine = observation.engine.toLowerCase();
-  if (XPATH_ENGINES.has(engine) || engine.includes('equalaccess')) return 'xpath';
-  if (CSS_ENGINES.has(engine)) return 'css';
-  return 'unknown';
+  if (XPATH_ENGINES.has(engine) || engine.includes('equalaccess')) return { type: 'xpath', source: 'inferred' };
+  if (CSS_ENGINES.has(engine)) return { type: 'css', source: 'inferred' };
+  return { type: 'unknown', source: 'inferred' };
+}
+
+/** Backward-compatible helper used by existing tests. */
+export function selectorTypeOf(observation: AccessibilityObservation): AccessibilityMatch['match']['selectorType'] {
+  return selectorTypeDecision(observation).type;
 }
 
 const same = (a: string, b: string) => a.trim() === b.trim();
@@ -167,6 +190,7 @@ export function buildAccessibilityJoin(result: BenchmarkResult, context: Accessi
       ...(input.impact !== undefined ? { impact: input.impact } : {}),
       pageUrl: input.pageUrl,
       ...(input.selector !== undefined ? { selector: input.selector } : {}),
+      ...(input.selectorType !== undefined ? { selectorType: input.selectorType } : {}),
       ...(input.locator !== undefined ? { locator: input.locator } : {}),
       locatorSource: input.locatorSource,
       ...(input.container
@@ -187,11 +211,12 @@ export function buildAccessibilityJoin(result: BenchmarkResult, context: Accessi
       ...(input.sourceRef !== undefined ? { sourceRef: input.sourceRef } : {}),
     };
     const page = pages.get(pageKey(observation.pageUrl, { queryStrategy: 'keep' }));
-    const selectorType = selectorTypeOf(observation);
+    const decision = selectorTypeDecision(observation);
+    const selectorType = decision.type;
     if (!page) {
       unmatched.push({
         observation,
-        match: { basis: 'none', selectorType, confidence: 'none', reason: 'page-not-in-scan' },
+        match: { basis: 'none', selectorType, selectorTypeSource: decision.source, confidence: 'none', reason: 'page-not-in-scan' },
       });
       continue;
     }
@@ -235,6 +260,7 @@ export function buildAccessibilityJoin(result: BenchmarkResult, context: Accessi
       match: {
         basis,
         selectorType,
+        selectorTypeSource: decision.source,
         confidence,
         ...(reason ? { reason } : {}),
       },

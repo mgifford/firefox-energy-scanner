@@ -110,8 +110,13 @@ Do not click, scroll or type during a Firefox energy run.
 ## Upstream
 
 - [ ] Vital Core: machine-readable `experiment` field per candidate.
-- [ ] Open Scans: additive `selectorType` (`css`/`xpath`/`html`), a report URL,
-  and an explicit component id if one is intended.
+- [x] FES support for Open Scans' additive `selectorType`
+  (`css`/`xpath`/`html`) and `scan.reportUrl`: published values win over engine
+  inference and the source is labelled; `reportUrl` is preferred for links.
+- [ ] Verify the additive fields on a real Open Scans artifact once published;
+  the current #391 artifact predates them.
+- [ ] Open Scans: an explicit component id if one is intended for cross-graph
+  mapping.
 
 ## Not doing
 
