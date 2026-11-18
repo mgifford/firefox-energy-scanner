@@ -111,5 +111,8 @@ Stop and do not report a result if:
 
 ## Current status
 
-The runner and dry-run plan are implemented. No public site has been run yet;
-choose one, record it, and run a small page cap before the full 20-page pilot.
+The 20-page structural pilot ran on **https://www.thegreenwebfoundation.org/**
+on 18 November 2026: 20 pages, 4 families, 9 patterns and 3 Chromium traces.
+Lighthouse failed on all 10 selected URLs (`Connection closed.`), so the pilot
+uses trace and structure only. No energy was measured and no experiment has
+run. See [pilot-tgwf-2026-11-18.md](pilot-tgwf-2026-11-18.md).

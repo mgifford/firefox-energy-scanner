@@ -28,22 +28,19 @@ experiment, with every step traceable and every null result kept.
   It validates a public HTTPS URL, uses Chromium with `--no-energy`, respects
   robots.txt, caps pages/depth, runs Lighthouse and traces, then `patterns` and
   `investigate`. It never runs an experiment.
-- [ ] Choose and record one public site. Candidate: the CMS MCD search page
-  already used by the Vital Core handoff; confirm robots/terms and use a small
-  page cap first. The CMS seed returned 503 from this environment, and a
-  3-page Green Web Foundation smoke did not finish within the bounded run;
-  no pilot result was produced.
-- [ ] Run the structural pilot on the site; record the commit, URL, date,
-  max-pages, result path and manifest hash.
-- [ ] Review at least three page families, the recurring patterns and the
-  investigation queue. Record what grouped correctly and what over-merged.
+- [x] Choose and record one public site: `https://www.thegreenwebfoundation.org/`.
+- [x] Run the 20-page structural pilot: 4 families, 9 patterns, 3 traces.
+  Lighthouse failed on all 10 URLs (`Connection closed.`), so no Lighthouse
+  evidence is used. See [docs/pilot-tgwf-2026-11-18.md](docs/pilot-tgwf-2026-11-18.md).
+- [x] Review four page families, the recurring patterns and the queue; record
+  the broad 17-page family and the resource/component distinction in the note.
 - [ ] Pick one representative page and run one Firefox `diagnose` on the quiet
-  Mac. Keep diagnostic overhead out of the benchmark comparison.
-- [ ] Pick one component from the reviewed evidence and run one controlled
-  experiment on the quiet Mac. Record applied/held, checks, medians/spreads,
-  confidence, replication and every inconclusive result.
-- [ ] Write the pilot note: what was observed, what is supported, what is not,
-  and what the next production-like change would be.
+  Mac. Recommended: `/news/`.
+- [ ] Pick one component **or resource** lead and run one controlled experiment
+  on the quiet Mac. Recommended primary: block the shared smush script on
+  `/news/`; component alternative: pause `div.posts-wrapper` animation.
+- [ ] Write the post-experiment result: applied/held, checks, medians/spreads,
+  confidence, replication, nulls and the next production-like change.
 
 Protocol and commands: [docs/public-site-pilot.md](docs/public-site-pilot.md).
 
