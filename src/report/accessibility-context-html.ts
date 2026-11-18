@@ -6,9 +6,10 @@ const esc = (s: string): string =>
 
 const link = (join: AccessibilityJoin): string => {
   const s = join.sourceContext.scan;
-  const url = s?.issueUrl;
+  const report = s?.reportUrl;
+  const url = report ?? s?.issueUrl;
   if (!url || !/^https?:\/\//i.test(url)) return '<span class="note">source link not published</span>';
-  const label = s?.issueNumber ? `Open Scans issue #${s.issueNumber}` : 'Open Scans scan';
+  const label = report ? 'Open Scans report' : s?.issueNumber ? `Open Scans issue #${s.issueNumber}` : 'Open Scans scan';
   return `<a href="${esc(url)}">${esc(label)}</a>`;
 };
 
@@ -31,7 +32,7 @@ const component = (m: AccessibilityMatch): string =>
   m.component ? `${esc(m.component.signature)}<br><code>${esc(m.component.selector)}</code>` : '<span class="note">page-level only; no component match</span>';
 
 const match = (m: AccessibilityMatch): string =>
-  `${esc(m.match.basis)} (${esc(m.match.confidence)}; selector: ${esc(m.match.selectorType)})${m.match.reason ? `<br><span class="note">${esc(m.match.reason)}</span>` : ''}`;
+  `${esc(m.match.basis)} (${esc(m.match.confidence)}; selector: ${esc(m.match.selectorType)}${m.match.selectorTypeSource ? `, ${esc(m.match.selectorTypeSource)}` : ''})${m.match.reason ? `<br><span class="note">${esc(m.match.reason)}</span>` : ''}`;
 
 export function accessibilityContextSection(join: AccessibilityJoin | undefined): string {
   if (!join) return '';

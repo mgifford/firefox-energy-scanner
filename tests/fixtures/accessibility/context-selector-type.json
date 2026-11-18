@@ -1,0 +1,83 @@
+{
+  "schema": "a11y-accessibility-context/1",
+  "generatedAt": "2026-11-18T00:00:00.000Z",
+  "site": { "origin": "https://www.site.test:8082", "host": "www.site.test" },
+  "scan": {
+    "issueNumber": 391,
+    "issueUrl": "https://github.com/mgifford/open-scans/issues/391",
+    "reportUrl": "https://mgifford.github.io/open-scans/reports/issues/issue-391/2026-11-17T19-12-18-987Z/report.html",
+    "scanTitle": "Fixture selectorType",
+    "scannedAt": "2026-11-18T00:00:00.000Z",
+    "engines": ["axe", "mystery"],
+    "scanContext": { "viewport": { "width": 1440, "height": 900 } }
+  },
+  "summary": {
+    "observations": 3,
+    "pages": 1,
+    "patterns": 3,
+    "withSelector": 3,
+    "htmlOnly": 0,
+    "withoutLocator": 0,
+    "byCategory": { "chart": 3 },
+    "ownershipEstablished": false,
+    "note": "Forward-compatibility fixture for published selectorType and reportUrl."
+  },
+  "categoryLabels": { "chart": "Chart" },
+  "observations": [
+    {
+      "observationId": "published-css",
+      "patternId": "published-css-pattern",
+      "patternDisplayId": "A11Y-PAT-PUBCSS",
+      "identitySource": "canonical",
+      "rule": "published-css-rule",
+      "engine": "mystery-engine",
+      "wcagSc": [],
+      "actRuleIds": [],
+      "impact": null,
+      "pageUrl": "https://www.site.test:8082/articles/d",
+      "selector": "figure",
+      "selectorType": "css",
+      "locator": "figure",
+      "locatorSource": "selector",
+      "container": { "category": "chart", "label": "Chart", "element": "figure", "basis": "selector-token", "confidence": "low", "ownershipEstablished": false },
+      "sourceRef": "results[0].mystery"
+    },
+    {
+      "observationId": "published-xpath",
+      "patternId": "published-xpath-pattern",
+      "patternDisplayId": "A11Y-PAT-PUBXPATH",
+      "identitySource": "canonical",
+      "rule": "published-xpath-rule",
+      "engine": "axe",
+      "wcagSc": [],
+      "actRuleIds": [],
+      "impact": null,
+      "pageUrl": "https://www.site.test:8082/articles/d",
+      "selector": "figure",
+      "selectorType": "xpath",
+      "locator": "//figure",
+      "locatorSource": "selector",
+      "container": { "category": "chart", "label": "Chart", "element": "figure", "basis": "selector-token", "confidence": "low", "ownershipEstablished": false },
+      "sourceRef": "results[1].axe"
+    },
+    {
+      "observationId": "legacy-inferred",
+      "patternId": "legacy-inferred-pattern",
+      "patternDisplayId": "A11Y-PAT-LEGACY",
+      "identitySource": "canonical",
+      "rule": "legacy-inferred-rule",
+      "engine": "axe",
+      "wcagSc": [],
+      "actRuleIds": [],
+      "impact": null,
+      "pageUrl": "https://www.site.test:8082/articles/d",
+      "selector": "figure",
+      "selectorType": null,
+      "locator": "figure",
+      "locatorSource": "selector",
+      "container": { "category": "chart", "label": "Chart", "element": "figure", "basis": "selector-token", "confidence": "low", "ownershipEstablished": false },
+      "sourceRef": "results[2].axe"
+    }
+  ],
+  "limitations": ["Forward-compatibility fixture; not a real scan."]
+}

@@ -61,6 +61,12 @@
                 "null"
               ]
             },
+            "reportUrl": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "scanTitle": {
               "type": [
                 "string",
@@ -159,6 +165,12 @@
                   "null"
                 ]
               },
+              "selectorType": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "locator": {
                 "type": "string"
               },
@@ -309,6 +321,13 @@
                   "html",
                   "none",
                   "unknown"
+                ]
+              },
+              "selectorTypeSource": {
+                "type": "string",
+                "enum": [
+                  "published",
+                  "inferred"
                 ]
               },
               "confidence": {
@@ -393,6 +412,12 @@
                   "null"
                 ]
               },
+              "selectorType": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "locator": {
                 "type": "string"
               },
@@ -543,6 +568,13 @@
                   "html",
                   "none",
                   "unknown"
+                ]
+              },
+              "selectorTypeSource": {
+                "type": "string",
+                "enum": [
+                  "published",
+                  "inferred"
                 ]
               },
               "confidence": {

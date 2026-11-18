@@ -64,27 +64,32 @@ a stored join, `report` renders it again without another context file.
 5. **Container candidates are never promoted.** Every observation keeps
    `ownershipEstablished: false`.
 
-### Selector-type limitation
+### Selector type and report URL
 
-The published context has `selector` but **no `selectorType`**. FES therefore
-infers the language from the engine:
+When an observation publishes `selectorType`, FES **uses it first** and records
+`match.selectorTypeSource: "published"`. The value is not guessed from the
+engine. If it is absent — as in older artifacts — FES falls back to engine
+inference and records `selectorTypeSource: "inferred"`:
 
-| Engine | Treated as |
+| Engine | Fallback treated as |
 | --- | --- |
 | axe, AccessLint, Alfa, QualWeb, HTMLCS, IBM, WAVE | CSS |
 | Equal Access | XPath |
 | Semantica11y / `locatorSource: html` | HTML-only |
 | anything else | unknown → no selector comparison |
 
-This inference is recorded as `match.selectorType` and in the join limitations.
-The additive field Open Scans should publish is:
+The expected additive fields are:
 
 ```json
-"selectorType": "css" | "xpath" | "html"
+"selectorType": "css" | "xpath" | "html",
+"reportUrl": "https://…/report.html"
 ```
 
-Until then, do not treat a page-level match as a component match, and do not
-compare XPath and CSS text.
+`scan.reportUrl` is preferred for the source link; `scan.issueUrl` is the
+fallback. A published `selectorType` removes the CSS/XPath ambiguity, but it
+does **not** validate ancestor/descendant relationships. Those still need the
+actual DOM or a deliberate resolver; exact CSS text is still the only component
+match FES attempts.
 
 ### Other contract gaps
 
