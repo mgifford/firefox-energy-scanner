@@ -11,6 +11,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "pilot": "node scripts/public-site-pilot.mjs",
     "build": "tsc -p tsconfig.json",
     "web-energy": "npm run build --silent && node dist/cli/index.js",
     "test": "tsc -p tsconfig.json --noEmit && vitest run",

@@ -383,6 +383,9 @@ An optional Open Scans accessibility context can be joined to a stored result wi
 `report --accessibility-context`; it stays accessibility evidence, never energy evidence.
 See [docs/accessibility-context.md](docs/accessibility-context.md).
 
+For one bounded real-site pilot, use [docs/public-site-pilot.md](docs/public-site-pilot.md);
+the working queue and evaluation aids are in [TODO.md](TODO.md).
+
 The HTML report opens with **Investigate first**: a queue in a stated order (evidence,
 reach, remedy, workload; a sort, not a score), each item with where it is on the page, a
 remedy, its rationale and the measured comparison that would check it, plus page maps
