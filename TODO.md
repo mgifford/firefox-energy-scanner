@@ -104,8 +104,9 @@ Do not click, scroll or type during a Firefox energy run.
   queue/candidate ids, rejection reasons, provenance and pairing key; no
   automatic physical-energy job. See [docs/candidate-queue.md](docs/candidate-queue.md).
 - [ ] Cross-result queue idempotency (the current queueId is per result/session).
-- [ ] Site → family → component → script → evidence navigation, with reverse
-  links and each metric's source, window, unit and boundary.
+- [x] Site → family → component → script → evidence navigation, with reverse
+  links and source/unit/boundary, plus run/viewport labels for the optional
+  accessibility join. See [docs/report-navigation.md](docs/report-navigation.md).
 - [ ] Manual `workflow_dispatch` path that cannot crawl or trigger the physical
   runner; physical runner isolated from untrusted PR workflows.
 

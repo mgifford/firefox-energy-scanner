@@ -85,6 +85,10 @@ describe('the Open Scans accessibility join', () => {
     const html = accessibilityContextSection(join);
     expect(html).toContain('Open Scans report');
     expect(html).toContain('https://mgifford.github.io/open-scans/reports/issues/issue-391/2026-11-17T19-12-18-987Z/report.html');
+    const same = accessibilityContextSection(join, { width: 1440, height: 900 });
+    expect(same).toContain('viewport match: <strong>same</strong>');
+    const different = accessibilityContextSection(join, { width: 1024, height: 768 });
+    expect(different).toContain('viewport match: <strong>different</strong>');
   });
 
   it('preserves duplicate observations rather than deduplicating them', async () => {
@@ -115,6 +119,9 @@ describe('the Open Scans accessibility join', () => {
     const join = buildAccessibilityJoin(fixture(), await loadAccessibilityContext(CONTEXT));
     const html = accessibilityContextSection(join);
     expect(html).toContain('<h2 id="a11y-h">Related accessibility evidence</h2>');
+    const paired = accessibilityContextSection(join, { width: 1440, height: 900 });
+    expect(paired).toContain('Run pairing:');
+    expect(paired).toContain('viewport match: <strong>unknown</strong>');
     expect(html).toContain('This is accessibility evidence from Open Scans, not an energy finding and not a WCAG conformance claim.');
     expect(html).toContain('<h3>Summary by page</h3>');
     expect(html).toContain('<caption>Accessibility observations by measured page</caption>');
