@@ -1,0 +1,930 @@
+{
+  "$id": "https://github.com/mgifford/firefox-energy-scanner/schema/candidate-queue.schema.json",
+  "title": "FES bounded candidate queue",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "candidate-queue/1"
+    },
+    "queueId": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "targetUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "height": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "energyAdapter": {
+          "type": "string"
+        },
+        "energyTier": {
+          "type": "string",
+          "enum": [
+            "full",
+            "structural",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "file",
+        "schemaVersion",
+        "sessionId",
+        "startedAt",
+        "mode",
+        "targetUrl",
+        "viewport",
+        "energyAdapter",
+        "energyTier"
+      ],
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "allowlist": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "host",
+                  "url",
+                  "prefix"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "maxCandidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "maxPages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "maxEnergyRuns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "requireRemedy": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "allowlist",
+        "maxCandidates",
+        "maxPages",
+        "maxEnergyRuns",
+        "requireRemedy"
+      ],
+      "additionalProperties": false
+    },
+    "selected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "selected",
+              "rejected"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "component",
+              "region",
+              "page",
+              "script",
+              "resource"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "because": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reach": {
+            "type": "object",
+            "properties": {
+              "pages": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "of": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "families": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "pages",
+              "of",
+              "families"
+            ],
+            "additionalProperties": false
+          },
+          "workload": {
+            "type": "object",
+            "properties": {
+              "elements": {
+                "type": "number",
+                "minimum": 0
+              },
+              "shareOfPage": {
+                "type": "number",
+                "minimum": 0
+              },
+              "endlessAnimations": {
+                "type": "number",
+                "minimum": 0
+              },
+              "chromiumMainThreadMs": {
+                "type": "number",
+                "minimum": 0
+              },
+              "transferBytes": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "component",
+                  "region",
+                  "page",
+                  "script",
+                  "resource"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "page": {
+                "type": "string"
+              },
+              "selector": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "title"
+            ],
+            "additionalProperties": false
+          },
+          "pairing": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "page": {
+                "type": "string"
+              },
+              "siteOrigin": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "viewport": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
+              },
+              "run": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "startedAt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "startedAt"
+                ],
+                "additionalProperties": false
+              },
+              "source": {
+                "type": "string",
+                "const": "fes-investigation"
+              }
+            },
+            "required": [
+              "key",
+              "page",
+              "siteOrigin",
+              "viewport",
+              "run",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "sourceFile": {
+                "type": "string"
+              },
+              "sourceSha256": {
+                "type": "string"
+              },
+              "investigationMethod": {
+                "type": "string"
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "sourceFile",
+              "investigationMethod",
+              "rank"
+            ],
+            "additionalProperties": false
+          },
+          "experiment": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reduced-motion",
+                  "pause-animations",
+                  "lazy-images",
+                  "no-autoplay",
+                  "block",
+                  "hide",
+                  "remove",
+                  "remove-before-load"
+                ]
+              },
+              "selector": {
+                "type": "string"
+              },
+              "hosts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "urls": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "keep_eager": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "max_matches": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 500
+              },
+              "settle_ms": {
+                "default": 2000,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 60000
+              },
+              "idle_ms": {
+                "default": 10000,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 120000
+              },
+              "journey": {
+                "type": "string"
+              },
+              "assertions": {
+                "default": [],
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "role": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "runs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 60
+              },
+              "warmups": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 20
+              },
+              "seed": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            },
+            "required": [
+              "name",
+              "url",
+              "kind",
+              "settle_ms",
+              "idle_ms",
+              "assertions"
+            ],
+            "additionalProperties": false
+          },
+          "experimentNote": {
+            "type": "string"
+          },
+          "estimatedEnergyRuns": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "rank",
+          "kind",
+          "title",
+          "evidence",
+          "because",
+          "reach",
+          "workload",
+          "target",
+          "pairing",
+          "provenance",
+          "estimatedEnergyRuns"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rejected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "selected",
+              "rejected"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "component",
+              "region",
+              "page",
+              "script",
+              "resource"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "because": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reach": {
+            "type": "object",
+            "properties": {
+              "pages": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "of": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "families": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "pages",
+              "of",
+              "families"
+            ],
+            "additionalProperties": false
+          },
+          "workload": {
+            "type": "object",
+            "properties": {
+              "elements": {
+                "type": "number",
+                "minimum": 0
+              },
+              "shareOfPage": {
+                "type": "number",
+                "minimum": 0
+              },
+              "endlessAnimations": {
+                "type": "number",
+                "minimum": 0
+              },
+              "chromiumMainThreadMs": {
+                "type": "number",
+                "minimum": 0
+              },
+              "transferBytes": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "component",
+                  "region",
+                  "page",
+                  "script",
+                  "resource"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "page": {
+                "type": "string"
+              },
+              "selector": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "title"
+            ],
+            "additionalProperties": false
+          },
+          "pairing": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "page": {
+                "type": "string"
+              },
+              "siteOrigin": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "viewport": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
+              },
+              "run": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "startedAt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "startedAt"
+                ],
+                "additionalProperties": false
+              },
+              "source": {
+                "type": "string",
+                "const": "fes-investigation"
+              }
+            },
+            "required": [
+              "key",
+              "page",
+              "siteOrigin",
+              "viewport",
+              "run",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "sourceFile": {
+                "type": "string"
+              },
+              "sourceSha256": {
+                "type": "string"
+              },
+              "investigationMethod": {
+                "type": "string"
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "sourceFile",
+              "investigationMethod",
+              "rank"
+            ],
+            "additionalProperties": false
+          },
+          "experiment": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reduced-motion",
+                  "pause-animations",
+                  "lazy-images",
+                  "no-autoplay",
+                  "block",
+                  "hide",
+                  "remove",
+                  "remove-before-load"
+                ]
+              },
+              "selector": {
+                "type": "string"
+              },
+              "hosts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "urls": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "keep_eager": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "max_matches": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 500
+              },
+              "settle_ms": {
+                "default": 2000,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 60000
+              },
+              "idle_ms": {
+                "default": 10000,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 120000
+              },
+              "journey": {
+                "type": "string"
+              },
+              "assertions": {
+                "default": [],
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "role": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "runs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 60
+              },
+              "warmups": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 20
+              },
+              "seed": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            },
+            "required": [
+              "name",
+              "url",
+              "kind",
+              "settle_ms",
+              "idle_ms",
+              "assertions"
+            ],
+            "additionalProperties": false
+          },
+          "experimentNote": {
+            "type": "string"
+          },
+          "estimatedEnergyRuns": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "rank",
+          "kind",
+          "title",
+          "evidence",
+          "because",
+          "reach",
+          "workload",
+          "target",
+          "pairing",
+          "provenance",
+          "estimatedEnergyRuns"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "candidates": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "selected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "rejected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "uniquePages": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "estimatedEnergyRuns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "candidates",
+        "selected",
+        "rejected",
+        "uniquePages",
+        "estimatedEnergyRuns"
+      ],
+      "additionalProperties": false
+    },
+    "limitations": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "queueId",
+    "generatedAt",
+    "source",
+    "policy",
+    "selected",
+    "rejected",
+    "summary",
+    "limitations"
+  ],
+  "additionalProperties": false
+}

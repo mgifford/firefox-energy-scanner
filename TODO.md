@@ -100,8 +100,10 @@ Do not click, scroll or type during a Firefox energy run.
 
 ## P2 — Queue and report
 
-- [ ] Bounded candidate queue: budget, page limit, allowlist, dedup, idempotent
-  re-import, rejection reasons and provenance; no automatic physical-energy job.
+- [x] Bounded candidate queue: budget, page limit, allowlist, dedup, stable
+  queue/candidate ids, rejection reasons, provenance and pairing key; no
+  automatic physical-energy job. See [docs/candidate-queue.md](docs/candidate-queue.md).
+- [ ] Cross-result queue idempotency (the current queueId is per result/session).
 - [ ] Site → family → component → script → evidence navigation, with reverse
   links and each metric's source, window, unit and boundary.
 - [ ] Manual `workflow_dispatch` path that cannot crawl or trigger the physical

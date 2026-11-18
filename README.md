@@ -384,7 +384,9 @@ An optional Open Scans accessibility context can be joined to a stored result wi
 See [docs/accessibility-context.md](docs/accessibility-context.md).
 
 For one bounded real-site pilot, use [docs/public-site-pilot.md](docs/public-site-pilot.md);
-the working queue and evaluation aids are in [TODO.md](TODO.md).
+for a bounded, allowlisted plan of what to test next, use
+[docs/candidate-queue.md](docs/candidate-queue.md). The working queue and
+evaluation aids are in [TODO.md](TODO.md).
 
 The HTML report opens with **Investigate first**: a queue in a stated order (evidence,
 reach, remedy, workload; a sort, not a score), each item with where it is on the page, a

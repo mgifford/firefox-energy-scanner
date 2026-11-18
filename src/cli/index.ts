@@ -54,6 +54,7 @@ import { componentsCsv } from '../report/components-csv.js';
 import { queueCsv } from '../report/queue-csv.js';
 import { buildInvestigation } from '../analysis/investigation.js';
 import { AccessibilityJoinError, buildAccessibilityJoin, loadAccessibilityContext } from '../analysis/accessibility.js';
+import { buildCandidateQueue, parseAllowlist } from '../analysis/candidate-queue.js';
 import { buildSitePatterns } from '../analysis/patterns.js';
 import { compareWithPrevious, findPrevious } from '../analysis/history.js';
 import { RemovalRefused, RunInterrupted, buildReport, refreshDifferences, emptySide, loadSpec, parseSpec, sideJourney, type ExperimentSpec, type SideState } from '../experiments/experiment.js';
@@ -124,6 +125,7 @@ Usage:
   web-energy components <result.json>  [--json] [--write]
   web-energy patterns <result.json>    [--json] [--write]
   web-energy investigate <result.json> [--json] [--write] [--previous <result.json>]
+  web-energy queue <result.json>        [--allow-file <file>] [--max-candidates <n>] [--max-pages <n>] [--max-energy-runs <n>] [--json] [--write]
   web-energy graph <result.json>       [--json] [--write]
   web-energy experiment --spec <file.yaml> | --from <result.json> --item <n> [--kind remove|hide|pause-animations]
                          | --from-vital <snapshot.json|https://…> --candidate <id>
@@ -1182,6 +1184,64 @@ async function cmdInvestigate(args: Args): Promise<number> {
  * interleaved, through the benchmark runner. Reports a measured difference
  * only, and only when the change applied.
  */
+async function cmdQueue(args: Args): Promise<number> {
+  const file = args._[1];
+  if (!file) {
+    console.error('queue requires a result JSON file');
+    return 1;
+  }
+  const { readFile } = await import('node:fs/promises');
+  const { createHash } = await import('node:crypto');
+  const text = await readFile(resolve(file), 'utf8');
+  const { result } = migrateResult(JSON.parse(text) as BenchmarkResult);
+  if (!result.investigation) {
+    attachInventory(result);
+    attachInvestigation(result);
+  }
+  if (!result.investigation) {
+    console.error('Nothing to queue: the result has no investigation items.');
+    return 1;
+  }
+  const allowFile = one(args, 'allow-file');
+  const allowlist = allowFile ? parseAllowlist(await readFile(resolve(allowFile), 'utf8')) : undefined;
+  const maxCandidates = one(args, 'max-candidates');
+  const maxPages = one(args, 'max-pages');
+  const maxEnergyRuns = one(args, 'max-energy-runs');
+  let queue;
+  try {
+    queue = buildCandidateQueue(result, {
+      sourceFile: file,
+      sourceSha256: createHash('sha256').update(text).digest('hex'),
+      ...(allowlist ? { allowlist } : {}),
+      ...(maxCandidates !== undefined ? { maxCandidates: Number.parseInt(maxCandidates, 10) } : {}),
+      ...(maxPages !== undefined ? { maxPages: Number.parseInt(maxPages, 10) } : {}),
+      ...(maxEnergyRuns !== undefined ? { maxEnergyRuns: Number.parseInt(maxEnergyRuns, 10) } : {}),
+    });
+  } catch (e) {
+    console.error(`Candidate queue: ${(e as Error).message}`);
+    return 1;
+  }
+  if (has(args, 'json')) console.log(JSON.stringify(queue, null, 2));
+  else {
+    console.log(`Candidate queue ${queue.queueId}: ${queue.summary.selected} selected, ${queue.summary.rejected} rejected; ${queue.summary.uniquePages} page(s), ${queue.summary.estimatedEnergyRuns} estimated energy run(s).`);
+    for (const c of queue.selected) {
+      console.log(`  ${c.rank}. ${c.title} [${c.evidence}]${c.experiment ? ` -> ${c.experiment.kind}` : ''}; ${c.estimatedEnergyRuns} runs`);
+      console.log(`     ${c.pairing.page}${c.target.selector ? ` ${c.target.selector}` : ''}`);
+    }
+    if (queue.rejected.length) {
+      console.log('Rejected:');
+      for (const c of queue.rejected) console.log(`  ${c.rank}. ${c.title}: ${c.reason}`);
+    }
+    console.log('This is a plan. No browser or experiment was started.');
+  }
+  if (has(args, 'write')) {
+    const stem = resolve(file).replace(/\.json$/, '');
+    await writeFile(`${stem}.candidate-queue.json`, JSON.stringify(queue, null, 2));
+    console.log(`Wrote ${stem}.candidate-queue.json`);
+  }
+  return 0;
+}
+
 async function cmdExperiment(args: Args): Promise<number> {
   let spec: ExperimentSpec;
   let from: { file: string; rank: number; id: string; title: string } | undefined;
@@ -3052,6 +3112,7 @@ async function main(): Promise<number> {
       case 'families': return await cmdFamilies(args);
       case 'components': return await cmdComponents(args);
       case 'investigate': return await cmdInvestigate(args);
+      case 'queue': return await cmdQueue(args);
       case 'patterns': return await cmdPatterns(args);
       case 'graph': return await cmdGraph(args);
       case 'experiment': return await cmdExperiment(args);
