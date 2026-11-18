@@ -89,8 +89,10 @@ matches; they are not ownership claims.
 
 ## Limits
 
-- Open Scans and FES are different runs, browsers and viewports; only the page
-  URL is the join key at page level.
+- Open Scans and FES are different runs, browsers and viewports (Open Scans
+  1,024 × 768 tablet; FES defaults to its desktop viewport). Only the page URL
+  is a reliable join key at page level; the DOM and generated selectors can
+  differ.
 - A page-level match is not component attribution. The 8 exact matches are not
   ownership and show no energy.
 - The artifact carries no energy, performance or WCAG conformance claim; the
