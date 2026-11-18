@@ -104,6 +104,26 @@ describe('the Open Scans accessibility join', () => {
     expect(join.limitations.join(' ')).toMatch(/ownership/);
   });
 
+  it('reports DOM-validated ancestor matches as associations, not exact CSS matches', async () => {
+    const join = buildAccessibilityJoin(fixture(), await loadAccessibilityContext(CONTEXT));
+    const first = join.matches[0]!;
+    first.component = { instance: 'inst-1', type: 'type-1', signature: 'component:live-chart', selector: 'figure' };
+    first.match = {
+      ...first.match,
+      basis: 'ancestor-selector',
+      confidence: 'medium',
+      domValidated: true,
+      reason: 'DOM-validated nearest recorded ancestor (figure).',
+    };
+    const html = accessibilityContextSection(join, { width: 1440, height: 900 });
+    expect(html).toContain('1 by DOM-validated ancestor');
+    expect(html).toContain('Ancestor associations were checked in the FES page');
+    expect(html).toContain('Neither is component ownership.');
+    expect(html).not.toContain('Components are matched only by exact CSS selector text');
+    expect(html).not.toContain('not DOM-validated across viewports');
+    expect(html).toContain('<th scope="col">Component associations</th>');
+  });
+
   it('records selector type from a known engine and refuses unknown ones', async () => {
     const context = await loadAccessibilityContext(CONTEXT);
     for (const o of context.observations) {
