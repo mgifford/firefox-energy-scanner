@@ -87,13 +87,14 @@ matches; they are not ownership claims.
    `selectorType`/`reportUrl` fields; FES therefore inferred CSS from the
    engines.
 5. **The opt-in DOM pass is broad but low-confidence on this artifact.** With
-   `--validate-dom --dom-max-observations 5000`, 4,838 observations received a
-   nearest recorded ancestor and 640 stayed page-level (8 exact matches remain
-   separate). Because the source was 1,024×768 and FES ran at 1440×900, every
-   ancestor match is `confidence: low`. Most land on structural class
-   heuristics (`class:relative`, `class:not-prose`, `class:blog-content`) — an
-   association, not component ownership. `--dom-semantic-only` and
-   `--dom-min-own-nodes` narrow it; a same-viewport artifact is the next real
+   `--validate-dom --dom-allow-different-viewport --dom-max-observations 5000`,
+   4,838 observations received a nearest recorded ancestor and 640 stayed
+   page-level (8 exact matches remain separate). Because the source was
+   1,024×768 and FES ran at 1440×900, every ancestor match is `confidence: low`.
+   Most land on structural class heuristics (`class:relative`,
+   `class:not-prose`, `class:blog-content`) — an association, not component
+   ownership. Without the explicit allow flag, the default gate leaves this
+   artifact at the 8 exact matches; a same-viewport artifact is the next real
    validation.
 
 ## Limits
@@ -124,8 +125,8 @@ keeps HTML-only and unknown-selector evidence visible, and produces a usable
 per-page summary.
 
 **Partially, for broad component association.** The opt-in DOM pass associates
-4,838 observations with a nearest recorded ancestor, but this artifact's
-viewport differs and most matches are structural wrappers. That is a broad
-association with low confidence, not component ownership. Broad *confident*
-attribution still needs a same-viewport artifact and a component-specificity
-policy, or an explicit shared component id.
+4,838 observations with a nearest recorded ancestor **only when the explicit
+different-viewport flag is set**; by default this artifact stays at the 8 exact
+matches. That is a broad association with low confidence, not component
+ownership. Broad *confident* attribution still needs a same-viewport artifact
+and a component-specificity policy, or an explicit shared component id.
