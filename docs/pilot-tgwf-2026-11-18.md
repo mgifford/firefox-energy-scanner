@@ -19,7 +19,7 @@ benchmark and not an energy measurement.
 | Result | `results/pilot-tgwf-full/crawl-2026-11-18T18-13-18-110Z.json` (SHA-256 `d7f76d5b9b83cddb5a386ca79e61485c756febf403244edf7fd7027dfc615346`) |
 | Manifest | `results/pilot-tgwf-full/pilot.json` (SHA-256 `a75e58142b9c47f43f12bf2bc8df0a384e2d7d8b25bcbd3393eff75b7372eab1`) |
 
-The Lighthouse failure is a source limitation, not a zero score. No Lighthouse
+The manifest's `startedAt` was overwritten by the runner's final status write in this run; that was fixed in `68c576b`. The result's `session.startedAt` is the crawl start. The Lighthouse failure is a source limitation, not a zero score. No Lighthouse
 finding is used in this note or the queue.
 
 ## Families
