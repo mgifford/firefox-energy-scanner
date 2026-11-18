@@ -174,19 +174,52 @@
                 "type": "object",
                 "properties": {
                   "category": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "label": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "element": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "basis": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "confidence": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "componentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "componentTypeId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "componentLabel": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "ownershipEstablished": {
                     "type": "boolean",
@@ -375,19 +408,52 @@
                 "type": "object",
                 "properties": {
                   "category": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "label": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "element": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "basis": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "confidence": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "componentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "componentTypeId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "componentLabel": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "ownershipEstablished": {
                     "type": "boolean",

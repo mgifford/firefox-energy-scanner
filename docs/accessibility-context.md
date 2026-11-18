@@ -96,6 +96,16 @@ compare XPath and CSS text.
 - The context has one record per occurrence, which FES preserves; duplicate
   `observationId` values are not deduplicated.
 
+## Real artifact check
+
+Issue #391's real 5,486-observation, 20-page artifact was joined to a FES crawl
+of the same 20 URLs: all 5,486 matched a page, 8 occurrences (4 unique) matched a
+component by exact CSS selector, 5,478 stayed page-level and 362 HTML-only
+records remained visible. The real artifact also exposed a null
+`container.element` validation bug, now fixed. See
+[real-open-scans-artifact.md](real-open-scans-artifact.md). Issue #394 is
+performance-only and has no accessibility context.
+
 ## Artifact
 
 `fes-accessibility-join/1`:
