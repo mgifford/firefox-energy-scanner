@@ -326,7 +326,7 @@ export interface StepDifference {
   verdict: Verdict;
   /** Plain words for the verdict. */
   reading: string;
-  /** Fewer than 10 runs per side: indicative only. */
+  /** Fewer than 10 usable energy measurements per side: indicative only. */
   indicative: boolean;
   /** Median power-counter samples per run in this step, per side: few samples, little resolution. */
   samples?: [number, number];
@@ -442,7 +442,7 @@ export function summarizeExperiment(baseline: StepResult[], variant: StepResult[
         ...(baselineMeanMw ? { baselineMeanMw } : {}),
       },
       verdict: r.verdict,
-      reading: `${control}${r.cmp.sufficientSamples ? reading : `${reading} Indicative: fewer than 10 runs per side.`}`,
+      reading: `${control}${r.cmp.sufficientSamples ? reading : `${reading} Indicative: fewer than 10 usable energy measurements per side (${r.cmp.a.count}/${r.cmp.b.count}).`}`,
       indicative: !r.cmp.sufficientSamples,
     });
   }

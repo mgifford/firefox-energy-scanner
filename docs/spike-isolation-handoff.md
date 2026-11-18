@@ -51,7 +51,10 @@ Docs: `docs/energy-spikes.md`, `docs/experiments.md`, `docs/evidence-records.md`
    the post-load removal and fell to 0 after the pre-load one. **Energy unreadable**:
    every idle step's incremental energy was negative (about −0.24 mWh) because the mean
    idle baseline (about 100 mW, Firefox start-up work) far exceeded its median (about
-   1 mW). Fixed in `b6f5132` (TDR-024); not yet re-run on hardware.
+   1 mW). Fixed in `b6f5132` (TDR-024). The 18 November 2026 post-load run used the
+   median baseline on hardware: 0.933/0.932 mW versus a ~102 mW mean. That run was
+   under Low Power Mode on battery, so a clean re-run is still pending. See
+   [p0-hardware-runs.md](p0-hardware-runs.md).
 
 ## Next steps, in order
 

@@ -119,8 +119,9 @@ and a `declares-resource` edge from `landmark:main`, and added a **low-confidenc
 `suspected-association`** to `component:live-chart`. It did not add an observed edge, because
 Chromium does not produce the Firefox power profile. The synthetic same-run stack test adds
 the `script-observed-with-component` edge at medium confidence. CI's Firefox e2e ran the real
-browser test and `remove-e2e`; the real same-run stack edge still needs a Firefox
-power-profile `diagnose`, which CI does not run.
+browser test and `remove-e2e`. A real Firefox power-profile `diagnose` on 18 November 2026
+confirmed the stack edge for `chart.js` → `live-chart`; see
+[p0-hardware-runs.md](p0-hardware-runs.md).
 
 The Chromium run also exposed and fixed a graph defect: for a load+idle run, the graph took
 the idle step's (empty) network instead of the load step's, so every page resource was lost.
@@ -133,13 +134,10 @@ container ambiguity, cross-origin/inline exclusion, stable ids), and the new
 
 ## Still pending
 
-- A Firefox power-profile `diagnose` on the fixture to produce the real same-run stack
-  edge. CI runs Firefox browser tests and CLI e2e, but not a physical power profile.
-  The local Firefox browser tests still cannot start inside the agent sandbox; the CI e2e
-  job starts Firefox and passes.
-- The quiet-device median-baseline re-run of the two chart experiments, with
-  null/A-A and negative controls.
-- A second independent session, if the first quiet re-run is promising; the
-  replication field will stay `not-replicated` until then.
+- A clean median-baseline re-run of the post-load removal (the first real run was under
+  Low Power Mode on battery) and a retry of the pre-load removal (the first attempt hit a
+  Firefox launch timeout). See [p0-hardware-runs.md](p0-hardware-runs.md).
+- A null/A-A and a second independent session; the replication field stays
+  `not-replicated` until then.
 - Real-site candidate import, selective diagnostics and the later phases. None
   of those is started here.

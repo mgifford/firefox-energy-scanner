@@ -182,7 +182,7 @@ recorded per measurement so this can be checked rather than assumed.
 
 ## Statistical caution
 
-Comparisons with fewer than 10 runs per side are flagged as indicative only. The tool
+Comparisons with fewer than 10 usable energy measurements per side are flagged as indicative only. The tool
 does not perform significance testing, and no significance is claimed. Small median
 differences on noisy data should not be reported as regressions or improvements.
 

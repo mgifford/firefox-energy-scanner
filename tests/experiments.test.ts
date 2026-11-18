@@ -131,6 +131,16 @@ describe('summarizeExperiment', () => {
     }
   });
 
+  it('says how many of the runs had usable energy when fewer than 10 do', () => {
+    const a = series('baseline', 'idle', [...around(0.1, 9), undefined]);
+    const b = series('variant', 'idle', [...around(0.1, 9), undefined]);
+    const [d] = summarizeExperiment(a, b);
+    expect(d!.runs).toEqual([10, 10]);
+    expect(d!.indicative).toBe(true);
+    expect(d!.reading).toMatch(/fewer than 10 usable energy measurements per side \(9\/9\)/);
+    expect(d!.reading).not.toMatch(/fewer than 10 runs/);
+  });
+
   it('says within spread, below resolution, and indicative when it should', () => {
     expect(summarizeExperiment(series('b', 'idle', around(0.1, 10)), series('v', 'idle', around(0.1005, 10)))[0]!.verdict).toBe('within-spread');
     expect(summarizeExperiment(series('b', 'idle', [0.01, -0.02, 0.03, -0.01]), series('v', 'idle', around(0.1, 4)))[0]!.verdict).toBe('below-resolution');
