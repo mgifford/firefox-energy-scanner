@@ -87,6 +87,7 @@ const run = (command, env = {}) =>
     });
   });
 
+const startedAt = new Date().toISOString();
 const manifestPath = join(plan.outDir, 'pilot.json');
 const writeManifest = async (extra) => {
   await mkdir(plan.outDir, { recursive: true });
@@ -95,7 +96,7 @@ const writeManifest = async (extra) => {
     JSON.stringify(
       {
         schema: PILOT_SCHEMA,
-        startedAt: new Date().toISOString(),
+        startedAt,
         ...plan,
         ...extra,
       },
