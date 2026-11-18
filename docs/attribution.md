@@ -69,9 +69,14 @@ node -e "const fs=require('fs');const d='/tmp/diag-chromium';const f=fs.readdirS
 The Chromium run confirmed `scriptReferences` holds `{ kind: "id", value: "chart" }` for
 `chart.js`, that `/js/chart.js` is a page resource and that `landmark:main` declares it, and
 that the static reference is a `suspected-association` to `live-chart` — not an observed
-stack relation, because Chromium does not produce the Firefox power profile. The Firefox
-`diagnose` run is the one that adds the stack-supported edge; it is recorded as **pending
-Firefox** in `docs/measurement-integrity.md`.
+stack relation, because Chromium does not produce the Firefox power profile.
+
+The real Firefox `diagnose` on 18 November 2026 confirmed the stack-supported edge:
+`chart.js` → `live-chart`, `script-observed-with-component`, `profiler-correlation`,
+medium confidence, `supported`, with 21 stack samples in the 11.49 s idle interval.
+The interval also lists `landmark:main` because it declares the script and cards whose
+network requests occurred during the wider load interval; those are not ownership of
+`chart.js`. See [p0-hardware-runs.md](p0-hardware-runs.md).
 
 ## Limits
 

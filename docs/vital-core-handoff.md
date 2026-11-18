@@ -148,26 +148,32 @@ idle: energy not measured
 Finding: not measured (confidence: none).
 ```
 
-The result carries the candidate/source note as `experiment.note`; the finding's
-`replication.status` is `not-assessed` because there is no energy result. The
-structural result is kept locally as
+The structural result is kept locally as
 `results/vital-cms-driver-js-smoke-structural.json` (SHA-256
 `a7d5316e0cd339286b4192dd5c9687b9e3409e430868ef8e42cf0b2c4c6c6bae`).
-**No energy run was made in this session**: Firefox measurement must run on the
-physical Apple M2 host with the Mac quiet, not in CI.
 
-Run it on the measurement host:
+### Physical run, 18 November 2026
 
-```bash
-node dist/cli/index.js experiment --spec examples/experiments/vital-cms-driver-js-block.yaml
+On the Apple M2 with Low Power Mode off and on power:
+
+```text
+Applied: yes. 48 requests refused, over all runs.
+Checks: baseline passed; variant passed.
+load: 0.542 -> 0.531 mWh (IQR 0.026 / 0.009): -0.012, within spread
+idle: 0.070 -> 0.073 mWh (IQR 0.018 / 0.030): +0.004, within spread
+Finding: no difference shown (confidence: none).
 ```
 
-Record the candidate ID, source URL/hash, page, intervention, Firefox version,
-host, runs/warmups, medians and spreads, whether the block applied, whether the
-assertion held and every inconclusive result. The result carries the spec's
-`note` as `experiment.note`, so it can be traced back to this candidate and
-source hash. A successful block is an upper-bound intervention test, not proof
-that the same change helps every page or user.
+The baseline was median-of-bins 1.08 / 1.03 mW (mean 103.2 / 104.5 mW). The
+block applied, but it did **not** show an energy reduction on this page and
+workload. That is a null result, not proof of no effect. The host block can
+remove the driver.js tour; the only assertion is `role=main`, so review the
+page behaviour before treating it as production-like. The result is one
+session, `not-replicated`, and carries the spec note as `experiment.note`.
+See [p0-hardware-runs.md](p0-hardware-runs.md).
+
+Result: `results/compare-2026-11-18T17-10-49-006Z.json`, SHA-256
+`9c68c0a3d2dae5284566be07a285bd9a33fa455b4cb3f1672fe21c827fef7662`.
 
 ## What Vital Core still needs to publish
 
