@@ -51,7 +51,7 @@ const inputObservation = z
     impact: z.string().nullable().optional(),
     pageUrl: z.string().min(1),
     selector: z.string().nullable().optional(),
-    selectorType: z.string().optional(),
+    selectorType: z.string().nullable().optional(),
     locator: z.string().optional(),
     locatorSource: z.enum(['selector', 'html', 'none']),
     container: containerSchema.optional(),
@@ -136,7 +136,7 @@ export interface SelectorTypeDecision {
  * guessed.
  */
 export function selectorTypeDecision(observation: AccessibilityObservation): SelectorTypeDecision {
-  if (observation.selectorType !== undefined) {
+  if (observation.selectorType !== undefined && observation.selectorType !== null) {
     const published = observation.selectorType.toLowerCase();
     if (SELECTOR_TYPES.has(published) && published !== 'unknown') {
       if ((published === 'css' || published === 'xpath') && (!observation.selector || observation.locatorSource !== 'selector')) {

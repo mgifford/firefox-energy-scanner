@@ -42,7 +42,7 @@ const observationSchema = z
     pageUrl: z.string(),
     selector: z.string().nullable().optional(),
     /** Published by Open Scans once available; absent means FES inferred it from the engine. */
-    selectorType: z.string().optional(),
+    selectorType: z.string().nullable().optional(),
     locator: z.string().optional(),
     locatorSource: z.enum(['selector', 'html', 'none']),
     container: containerSchema.optional(),

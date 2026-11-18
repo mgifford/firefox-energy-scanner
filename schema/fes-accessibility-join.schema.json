@@ -166,7 +166,10 @@
                 ]
               },
               "selectorType": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "locator": {
                 "type": "string"
@@ -410,7 +413,10 @@
                 ]
               },
               "selectorType": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "locator": {
                 "type": "string"

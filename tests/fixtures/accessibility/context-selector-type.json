@@ -72,6 +72,7 @@
       "impact": null,
       "pageUrl": "https://www.site.test:8082/articles/d",
       "selector": "figure",
+      "selectorType": null,
       "locator": "figure",
       "locatorSource": "selector",
       "container": { "category": "chart", "label": "Chart", "element": "figure", "basis": "selector-token", "confidence": "low", "ownershipEstablished": false },
