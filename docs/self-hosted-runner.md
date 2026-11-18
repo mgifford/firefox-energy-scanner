@@ -133,3 +133,37 @@ general rule still applies:
 
 Everything else — bytes, requests, CO2.js, timings, DOM and CSS structure, findings —
 works on any runner and does not need this setup.
+
+## Manual physical experiment workflow
+
+`physical-experiment.yml` is the only workflow that runs an experiment spec on
+the physical runner. It is **`workflow_dispatch` only** — no `pull_request`, no
+`push`, no scheduled trigger.
+
+To use it:
+
+1. Register the runner with the dedicated label **`firefox-energy`** in addition
+   to `self-hosted`, `macOS` and `ARM64`.
+2. Configure the **`physical-energy` environment** under
+   **Settings → Environments** and require reviewers. A dispatch then waits for
+   approval before the job starts.
+3. In **Actions → Physical experiment (manual) → Run workflow**, choose a
+   committed spec from `examples/experiments/` and type
+   `RUN PHYSICAL EXPERIMENT`.
+
+The workflow validates both, runs `npm ci`, installs Firefox, builds, and runs:
+
+```bash
+node dist/cli/index.js experiment --spec "$SPEC"
+```
+
+It cannot crawl, accept a URL, or read an arbitrary spec from an issue or pull
+request. The results directory is uploaded as a workflow artifact for 30 days.
+
+The workflow uses the dedicated `firefox-energy` label so a general-purpose
+self-hosted runner does not pick up a physical run. If no such runner is online,
+the job queues; there is no GitHub-hosted fallback.
+
+This is still a machine that executes repository code. Keep it reimageable, do
+not give it unnecessary credentials, and keep the fork-PR approval setting on.
+The ordinary `Tests` workflow has no physical job and uses hosted runners.

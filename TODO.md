@@ -107,8 +107,13 @@ Do not click, scroll or type during a Firefox energy run.
 - [x] Site → family → component → script → evidence navigation, with reverse
   links and source/unit/boundary, plus run/viewport labels for the optional
   accessibility join. See [docs/report-navigation.md](docs/report-navigation.md).
-- [ ] Manual `workflow_dispatch` path that cannot crawl or trigger the physical
-  runner; physical runner isolated from untrusted PR workflows.
+- [x] Manual `workflow_dispatch` physical-experiment workflow: committed spec
+  only, no crawl/arbitrary URL, dedicated `firefox-energy` runner label,
+  `physical-energy` approval environment, artifact upload. See
+  [docs/self-hosted-runner.md](docs/self-hosted-runner.md#manual-physical-experiment-workflow).
+- [ ] Configure the `physical-energy` environment reviewers and the
+  `firefox-energy` runner label in GitHub settings (repository configuration,
+  not code).
 
 ## Upstream
 

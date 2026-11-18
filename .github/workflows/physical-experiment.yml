@@ -1,0 +1,79 @@
+name: Physical experiment (manual)
+
+# The only path that runs a committed experiment spec on the physical energy
+# runner. It cannot crawl, accept a URL, or run on a pull request. The
+# physical-energy environment should require a reviewer before this job runs.
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: Committed experiment spec
+        required: true
+        type: choice
+        options:
+          - examples/experiments/vital-cms-driver-js-block.yaml
+          - examples/experiments/hero-carousel-remove.yaml
+          - examples/experiments/carousel-animation.yaml
+          - examples/experiments/ticker-remove.yaml
+      confirm:
+        description: Type RUN PHYSICAL EXPERIMENT to confirm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: physical-experiment
+  cancel-in-progress: false
+
+jobs:
+  physical:
+    # Dedicated label so a general self-hosted runner cannot pick this up.
+    runs-on: [self-hosted, macOS, ARM64, firefox-energy]
+    environment: physical-energy
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate the committed spec and confirmation
+        env:
+          SPEC: ${{ inputs.spec }}
+          CONFIRM: ${{ inputs.confirm }}
+        shell: bash
+        run: |
+          if [ "$CONFIRM" != "RUN PHYSICAL EXPERIMENT" ]; then
+            echo "Confirmation did not match. Refusing to run."
+            exit 1
+          fi
+          case "$SPEC" in
+            examples/experiments/*.yaml) ;;
+            *)
+              echo "Spec must be a committed file under examples/experiments/."
+              exit 1
+              ;;
+          esac
+          test -f "$SPEC"
+
+      - run: npm ci
+      - run: npx playwright install firefox
+      - run: npm run build
+
+      - name: Run the committed spec
+        env:
+          SPEC: ${{ inputs.spec }}
+        shell: bash
+        run: node dist/cli/index.js experiment --spec "$SPEC"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: physical-results-${{ github.run_id }}
+          path: results/
+          if-no-files-found: warn
+          retention-days: 30
