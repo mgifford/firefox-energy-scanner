@@ -217,27 +217,32 @@ for this resource; neither is measured energy. Blocking `jsdelivr.net` can
 affect other resources from that host, and the only assertion is `role=main`;
 this is an upper-bound test.
 
-### Clean full run, 19 November 2026
+### Two clean full sessions, 19 November 2026
 
-One clean session on the Apple M2, on AC power with Low Power Mode off:
-10 measured runs per side, two warm-ups, 20 interleaved runs total. The host
-block applied consistently (108 requests refused), baseline and variant both
-passed the `role=main` check, but the page lost two focusable/form controls
-(352 → 350). That structural change is a functional risk, not an energy result.
+Two separate clean sessions on the Apple M2, both on AC power with Low Power
+Mode off: 10 measured runs per side, two warm-ups, 20 interleaved runs per
+session. The host block applied consistently in both (108 requests refused),
+baseline and variant passed the `role=main` check, but the page lost two
+focusable/form controls (352 → 350). That structural change is a functional
+risk, not an energy result.
 
-```text
-load: 0.632 -> 0.612 mWh (IQR 0.034 / 0.016): -0.019, within spread
-idle: 0.178 -> 0.179 mWh (IQR 0.013 / 0.025): +0.001, within spread
-Finding: no difference shown (confidence: none)
-```
+| Session | Load (baseline → variant) | Idle (baseline → variant) | Finding |
+| --- | --- | --- | --- |
+| 1 | 0.632 → 0.612 mWh, IQR 0.034 / 0.016 | 0.178 → 0.179 mWh, IQR 0.013 / 0.025 | no difference shown |
+| 2 | 0.517 → 0.522 mWh, IQR 0.038 / 0.031 | 0.149 → 0.147 mWh, IQR 0.016 / 0.012 | no difference shown |
 
-This is a **null result for this page, host block and workload**, not proof that
-the resource has no energy cost elsewhere. It is one session and is not
-independently replicated. The earlier one-run smoke test reported an indicative
-29.8% idle reduction; that was noise and is not used as evidence.
+The point estimates differ between sessions, but in both the difference is
+inside the run-to-run spread. This is a **consistent null result for this page,
+host block and workload**, not proof that the resource has no energy cost
+elsewhere. It is two sessions on the same machine, not independent external
+replication. The earlier one-run smoke test reported an indicative 29.8% idle
+reduction; that was noise and is not used as evidence.
 
-Result: `results/compare-2026-11-19T01-57-46-188Z.json`, SHA-256
-`0592b39362c8431da4294c596a9c21b7d7a3618be5420b6f8a6ee6af9f1c2667`.
+Results:
+- `results/compare-2026-11-19T01-57-46-188Z.json`, SHA-256
+  `0592b39362c8431da4294c596a9c21b7d7a3618be5420b6f8a6ee6af9f1c2667`
+- `results/compare-2026-11-19T09-54-22-306Z.json`, SHA-256
+  `abfb22b23f31c1f5eed48164200b0f2cd7279727b087c8f5f5612a17fa03c98c`
 
 ## What Vital Core still needs to publish
 
