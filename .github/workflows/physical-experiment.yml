@@ -13,6 +13,7 @@ on:
         options:
           - examples/experiments/vital-cms-driver-js-block.yaml
           - examples/experiments/vital-medicaid-gtag-block.yaml
+          - examples/experiments/vital-medicaid-bluebird-block.yaml
           - examples/experiments/hero-carousel-remove.yaml
           - examples/experiments/carousel-animation.yaml
           - examples/experiments/ticker-remove.yaml

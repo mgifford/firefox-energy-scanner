@@ -108,12 +108,15 @@ describe('the Vital Core handoff', () => {
     for (const [file, host] of [
       ['examples/experiments/vital-cms-driver-js-block.yaml', 'jsdelivr.net'],
       ['examples/experiments/vital-medicaid-gtag-block.yaml', 'googletagmanager.com'],
+      ['examples/experiments/vital-medicaid-bluebird-block.yaml', 'jsdelivr.net'],
     ] as const) {
       const spec = parseSpec(parseYaml(readFileSync(file, 'utf8')));
       expect(spec).toMatchObject({ kind: 'block', hosts: [host], runs: 10, warmups: 2 });
       expect(spec.note).toMatch(/Vital Core candidate third-party-resource/);
       expect(spec.note).toMatch(/sha256 [a-f0-9]{64}/);
     }
+    const smoke = parseSpec(parseYaml(readFileSync('examples/experiments/vital-medicaid-bluebird-smoke.yaml', 'utf8')));
+    expect(smoke).toMatchObject({ kind: 'block', hosts: ['jsdelivr.net'], runs: 1, warmups: 0 });
   });
 
   it('reports an unsafe selector instead of placing it in a page', () => {

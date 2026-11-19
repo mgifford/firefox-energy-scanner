@@ -200,6 +200,23 @@ Run it separately on the quiet Mac:
 node dist/cli/index.js experiment --spec examples/experiments/vital-medicaid-gtag-block.yaml
 ```
 
+
+### Additional Medicaid candidate
+
+| Field | Value |
+| --- | --- |
+| Candidate | `third-party-resource:https://cdn.jsdelivr.net/bluebird/3.5.0/bluebird.min.js` |
+| Category | `third-party-resource-concern` |
+| Page | same Medicaid state-plan amendments page, page 8 |
+| Intervention | block `jsdelivr.net` |
+| Spec | [examples/experiments/vital-medicaid-bluebird-block.yaml](../examples/experiments/vital-medicaid-bluebird-block.yaml) |
+| Smoke | [examples/experiments/vital-medicaid-bluebird-smoke.yaml](../examples/experiments/vital-medicaid-bluebird-smoke.yaml) (1 run, no warm-up; structural only) |
+
+The snapshot reports 280 sampled pages and 46,145 bytes as a transfer estimate
+for this resource; neither is measured energy. The full spec has not been run on
+the physical host. Blocking `jsdelivr.net` can affect other resources from that
+host, and the only assertion is `role=main`; this is an upper-bound test.
+
 ## What Vital Core still needs to publish
 
 - A machine-readable `experiment` field per candidate: `kind`, `selector` /
