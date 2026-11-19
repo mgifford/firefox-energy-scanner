@@ -1,0 +1,24 @@
+name: vital-cdn-jsdelivr-net-bluebird-3-5-0-bluebird-min-js
+url: https://www.medicaid.gov/medicaid/medicaid-state-plan-amendments?f%5B0%5D=state%3A851&f%5B1%5D=state%3A961&f%5B2%5D=state%3A1006&f%5B3%5D=state%3A1026&f%5B4%5D=state%3A7971&page=8
+kind: block
+hosts:
+  - jsdelivr.net
+settle_ms: 2000
+idle_ms: 10000
+assertions:
+  - role: main
+runs: 10
+warmups: 2
+seed: vital-46e4d3041323
+note: |-
+  Vital Core candidate third-party-resource:https://cdn.jsdelivr.net/bluebird/3.5.0/bluebird.min.js (third-party-resource-concern).
+  Source: Vital Core medicaid.gov snapshot (sha256 c701d615a51b223ba3ed13001c7ba6d06f7214948ecd56e6819f4b9d5aa1c58c); the snapshot itself is not committed.
+  Vital Core evidence: performance-resource-inventory/1, denominator 300.
+  Vital Core observed reach: 280 sampled page(s).
+  Vital Core transfer observation: 46145 bytes (a transfer estimate, not measured energy).
+  Representative page: https://www.medicaid.gov/medicaid/medicaid-state-plan-amendments?f%5B0%5D=state%3A851&f%5B1%5D=state%3A961&f%5B2%5D=state%3A1006&f%5B3%5D=state%3A1026&f%5B4%5D=state%3A7971&page=8 (the first page example for this resource in performance.resources).
+  Proposed intervention: block host jsdelivr.net
+  What this tests: Refusing requests to jsdelivr.net tests what the page’s third-party resources from that host cost, as an upper bound for a facade, deferral or removal. It can affect more than the named resource.
+  This is a controlled upper bound, not a measured saving or a production recommendation. Check the functional assertion and the page’s real behaviour before running; a successful block does not prove the same change helps every page or user.
+  Vital Core hypothesis: This third-party resource is loaded on multiple sampled pages and may contribute transfer or blocking cost.
+  Vital Core limitations: Third-party presence and transfer are not proof of a defect or causation.
