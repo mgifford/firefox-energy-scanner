@@ -213,9 +213,31 @@ node dist/cli/index.js experiment --spec examples/experiments/vital-medicaid-gta
 | Smoke | [examples/experiments/vital-medicaid-bluebird-smoke.yaml](../examples/experiments/vital-medicaid-bluebird-smoke.yaml) (1 run, no warm-up; structural only) |
 
 The snapshot reports 280 sampled pages and 46,145 bytes as a transfer estimate
-for this resource; neither is measured energy. The full spec has not been run on
-the physical host. Blocking `jsdelivr.net` can affect other resources from that
-host, and the only assertion is `role=main`; this is an upper-bound test.
+for this resource; neither is measured energy. Blocking `jsdelivr.net` can
+affect other resources from that host, and the only assertion is `role=main`;
+this is an upper-bound test.
+
+### Clean full run, 19 November 2026
+
+One clean session on the Apple M2, on AC power with Low Power Mode off:
+10 measured runs per side, two warm-ups, 20 interleaved runs total. The host
+block applied consistently (108 requests refused), baseline and variant both
+passed the `role=main` check, but the page lost two focusable/form controls
+(352 → 350). That structural change is a functional risk, not an energy result.
+
+```text
+load: 0.632 -> 0.612 mWh (IQR 0.034 / 0.016): -0.019, within spread
+idle: 0.178 -> 0.179 mWh (IQR 0.013 / 0.025): +0.001, within spread
+Finding: no difference shown (confidence: none)
+```
+
+This is a **null result for this page, host block and workload**, not proof that
+the resource has no energy cost elsewhere. It is one session and is not
+independently replicated. The earlier one-run smoke test reported an indicative
+29.8% idle reduction; that was noise and is not used as evidence.
+
+Result: `results/compare-2026-11-19T01-57-46-188Z.json`, SHA-256
+`0592b39362c8431da4294c596a9c21b7d7a3618be5420b6f8a6ee6af9f1c2667`.
 
 ## What Vital Core still needs to publish
 
