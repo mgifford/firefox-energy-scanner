@@ -175,6 +175,31 @@ See [p0-hardware-runs.md](p0-hardware-runs.md).
 Result: `results/compare-2026-11-18T17-10-49-006Z.json`, SHA-256
 `9c68c0a3d2dae5284566be07a285bd9a33fa455b4cb3f1672fe21c827fef7662`.
 
+
+## Second real candidate reviewed
+
+| Field | Value |
+| --- | --- |
+| Source | Vital Core snapshot for `medicaid.gov` (SHA-256 `c701d615a51b223ba3ed13001c7ba6d06f7214948ecd56e6819f4b9d5aa1c58c`; snapshot not committed) |
+| Candidate | `third-party-resource:https://www.googletagmanager.com/gtag/js` |
+| Category | `third-party-resource-concern` |
+| Page | `https://www.medicaid.gov/medicaid/medicaid-state-plan-amendments?f%5B0%5D=…&page=8` (first page example) |
+| Intervention | block `googletagmanager.com` |
+| Spec | [examples/experiments/vital-medicaid-gtag-block.yaml](../examples/experiments/vital-medicaid-gtag-block.yaml) |
+
+The page is public (HTTP 200), has a `<main>` landmark, and the spec parses
+with 10 measured runs and 2 warm-ups. The snapshot reports 300 sampled pages
+and the resource as a third-party concern; it reports **0 bytes** as a transfer
+estimate, not measured energy. The spec has not been run on the physical host.
+Blocking the host can affect analytics or other resources, so the `role=main`
+assertion alone is not a full functional check.
+
+Run it separately on the quiet Mac:
+
+```bash
+node dist/cli/index.js experiment --spec examples/experiments/vital-medicaid-gtag-block.yaml
+```
+
 ## What Vital Core still needs to publish
 
 - A machine-readable `experiment` field per candidate: `kind`, `selector` /
